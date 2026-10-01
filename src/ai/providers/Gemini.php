@@ -27,12 +27,12 @@ class Gemini extends HttpProvider implements TextProvider, ImageProvider
 
     public function defaultModel(): string
     {
-        return 'gemini-2.5-pro';
+        return 'gemini-3.8-flash';
     }
 
     public function defaultImageModel(): string
     {
-        return 'gemini-2.5-flash-image';
+        return 'gemini-3.1-flash-image';
     }
 
     public function text(TextRequest $request): TextResponse

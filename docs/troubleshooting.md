@@ -54,7 +54,7 @@ Logo cards need the Imagick PHP extension. Ask your host to turn it on, or check
 
 ## Gemini: "quota exceeded" or "model not found" on the free tier
 
-The free tier covers Flash models only, with daily limits. Set **Model** to a Flash model such as `gemini-2.5-flash`, or turn on billing. See [API keys](api-keys.md#google-gemini).
+The free tier covers Flash models only, with daily limits. Ghostwriter's default Gemini model, `gemini-3.8-flash`, is on the free tier: leave **Model** blank, or set it to another Flash model, or turn on billing. See [API keys](api-keys.md#google-gemini).
 
 ## Seeing what went wrong
 

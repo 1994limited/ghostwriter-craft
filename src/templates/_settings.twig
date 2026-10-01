@@ -63,7 +63,7 @@
     instructions: 'Leave blank to use the provider’s default model.'|t('ghostwriter'),
     name: 'model',
     value: settings.model,
-    placeholder: {anthropic: 'claude-opus-5-5', openai: 'gpt-5', gemini: 'gemini-2.5-pro'}[settings.provider] ?? '',
+    placeholder: {anthropic: 'claude-opus-5-5', openai: 'gpt-6.1-sol', gemini: 'gemini-3.8-flash'}[settings.provider] ?? '',
     warning: 'model' in overrides ? _self.overridden('model', overrides) : null,
 }) }}
 

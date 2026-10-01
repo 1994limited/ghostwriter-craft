@@ -89,6 +89,6 @@ class Anthropic extends HttpProvider implements TextProvider
      */
     private function isCurrent(string $model): bool
     {
-        return (bool) preg_match('/^claude-(opus-5|sonnet-5-5|fable-5-1)/', $model);
+        return (bool) preg_match('/^claude-(opus-5|sonnet-5-5|fable-5)/', $model);
     }
 }

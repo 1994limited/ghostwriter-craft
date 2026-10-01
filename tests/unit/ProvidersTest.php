@@ -50,6 +50,21 @@ class ProvidersTest extends TestCase
         $this->assertSame(['type' => 'base64', 'media_type' => 'image/png', 'data' => self::PNG], $body['messages'][2]['content'][0]['source']);
     }
 
+    public function testEveryModelWithRefusalClassifiersGetsTheFallback(): void
+    {
+        foreach (['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'] as $model) {
+            $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])));
+        }
+
+        foreach (['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'] as $i => $model) {
+            (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request(model: $model));
+
+            $body = json_decode((string) $this->sent[$i]['request']->getBody(), true);
+
+            $this->assertSame('default', $body['fallbacks'] ?? null, $model);
+        }
+    }
+
     public function testAnOlderClaudeModelGetsThePlainRequest(): void
     {
         $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])));
@@ -128,7 +143,7 @@ class ProvidersTest extends TestCase
 
         $request = $this->sent[0]['request'];
         $body = json_decode((string) $request->getBody(), true);
-        $this->assertStringEndsWith('/models/gemini-2.5-pro:generateContent', (string) $request->getUri());
+        $this->assertStringEndsWith('/models/gemini-3.8-flash:generateContent', (string) $request->getUri());
         $this->assertSame('secret', $request->getHeaderLine('x-goog-api-key'));
         $this->assertSame(['user', 'model', 'user'], array_column($body['contents'], 'role'));
         $this->assertSame('Be brief.', $body['systemInstruction']['parts'][0]['text']);

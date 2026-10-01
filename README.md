@@ -105,12 +105,12 @@ Settings are on **Settings → Plugins → Ghostwriter**. To set them in code, o
 | Setting | Default | |
 | --- | --- | --- |
 | `provider` | `anthropic` | `anthropic`, `openai` or `gemini` |
-| `model` | provider's default | `claude-opus-5-5`, `gpt-5` or `gemini-2.5-pro` |
+| `model` | provider's default | `claude-opus-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash` |
 | `timeout` | `300` | Seconds to wait for one response |
 | `sections` | all | Section handles to write for |
 | `voiceSections` | all | Section handles read to learn the voice |
 | `imageProvider` | first with a key | `openai` or `gemini` |
-| `imageModel` | provider's default | `gpt-image-1` or `gemini-2.5-flash-image` |
+| `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse for free photos |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
 | `suggestKindsAutomatically` | `true` | Look for kinds of content without being asked |

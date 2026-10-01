@@ -26,12 +26,12 @@ class OpenAi extends HttpProvider implements TextProvider, ImageProvider
 
     public function defaultModel(): string
     {
-        return 'gpt-5';
+        return 'gpt-6.1-sol';
     }
 
     public function defaultImageModel(): string
     {
-        return 'gpt-image-1';
+        return 'gpt-image-2.5-sunburst';
     }
 
     public function text(TextRequest $request): TextResponse
