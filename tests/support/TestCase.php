@@ -75,7 +75,7 @@ abstract class TestCase extends CraftTestCase
 
         $providers = $this->plugin->providers;
         $providers->handler = $stack;
-        $providers->sleeper = $this->sleeper;
+        $providers->useSleeper($this->sleeper);
         $providers->keys = array_fill_keys(array_keys($providers::KEYS), null) + [];
         $providers->keys['anthropic'] = 'test-key';
         $this->fake = $providers->fake();

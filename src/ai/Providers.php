@@ -2,12 +2,10 @@
 
 namespace nineteenninetyfour\ghostwriter\ai;
 
-use Closure;
 use Craft;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\HandlerStack;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\Sleeper;
-use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\SystemSleeper;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\Credentials;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers as Registry;
@@ -41,16 +39,13 @@ class Providers extends Component
     /** A Guzzle handler to send every request through, in place of the network. */
     public ?HandlerStack $handler = null;
 
-    /** How retries wait. For tests, which record the waits rather than wait. */
-    public ?Sleeper $sleeper = null;
-
     private ?Registry $registry = null;
 
     private ?Credentials $credentials = null;
 
     /**
      * Core's registry, built once and shared. The ports read the keys,
-     * handler, sleeper and settings each time, so changing them applies at once.
+     * handler and settings each time, so changing them applies at once.
      */
     public function registry(): Registry
     {
@@ -59,17 +54,16 @@ class Providers extends Component
             new CraftHttpClients(fn() => $this->handler ? ['handler' => $this->handler] : []),
             new SettingsProviderSettings(),
             new CraftLogger(),
-            new class(fn() => $this->sleeper) implements Sleeper {
-                public function __construct(private readonly Closure $sleeper)
-                {
-                }
-
-                public function sleep(float $seconds): void
-                {
-                    (($this->sleeper)() ?? new SystemSleeper())->sleep($seconds);
-                }
-            },
         );
+    }
+
+    /**
+     * Wait between retries with this sleeper from now on. For tests, which
+     * record the waits rather than wait.
+     */
+    public function useSleeper(Sleeper $sleeper): void
+    {
+        $this->registry = $this->registry()->withSleeper($sleeper);
     }
 
     /**

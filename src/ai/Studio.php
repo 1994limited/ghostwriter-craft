@@ -488,7 +488,7 @@ class Studio extends Component
     {
         $limit = $maxTokens ?? Agents::maxTokens($agent);
 
-        $send = fn(int $limit) => Plugin::getInstance()->providers->text()->text(new TextRequest(
+        $request = new TextRequest(
             agent: $agent,
             instructions: $instructions,
             prompt: $prompt,
@@ -496,14 +496,14 @@ class Studio extends Component
             images: $images,
             maxTokens: $limit,
             effort: $effort ?? Agents::effort($agent),
-        ));
-
-        $response = $send($limit);
+        );
+        $provider = Plugin::getInstance()->providers->text();
+        $response = $provider->text($request);
 
         // Stopped at the length limit, not finished: a half-written draft
         // would be taken for a whole one. Ask once more with room to finish.
         if ($response->truncated() && $limit < self::MAX_TOKENS_CEILING) {
-            $response = $send(min($limit * 2, self::MAX_TOKENS_CEILING));
+            $response = $provider->text($request->withMaxTokens(min($limit * 2, self::MAX_TOKENS_CEILING)));
         }
 
         if ($response->truncated()) {
