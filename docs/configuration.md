@@ -79,7 +79,7 @@ Early builds kept guides, kinds and the plan as files in `config/ghostwriter/`, 
 
 ## Overriding prompts
 
-Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-craft/src/prompts/`:
+Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-core/resources/prompts/`. They come with ghostwriter-core, the package Ghostwriter shares with its Statamic and Filament versions:
 
 | Prompt | Used for |
 | --- | --- |
@@ -93,7 +93,9 @@ Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-cra
 | `photo-researcher.md`, `photo-picker.md` | Choosing photo searches, and picking the best results |
 | `image.md` | Making an image |
 
-To change one for your project, copy it to `config/ghostwriter/prompts/` with the same name and edit the copy. Ghostwriter uses your copy from then on. Keep any `{{ placeholders }}` that are in the original.
+To change one for your project, copy it from `vendor/1994/ghostwriter-core/resources/prompts/` to `config/ghostwriter/prompts/` with the same name and edit the copy. Ghostwriter uses your copy from then on. Keep any `{{ placeholders }}` that are in the original.
+
+The originals also have `[[...]]` placeholders, such as `[[items]]` and `[[place]]`. Ghostwriter fills these in with Craft's words (entries, website), in your copy as well, so you can leave them or write the words out yourself.
 
 ## Permissions
 

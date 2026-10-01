@@ -122,7 +122,7 @@ Everything Ghostwriter writes (guides, kinds, the plan, conversations, working s
 
 ### Prompts
 
-Every prompt is a markdown file in `src/prompts/`. To change one for your project, copy it to `config/ghostwriter/prompts/` with the same name and edit it there.
+Every prompt is a markdown file in `vendor/1994/ghostwriter-core/resources/prompts/`. To change one for your project, copy it to `config/ghostwriter/prompts/` with the same name and edit it there. Ghostwriter fills in the `[[...]]` placeholders (`[[items]]`, `[[place]]` and so on) with Craft's words, in your copy too.
 
 ### Kinds of content
 
