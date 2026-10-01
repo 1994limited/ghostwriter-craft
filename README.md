@@ -165,7 +165,7 @@ To write, Ghostwriter sends the chosen provider your voice guide, the brief, the
 
 ## Development
 
-The providers, prompts and draft text handling come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), a public package that is about to be listed on Packagist. Until it is, `composer.json` finds it through a temporary `vcs` repository entry, which goes once Packagist lists it. No token is needed.
+The providers, prompts and draft text handling come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), which Composer installs from Packagist.
 
 ```bash
 composer install

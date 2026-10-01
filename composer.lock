@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "afe8b6f63faed655ae4fdc08d7075aac",
+    "content-hash": "b5939036376e677ef0d0be41ac86035a",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
@@ -51,25 +51,7 @@
                     "NineteenNinetyFour\\Ghostwriter\\Core\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "NineteenNinetyFour\\Ghostwriter\\Core\\Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ],
-                "lint": [
-                    "pint --test"
-                ],
-                "analyse": [
-                    "phpstan analyse --memory-limit=1G"
-                ],
-                "boundaries": [
-                    "php bin/check-boundaries"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "proprietary"
             ],

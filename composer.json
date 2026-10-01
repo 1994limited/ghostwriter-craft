@@ -40,12 +40,6 @@
         "spicyweb/craft-neo": "^5.5",
         "vlucas/phpdotenv": "^5.4"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/1994limited/ghostwriter-core"
-        }
-    ],
     "autoload": {
         "psr-4": {
             "nineteenninetyfour\\ghostwriter\\": "src/"
