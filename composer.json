@@ -26,11 +26,11 @@
     },
     "require": {
         "php": "^8.2",
-        "1994/ghostwriter-core": "^0.1@dev",
+        "1994/ghostwriter-core": "~0.1.0",
         "craftcms/cms": "^5.6",
-        "guzzlehttp/guzzle": "^7.8",
+        "guzzlehttp/guzzle": "^7.8|^8.0",
         "league/commonmark": "^2.4",
-        "symfony/yaml": "^6.4|^7.0"
+        "symfony/yaml": "^6.4|^7.0|^8.0"
     },
     "require-dev": {
         "codeception/codeception": "^5.2",

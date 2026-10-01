@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f7d8d6883abba8b40f5c28f6b66176ac",
+    "content-hash": "afe8b6f63faed655ae4fdc08d7075aac",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
-            "version": "dev-main",
+            "version": "v0.1.0",
             "source": {
                 "type": "git",
-                "url": "git@github.com:1994limited/ghostwriter-core.git",
-                "reference": "017fcac1afca2690d969a9263d8d48e55c5d71d3"
+                "url": "https://github.com/1994limited/ghostwriter-core.git",
+                "reference": "a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/017fcac1afca2690d969a9263d8d48e55c5d71d3",
-                "reference": "017fcac1afca2690d969a9263d8d48e55c5d71d3",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd",
+                "reference": "a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd",
                 "shasum": ""
             },
             "require": {
@@ -26,21 +26,20 @@
                 "league/commonmark": "^2.4",
                 "php": "^8.2",
                 "psr/http-client": "^1.0",
-                "psr/http-factory": "^1.0",
+                "psr/http-factory": "^1.1",
                 "psr/http-message": "^1.1|^2.0",
                 "psr/log": "^1.1|^2.0|^3.0",
-                "symfony/yaml": "^6.4|^7.0"
+                "symfony/yaml": "^6.4|^7.0|^8.0"
             },
             "require-dev": {
-                "guzzlehttp/guzzle": "^7.8",
+                "guzzlehttp/guzzle": "^7.8|^8.0",
                 "laravel/pint": "^1.18",
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^11.5|^12.0"
             },
             "suggest": {
-                "guzzlehttp/guzzle": "Required to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
+                "guzzlehttp/guzzle": "Required (^7.8 or ^8.0) to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -92,7 +91,7 @@
                 "issues": "https://github.com/1994limited/ghostwriter-core/issues",
                 "source": "https://github.com/1994limited/ghostwriter-core"
             },
-            "time": "2026-10-01T22:21:27+00:00"
+            "time": "2026-10-01T22:52:24+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",
@@ -11878,9 +11877,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "1994/ghostwriter-core": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
