@@ -4,7 +4,7 @@ namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use Craft;
 use craft\elements\Entry;
-use nineteenninetyfour\ghostwriter\drafts\EntryMerger;
+use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;

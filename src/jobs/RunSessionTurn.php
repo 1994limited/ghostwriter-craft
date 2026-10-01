@@ -4,7 +4,7 @@ namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
 use InvalidArgumentException;
-use nineteenninetyfour\ghostwriter\drafts\Draft;
+use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\sessions\Session;
 use Throwable;

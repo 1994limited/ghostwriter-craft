@@ -7,6 +7,8 @@ use craft\elements\Entry;
 use craft\models\EntryType;
 use craft\models\Section;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Text\LenientYaml;
+use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\layouts\PatternFinder;
 use nineteenninetyfour\ghostwriter\layouts\SchemaDescriber;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;

@@ -4,7 +4,7 @@ namespace nineteenninetyfour\ghostwriter\layouts;
 
 use Craft;
 use craft\elements\Entry;
-use nineteenninetyfour\ghostwriter\drafts\EntrySimplifier;
+use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
 
 /**
  * Studies the entries a section already has to find out how its pages are

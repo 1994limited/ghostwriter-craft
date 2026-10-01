@@ -343,7 +343,7 @@ class WritingTest extends TestCase
         $this->assertStringContainsString('<strong>different</strong>', $detail['preview'][2]['items'][1]['fields'][0]['html']);
 
         $detail = $this->action('ghostwriter/sessions/edit-field', ['id' => $session->id, 'path' => '["summary"]', 'format' => 'text', 'value' => "Why prices vary: an honest answer"])['data'];
-        $this->assertSame('Why prices vary: an honest answer', \nineteenninetyfour\ghostwriter\drafts\Draft::parse($detail['draft'])->data['summary']);
+        $this->assertSame('Why prices vary: an honest answer', \NineteenNinetyFour\Ghostwriter\Core\Text\Draft::parse($detail['draft'])->data['summary']);
 
         // Only writing, only where it exists, and not while the writer is at work.
         $this->assertSame(422, $this->action('ghostwriter/sessions/edit-field', ['id' => $session->id, 'path' => '["pageBuilder"]', 'value' => 'x'])['status']);

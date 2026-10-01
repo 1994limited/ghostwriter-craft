@@ -5,8 +5,10 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 use Craft;
 use craft\elements\Entry;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
+use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
+use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use nineteenninetyfour\ghostwriter\drafts\Applier;
-use nineteenninetyfour\ghostwriter\drafts\Draft;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -121,7 +123,7 @@ class SessionsController extends Controller
 
         $entryType = $entry->getType();
         $schema = (new \nineteenninetyfour\ghostwriter\layouts\SchemaReader())->read($entryType);
-        $data = (new \nineteenninetyfour\ghostwriter\drafts\EntrySimplifier())->simplify((new \nineteenninetyfour\ghostwriter\layouts\EntryData())->read($entry, $schema), $schema);
+        $data = (new EntrySimplifier())->simplify((new \nineteenninetyfour\ghostwriter\layouts\EntryData())->read($entry, $schema), $schema);
 
         // Always from the entry as it stands, which may have been edited by
         // hand since Ghostwriter last saw it.
@@ -233,7 +235,7 @@ class SessionsController extends Controller
         }
 
         if ($this->request->getBodyParam('format') === 'html') {
-            $value = (new \nineteenninetyfour\ghostwriter\drafts\HtmlToMarkdown())->convert($value);
+            $value = (new HtmlToMarkdown())->convert($value);
         } else {
             $value = trim(str_replace("\r", '', $value));
         }
