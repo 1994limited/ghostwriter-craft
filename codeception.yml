@@ -1,0 +1,32 @@
+actor: Tester
+paths:
+    tests: tests
+    output: tests/_output
+    data: tests/_data
+    support: tests/_support
+    envs: tests/_envs
+bootstrap: _bootstrap.php
+params:
+    - tests/.env
+modules:
+    config:
+        \craft\test\Craft:
+            configFile: 'tests/_craft/config/test.php'
+            entryUrl: 'https://ghostwriter.test/index.php'
+            projectConfig: {}
+            migrations: []
+            plugins:
+                # Installed so rich text and Neo page builders can be tested;
+                # Ghostwriter itself requires neither.
+                ckeditor:
+                    class: '\craft\ckeditor\Plugin'
+                    handle: ckeditor
+                neo:
+                    class: '\benf\neo\Plugin'
+                    handle: neo
+                ghostwriter:
+                    class: '\nineteenninetyfour\ghostwriter\Plugin'
+                    handle: ghostwriter
+            cleanup: true
+            transaction: true
+            dbSetup: {clean: true, setupCraft: true}

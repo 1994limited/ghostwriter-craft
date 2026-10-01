@@ -1,0 +1,9 @@
+{# Shown on every screen while the chosen provider has no API key, since nothing that calls a model can work until one is set. #}
+{% if not configured %}
+    <div class="readable gw-alert">
+        <p class="warning with-icon">
+            <strong>{{ 'No API key yet.'|t('ghostwriter') }}</strong>
+            {{ 'Add {key} to your .env file, then reload this page. Ghostwriter cannot write anything until it is set.'|t('ghostwriter', {key: keyName ?? ('the API key for “' ~ provider ~ '”')}) }}
+        </p>
+    </div>
+{% endif %}

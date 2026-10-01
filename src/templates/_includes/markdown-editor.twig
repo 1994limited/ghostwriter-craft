@@ -1,0 +1,34 @@
+{#
+    A markdown editor for the guides: a toolbar for the usual marks, and a
+    Preview tab that shows the text as it reads. Craft has no markdown
+    field, so this is the textarea with what a writer needs around it.
+#}
+{% import '_includes/forms' as forms %}
+
+<div class="gw-md" data-markdown-editor>
+    <div class="gw-md__bar">
+        <div class="btngroup" role="tablist">
+            <button type="button" class="btn small active" data-md-tab="edit" role="tab" aria-selected="true">{{ 'Edit'|t('app') }}</button>
+            <button type="button" class="btn small" data-md-tab="preview" role="tab" aria-selected="false">{{ 'Preview'|t('app') }}</button>
+        </div>
+        <div class="gw-md__tools" role="toolbar" aria-label="{{ 'Formatting'|t('ghostwriter') }}">
+            <button type="button" class="btn small" data-md="bold" title="{{ 'Bold'|t('ghostwriter') }} (⌘B)"><strong>B</strong></button>
+            <button type="button" class="btn small" data-md="italic" title="{{ 'Italic'|t('ghostwriter') }} (⌘I)"><em>I</em></button>
+            <button type="button" class="btn small" data-md="h2" title="{{ 'Heading'|t('ghostwriter') }}">H2</button>
+            <button type="button" class="btn small" data-md="h3" title="{{ 'Subheading'|t('ghostwriter') }}">H3</button>
+            <button type="button" class="btn small" data-md="ul" title="{{ 'Bulleted list'|t('ghostwriter') }}">•</button>
+            <button type="button" class="btn small" data-md="ol" title="{{ 'Numbered list'|t('ghostwriter') }}">1.</button>
+            <button type="button" class="btn small" data-md="quote" title="{{ 'Quotation'|t('ghostwriter') }}">“”</button>
+            <button type="button" class="btn small" data-md="link" title="{{ 'Link'|t('ghostwriter') }} (⌘K)">{{ 'Link'|t('ghostwriter') }}</button>
+        </div>
+    </div>
+    {{ forms.textarea({
+        id: id,
+        class: 'code gw-markdown',
+        rows: 32,
+        value: value,
+        inputAttributes: {'aria-label': label, spellcheck: 'true'},
+    }) }}
+    <div class="gw-md__preview gw-prose hidden" aria-live="polite"></div>
+    {% if note ?? false %}<p class="light">{{ note }}</p>{% endif %}
+</div>

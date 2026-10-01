@@ -1,0 +1,91 @@
+{#
+    Edits one kind of content: its name, the brief's questions, the guidance
+    given to the writer and the entries it is modelled on.
+#}
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% set title = type.title %}
+{% set selectedSubnavItem = 'dashboard' %}
+{% set fullPageForm = true %}
+{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}, {label: sectionName, url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <button type="button" class="btn" id="gw-type-delete">{{ 'Delete'|t('app') }}</button>
+    <button type="submit" class="btn submit">{{ 'Save'|t('app') }}</button>
+{% endblock %}
+
+{% block content %}
+    {{ actionInput('ghostwriter/types/save') }}
+    {{ redirectInput(cpUrl('ghostwriter/types/' ~ type.handle)) }}
+    {{ hiddenInput('handle', type.handle) }}
+
+    {{ forms.textField({
+        label: 'Name'|t('ghostwriter'),
+        name: 'title',
+        value: type.title,
+        required: true,
+    }) }}
+
+    {{ forms.textareaField({
+        label: 'Description'|t('ghostwriter'),
+        instructions: 'Shown when choosing what to write.'|t('ghostwriter'),
+        name: 'description',
+        value: type.description,
+        rows: 2,
+    }) }}
+
+    {{ forms.editableTableField({
+        label: 'The brief'|t('ghostwriter'),
+        instructions: 'Asked before anything is written. Ask only for what cannot be invented: what happened, who for, what resulted, what must be left out.'|t('ghostwriter'),
+        id: 'questions',
+        name: 'questions',
+        cols: {
+            label: {heading: 'Question'|t('ghostwriter'), type: 'singleline'},
+            handle: {heading: 'Handle'|t('app'), type: 'singleline', code: true},
+            instructions: {heading: 'Hint'|t('ghostwriter'), type: 'singleline'},
+            type: {heading: 'Answer'|t('ghostwriter'), type: 'select', options: {text: 'One line'|t('ghostwriter'), textarea: 'Paragraph'|t('ghostwriter')}},
+            required: {heading: 'Required'|t('app'), type: 'lightswitch'},
+        },
+        rows: questions,
+        allowAdd: true,
+        allowReorder: true,
+        allowDelete: true,
+        addRowLabel: 'Add a question'|t('ghostwriter'),
+    }) }}
+
+    {{ forms.textareaField({
+        label: 'Guidance for the writer'|t('ghostwriter'),
+        instructions: 'Markdown. Who the reader is, what each part of an entry does and in what order, how long it runs. The fields themselves are read from the entry type, so there is no need to list them.'|t('ghostwriter'),
+        name: 'guidance',
+        value: type.guidance,
+        rows: 14,
+        class: 'code',
+    }) }}
+
+    {{ forms.textareaField({
+        label: 'Check before handing over'|t('ghostwriter'),
+        instructions: 'Short statements that must be true of a finished draft, one per line.'|t('ghostwriter'),
+        name: 'checklist',
+        value: type.checklist|join("\n"),
+        rows: 4,
+    }) }}
+
+    {{ forms.elementSelectField({
+        label: 'Modelled on'|t('ghostwriter'),
+        instructions: 'Entries this kind of content should resemble. Leave empty to use the newest published entries in the section.'|t('ghostwriter'),
+        name: 'examples',
+        elementType: 'craft\\elements\\Entry',
+        sources: sectionUid ? ['section:' ~ sectionUid] : null,
+        elements: examples,
+        limit: 6,
+    }) }}
+{% endblock %}
+
+{% js %}
+    $('#gw-type-delete').on('click', async () => {
+        if (!confirm({{ 'Delete this kind of content? Entries already written are not affected.'|t('ghostwriter')|json_encode|raw }})) return;
+        await Craft.sendActionRequest('POST', 'ghostwriter/types/delete', {data: {handle: {{ type.handle|json_encode|raw }}}});
+        window.location.href = {{ cpUrl('ghostwriter')|json_encode|raw }};
+    });
+{% endjs %}

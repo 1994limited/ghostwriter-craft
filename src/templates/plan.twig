@@ -1,0 +1,54 @@
+{#
+    The content plan: ideas for entries the site does not have yet.
+    Ghostwriter suggests them from what is missing, anyone can add their
+    own, and each opens a new entry with its brief filling itself in. The
+    lists are drawn by the script, which keeps them up to date.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = 'Content plan'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'plan' %}
+{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <button type="button" class="btn hidden" id="gw-plan-clear">{{ 'Clear the list'|t('ghostwriter') }}</button>
+{% endblock %}
+
+{% block content %}
+    {% include 'ghostwriter/_includes/setup-alert' %}
+    <div id="gw-plan"></div>
+{% endblock %}
+
+{% block details %}
+    <div class="meta gw-meta">
+        <h2 class="gw-meta-heading">{{ 'Ask what is missing'|t('ghostwriter') }}</h2>
+        <p class="light">{{ 'Ghostwriter reads everything in the sections you tick, and what is already on the plan, and suggests entries the site does not have. Ideas you turn down tell it what not to suggest again.'|t('ghostwriter') }}</p>
+        <fieldset id="gw-plan-sections" class="gw-checks">
+            <legend class="visually-hidden">{{ 'Sections to plan for'|t('ghostwriter') }}</legend>
+            {% for section in config.sections %}
+                <div>
+                    <input type="checkbox" class="checkbox" id="gw-plan-{{ section.handle }}" value="{{ section.handle }}" checked>
+                    <label for="gw-plan-{{ section.handle }}">{{ section.title }}</label>
+                </div>
+            {% endfor %}
+        </fieldset>
+        <textarea id="gw-plan-steer" class="text fullwidth" rows="2" placeholder="{{ 'Optional: anything to steer it. “More for owners.” “Events.”'|t('ghostwriter') }}"></textarea>
+        <button type="button" id="gw-plan-suggest" class="btn submit fullwidth{{ configured ? '' : ' disabled' }}" {{ configured ? '' : 'disabled' }}>{{ 'Suggest ideas'|t('ghostwriter') }}</button>
+    </div>
+
+    <div class="meta gw-meta">
+        <h2 class="gw-meta-heading">{{ 'Add your own'|t('ghostwriter') }}</h2>
+        <input id="gw-plan-title" class="text fullwidth" placeholder="{{ 'Working title'|t('ghostwriter') }}">
+        <div class="select fullwidth gw-plan-select">
+            <select id="gw-plan-section">
+                {% for section in config.sections %}<option value="{{ section.handle }}">{{ section.title }}</option>{% endfor %}
+            </select>
+        </div>
+        <textarea id="gw-plan-notes" class="text fullwidth" rows="3" placeholder="{{ 'Notes: the angle, who it is for, points to make…'|t('ghostwriter') }}"></textarea>
+        <button type="button" id="gw-plan-add" class="btn fullwidth">{{ 'Add to the plan'|t('ghostwriter') }}</button>
+    </div>
+{% endblock %}
+
+{% js %}
+    new Ghostwriter.PlanScreen({{ config|json_encode|raw }});
+{% endjs %}

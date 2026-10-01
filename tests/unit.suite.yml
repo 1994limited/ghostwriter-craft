@@ -1,0 +1,7 @@
+# Everything runs against a real Craft install in a throwaway database.
+# Model calls and outside HTTP requests are always faked.
+actor: UnitTester
+modules:
+    enabled:
+        - Asserts
+        - \craft\test\Craft

@@ -1,0 +1,93 @@
+{#
+    A guide's screen: the tone of voice guide, or the image style guide,
+    which is the same screen with other words on it. Generate it from what
+    the site has, edit it by hand, and (for the voice) refine it by asking
+    for changes. The script polls while a job runs.
+#}
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% set title = guide.title %}
+{% set selectedSubnavItem = guide.nav %}
+{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <button type="button" id="gw-voice-save" class="btn submit disabled" disabled>{{ 'Save'|t('app') }}</button>
+{% endblock %}
+
+{% block content %}
+    {% include 'ghostwriter/_includes/setup-alert' %}
+
+    <div id="gw-voice-error" class="readable gw-alert{{ state.status == 'failed' ? '' : ' hidden' }}">
+        <p class="error with-icon"><strong>{{ 'That did not work.'|t('ghostwriter') }}</strong> <span data-error>{{ state.error }}</span></p>
+    </div>
+
+    <p id="gw-voice-updated" class="light{{ state.updatedAt ? '' : ' hidden' }}">{{ 'Updated {when}'|t('ghostwriter', {when: state.updatedAt}) }}</p>
+
+    <div id="gw-voice-scanning" class="gw-empty hidden">
+        <div class="spinner"></div>
+        <p>{{ guide.labels.scanning }}</p>
+    </div>
+
+    <div id="gw-voice-empty" class="gw-empty hidden">
+        <p>{{ guide.labels.empty }}</p>
+    </div>
+
+    <div id="gw-voice-editor" class="hidden">
+        {% include 'ghostwriter/_includes/markdown-editor' with {
+            id: 'gw-voice-document',
+            value: state.document,
+            label: 'The guide'|t('ghostwriter'),
+            note: guide.labels.note,
+        } only %}
+    </div>
+{% endblock %}
+
+{% block details %}
+    <div class="meta gw-meta">
+        <h2 class="gw-meta-heading" data-label-new="{{ 'Generate the guide'|t('ghostwriter') }}" data-label-again="{{ 'Read the site again'|t('ghostwriter') }}">{{ state.exists ? 'Read the site again'|t('ghostwriter') : 'Generate the guide'|t('ghostwriter') }}</h2>
+        <p class="light">{{ guide.labels.read }}</p>
+        <fieldset id="gw-voice-sections" class="gw-checks">
+            <legend class="visually-hidden">{{ 'Sections to read'|t('ghostwriter') }}</legend>
+            {% for section in sections %}
+                {{ forms.checkbox({
+                    label: section.title ~ ' (' ~ section.entries|number ~ ')',
+                    value: section.handle,
+                    checked: section.selected and section.entries > 0,
+                    disabled: section.entries == 0,
+                }) }}
+            {% endfor %}
+        </fieldset>
+        <button type="button" id="gw-voice-scan" class="btn {{ state.exists ? '' : 'submit' }} fullwidth{{ configured ? '' : ' disabled' }}" {{ configured ? '' : 'disabled' }}>
+            {{ state.exists ? 'Rescan and rewrite'|t('ghostwriter') : 'Generate the guide'|t('ghostwriter') }}
+        </button>
+        <p id="gw-voice-scanned" class="light{{ state.scanned|length ? '' : ' hidden' }}">{{ guide.labels.scanned|replace({'{count}': state.scanned|length}) }}</p>
+    </div>
+
+    {% if guide.actions.refine %}
+    <div id="gw-voice-refine" class="meta gw-meta{{ state.exists ? '' : ' hidden' }}">
+        <h2 class="gw-meta-heading">{{ 'Ask for a change'|t('ghostwriter') }}</h2>
+        <div id="gw-voice-messages" class="gw-chat"></div>
+        {{ forms.textarea({
+            id: 'gw-voice-message',
+            rows: 3,
+            placeholder: 'e.g. We never say “solutions”. Add that.'|t('ghostwriter'),
+        }) }}
+        <button type="button" id="gw-voice-send" class="btn fullwidth{{ configured ? '' : ' disabled' }}" {{ configured ? '' : 'disabled' }}>{{ 'Update the guide'|t('ghostwriter') }}</button>
+        <p id="gw-voice-dirty" class="light hidden">{{ 'Save your edits first.'|t('ghostwriter') }}</p>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% js %}
+    new Ghostwriter.GuideScreen({{ {
+        state: state,
+        configured: configured,
+        actions: guide.actions,
+        labels: guide.labels|merge({
+            updated: 'Updated {when}'|t('ghostwriter'),
+            rescan: 'Rescan and rewrite'|t('ghostwriter'),
+            failed: 'Something went wrong.'|t('ghostwriter'),
+        }),
+    }|json_encode|raw }});
+{% endjs %}

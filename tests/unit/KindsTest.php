@@ -1,0 +1,213 @@
+<?php
+
+namespace nineteenninetyfour\ghostwriter\tests\unit;
+
+use craft\elements\Entry;
+use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
+use nineteenninetyfour\ghostwriter\jobs\SuggestKinds;
+use nineteenninetyfour\ghostwriter\tests\support\Sites;
+use nineteenninetyfour\ghostwriter\tests\support\TestCase;
+use nineteenninetyfour\ghostwriter\types\ContentType;
+use nineteenninetyfour\ghostwriter\types\KindSuggestions;
+
+/**
+ * Ghostwriter suggesting the kinds of content each section holds, on request
+ * and by itself, for a person to learn or turn down.
+ */
+class KindsTest extends TestCase
+{
+    use Sites;
+
+    protected function _before(): void
+    {
+        parent::_before();
+
+        $this->makeNewsSection();
+        $this->makePressSection();
+
+        $this->makeNewsArticle('Launch of a fabric collection', ['We launched a collection with a partner we admire.'], '2026-01-04');
+        $this->makeNewsArticle('A new day bed', ['Our day bed is now on sale.'], '2026-01-03');
+        $this->makeNewsArticle('Lifetime achievement award', ['Our founder received an award.'], '2026-01-02');
+        $this->makeNewsArticle('Rooftop row-off', ['Join us for a charity row on the roof.'], '2026-01-01');
+    }
+
+    public function testKindsAreSuggestedFromWhatTheSectionHolds(): void
+    {
+        [$launch, $bed, $award, $row] = $this->news();
+        $other = $this->makeEntry($this->press, 'Elsewhere');
+
+        $this->plugin->types->save(ContentType::fromArray('award', ['title' => 'Award news', 'section' => 'news', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->kinds->update('news', ['dismissed' => ['Recruitment']]);
+
+        $this->fake->respond('kind-finder', "<kinds>\n- title: Product launch\n  description: Announces something new from the studio.\n  why: Two entries announce a product: what it is and where to get it.\n  examples: [{$launch->id}, {$bed->id}, {$other->id}]\n- title: Event\n  description: Invites readers to something happening.\n  why: Only one entry.\n  examples: [{$row->id}]\n- title: Award news\n  examples: [{$award->id}, {$launch->id}]\n- title: Recruitment\n  examples: [{$award->id}, {$launch->id}]\n</kinds>");
+
+        (new SuggestKinds(['sections' => ['news']]))->execute(null);
+
+        $state = $this->plugin->kinds->get('news');
+
+        // An entry from another section is dropped; a kind with one example,
+        // or one already taught or turned down, is not suggested.
+        $this->assertSame(KindSuggestions::IDLE, $state['status']);
+        $this->assertSame(['Product launch'], array_column($state['suggestions'], 'title'));
+        $this->assertSame([$launch->id, $bed->id], $state['suggestions'][0]['examples']);
+        $this->assertSame('newsArticle', $state['suggestions'][0]['entryType']);
+        $this->assertSame(4, $state['entries']);
+        $this->assertNotNull($state['checkedAt']);
+
+        // It was shown each entry: its ID, how it is built and how it opens.
+        $request = $this->fake->prompted('kind-finder')[0];
+        $this->assertStringContainsString("- id {$launch->id} · \"Launch of a fabric collection\" · built as: assetSingle, textWithAsset, spacer · opens: \"### Launch of a fabric collection", $request->prompt);
+        $this->assertStringContainsString('- Award news', $request->instructions);
+        $this->assertStringContainsString('- Recruitment', $request->instructions);
+    }
+
+    public function testTextWithNonBreakingSpacesAndCurlyQuotesIsSentIntact(): void
+    {
+        // Pasted copy is full of these, and a byte-wise whitespace match
+        // splits them in half.
+        $this->makeNewsArticle('Winch’s 40th', ["Andrew\u{00A0}Winch’s studio celebrates forty\u{00A0}years —\u{00A0}“extraordinary design”."], '2026-01-05');
+
+        $this->fake->respond('kind-finder', '<kinds></kinds>');
+
+        (new SuggestKinds(['sections' => ['news']]))->execute(null);
+
+        $prompt = $this->fake->prompted('kind-finder')[0]->prompt;
+
+        $this->assertTrue(mb_check_encoding($prompt, 'UTF-8'));
+        $this->assertStringContainsString('Andrew Winch’s studio celebrates forty years — “extraordinary design”.', $prompt);
+        $this->assertNotFalse(json_encode($prompt));
+    }
+
+    public function testAFailedLookIsReported(): void
+    {
+        $this->fake->respond('kind-finder', 'I would rather not.');
+
+        (new SuggestKinds(['sections' => ['news']]))->execute(null);
+
+        $this->assertSame(KindSuggestions::FAILED, $this->plugin->kinds->get('news')['status']);
+        $this->assertStringContainsString('did not come back with any kinds', $this->plugin->kinds->get('news')['error']);
+    }
+
+    public function testTheDashboardChecksSectionsByItselfOnceAndAgainAfterNewEntries(): void
+    {
+        $this->signIn();
+
+        $this->action('ghostwriter/dashboard/index', method: 'GET');
+
+        // News has entries to read; Press has none yet.
+        $jobs = $this->queued(SuggestKinds::class);
+        $this->assertCount(1, $jobs);
+        $this->assertSame(['news'], $jobs[0]->sections);
+        $this->assertSame(KindSuggestions::WORKING, $this->plugin->kinds->get('news')['status']);
+
+        // Looked at, it is left alone until enough has been published since.
+        $this->plugin->kinds->store('news', [], 4);
+        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertCount(1, $this->queued(SuggestKinds::class));
+
+        $this->plugin->kinds->update('news', ['entries' => 4 - KindSuggestions::RECHECK_AFTER]);
+        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertCount(2, $this->queued(SuggestKinds::class));
+    }
+
+    public function testTheAutomaticCheckCanBeSwitchedOffAndNeedsAKey(): void
+    {
+        $this->signIn();
+
+        $this->plugin->getSettings()->suggestKindsAutomatically = false;
+        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertSame([], $this->queued(SuggestKinds::class));
+
+        $this->plugin->getSettings()->suggestKindsAutomatically = true;
+        $this->unfake();
+        $this->plugin->providers->keys['anthropic'] = null;
+        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertSame([], $this->queued(SuggestKinds::class));
+    }
+
+    public function testSuggestionsCanBeAskedForLearnedOrTurnedDown(): void
+    {
+        $this->signIn();
+        [$launch, $bed] = $this->news();
+
+        $this->assertSame('working', $this->action('ghostwriter/sections/suggest-kinds', ['section' => 'news'])['data']['status']);
+        $this->assertSame(['news'], $this->queued(SuggestKinds::class)[0]->sections);
+
+        $this->plugin->kinds->store('news', [
+            ['title' => 'Product launch', 'description' => 'New things.', 'why' => 'Two of them.', 'examples' => [$launch->id, $bed->id], 'entryType' => null],
+            ['title' => 'Recruitment', 'description' => 'Jobs.', 'why' => 'Two of them.', 'examples' => [$launch->id, $bed->id], 'entryType' => null],
+        ], 4);
+
+        [$product, $recruitment] = $this->plugin->kinds->get('news')['suggestions'];
+
+        // Learned: the job is given its name and examples, and it leaves the list.
+        $this->action('ghostwriter/sections/learn-kind', ['section' => 'news', 'id' => $product['id']]);
+
+        $job = $this->queued(AnalyseSection::class)[0];
+        $this->assertSame('Product launch', $job->title);
+        $this->assertSame([$launch->id, $bed->id], $job->examples);
+
+        // Turned down: it leaves the list and is remembered.
+        $this->action('ghostwriter/sections/dismiss-kind', ['section' => 'news', 'id' => $recruitment['id']]);
+
+        $state = $this->plugin->kinds->get('news');
+        $this->assertSame([], $state['suggestions']);
+        $this->assertSame(['Recruitment'], $state['dismissed']);
+    }
+
+    public function testEverySuggestionCanBeLearnedInOneGo(): void
+    {
+        $this->signIn();
+        [$launch, $bed, $award, $row] = $this->news();
+
+        $this->plugin->kinds->store('news', [
+            ['title' => 'Product launch', 'description' => '', 'why' => '', 'examples' => [$launch->id, $bed->id], 'entryType' => null],
+            ['title' => 'Award news', 'description' => '', 'why' => '', 'examples' => [$award->id, $launch->id], 'entryType' => null],
+            ['title' => 'Event', 'description' => '', 'why' => '', 'examples' => [$row->id, $bed->id], 'entryType' => null],
+        ], 4);
+
+        $this->assertSame('working', $this->action('ghostwriter/sections/learn-all-kinds', ['section' => 'news'])['data']['status']);
+
+        // One job, every kind in it, and the list emptied.
+        $jobs = $this->queued(AnalyseSection::class);
+        $this->assertCount(1, $jobs);
+        $this->assertSame(['Product launch', 'Award news', 'Event'], array_column($jobs[0]->kinds, 'title'));
+        $this->assertSame([], $this->plugin->kinds->get('news')['suggestions']);
+
+        // Nothing is left to learn a second time.
+        $this->assertSame(422, $this->action('ghostwriter/sections/learn-all-kinds', ['section' => 'news'])['status']);
+
+        // One kind going wrong does not stop the others.
+        $type = fn(string $title) => "<type>\ntitle: {$title}\ndescription: x\nquestions:\n  - handle: what\n    label: What?\nguidance: Short.\n</type>";
+        $this->fake->respond('type-analyst', $type('Product launch'), 'Not readable.', 'Still not readable.', $type('Event'));
+
+        $jobs[0]->execute(null);
+
+        $this->assertSame(['Event', 'Product launch'], array_values(array_map(fn($type) => $type->title, $this->plugin->types->forSection('news'))));
+        $this->assertStringContainsString('"Award news"', $this->fake->prompted('type-analyst')[1]->prompt);
+        $this->assertStringContainsString('Your answer could not be read: there was no <type> block.', $this->fake->prompted('type-analyst')[2]->prompt);
+
+        $state = $this->plugin->typeState->get('news');
+        $this->assertSame('failed', $state['status']);
+        $this->assertStringStartsWith('Award news: The analysis came back in a form that could not be read.', $state['error']);
+    }
+
+    public function testThePreviewRendersMarkdownAndEscapesHtml(): void
+    {
+        $this->signIn();
+
+        $html = $this->action('ghostwriter/preview/markdown', ['markdown' => "## Who\n\nWe, to **you**.\n\n<script>alert(1)</script>"])['data']['html'];
+
+        $this->assertStringContainsString('<h2>Who</h2>', $html);
+        $this->assertStringContainsString('<strong>you</strong>', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+    }
+
+    /**
+     * @return Entry[] Newest first.
+     */
+    private function news(): array
+    {
+        return Entry::find()->section('news')->orderBy(['postDate' => SORT_DESC])->all();
+    }
+}

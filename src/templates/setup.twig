@@ -1,0 +1,22 @@
+{#
+    Getting started: each step with whether it is done, and the button that
+    does it. The script redraws the steps while anything is working.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = 'Get started'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'setup' %}
+{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <button type="button" class="btn" data-hide-setup="leave">{{ 'Hide Get started'|t('ghostwriter') }}</button>
+{% endblock %}
+
+{% block content %}
+    <p class="light gw-intro">{{ 'A few steps take Ghostwriter from installed to writing in your voice. Each can be done here, skipped, or redone at any time.'|t('ghostwriter') }}</p>
+    <div id="gw-setup" class="gw-wizard"></div>
+{% endblock %}
+
+{% js %}
+    new Ghostwriter.SetupScreen({{ state|json_encode|raw }});
+{% endjs %}

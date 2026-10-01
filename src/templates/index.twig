@@ -1,0 +1,226 @@
+{#
+    Ghostwriter's home: the voice guide, the sections it writes for with the
+    kinds of content it has learned in each, and the pieces in progress.
+    Writing itself happens on each entry's own edit screen.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = 'Ghostwriter'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'dashboard' %}
+
+{% set inProgress = sessions|filter(s => not s.finished) %}
+{% set finished = sessions|filter(s => s.finished) %}
+
+{% set stages = {
+    failed: ['red', 'Failed'|t('ghostwriter')],
+    working: ['blue', 'Writing'|t('ghostwriter')],
+    interview: ['orange', 'Waiting on you'|t('ghostwriter')],
+    draft: ['orange', 'Draft ready'|t('ghostwriter')],
+    in_form: ['yellow', 'In the form, not saved'|t('ghostwriter')],
+    saved: ['green', 'Saved'|t('ghostwriter')],
+    published: ['green', 'Published'|t('ghostwriter')],
+    editing: ['orange', 'Editing'|t('ghostwriter')],
+    changed: ['green', 'Changes added'|t('ghostwriter')],
+} %}
+
+{% macro session(s, stages) %}
+    {% set stage = stages[s.stage] ?? ['', s.stage] %}
+    <tr data-session="{{ s.id }}">
+        <th scope="row">
+            {% if s.url %}<a href="{{ s.url }}">{{ s.title }}</a>{% else %}{{ s.title }}{% endif %}
+            <div class="light smalltext">{{ s.type }}{{ s.section ? ' · ' ~ s.section }}</div>
+        </th>
+        <td><span class="status {{ stage[0] }}" aria-hidden="true"></span>{{ stage[1] }}</td>
+        <td class="light">{{ s.updatedAt }}</td>
+        <td class="thin">
+            {% if s.entryUrl %}<a class="btn small" href="{{ s.entryUrl }}">{{ 'Open entry'|t('ghostwriter') }}</a>{% endif %}
+            <button type="button" class="btn small" data-remove-session="{{ s.id }}" data-title="{{ s.title }}">{{ 'Remove'|t('ghostwriter') }}</button>
+        </td>
+    </tr>
+{% endmacro %}
+
+{% block actionButton %}
+    {% if isAdmin %}
+        <a class="btn" href="{{ cpUrl('settings/plugins/ghostwriter') }}" data-icon="settings">{{ 'Settings'|t('app') }}</a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {% include 'ghostwriter/_includes/setup-alert' %}
+
+    {% if not setup.complete and not setup.hidden %}
+        <section class="gw-start" aria-labelledby="gw-start-title">
+            <div class="gw-start__intro">
+                <span class="gw-start__mark" aria-hidden="true">{{ svg('@nineteenninetyfour/ghostwriter/mark.svg') }}</span>
+                <div>
+                    <p class="gw-start__eyebrow">{{ 'Get started · {done} of {total} done'|t('ghostwriter', {done: setup.done, total: setup.total}) }}</p>
+                    <div class="gw-progress gw-progress--wide" aria-hidden="true"><span style="width: {{ (setup.done / setup.total * 100)|round }}%"></span></div>
+                </div>
+            </div>
+            {% if nextStep %}
+                <div class="gw-start__next">
+                    <h2 id="gw-start-title">{{ 'Next: {title}'|t('ghostwriter', {title: nextStep.title}) }}</h2>
+                    <p>{{ nextStep.text }}</p>
+                </div>
+            {% endif %}
+            <div class="gw-start__actions">
+                <a class="btn submit" href="{{ cpUrl('ghostwriter/setup') }}{{ nextStep ? '#step-' ~ nextStep.number }}">{{ setup.done ? 'Continue'|t('ghostwriter') : 'Start'|t('ghostwriter') }}</a>
+                <button type="button" class="btn" data-hide-setup title="{{ 'Hide Get started. Bring it back from the foot of this page.'|t('ghostwriter') }}">{{ 'Hide'|t('ghostwriter') }}</button>
+            </div>
+        </section>
+    {% endif %}
+
+    <div class="gw-overview">
+        <a class="gw-tile" href="{{ cpUrl('ghostwriter/voice') }}">
+            <span class="gw-tile__label">{{ 'Voice guide'|t('ghostwriter') }}</span>
+            {% if voice.exists %}
+                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'In place'|t('ghostwriter') }}</span>
+                <span class="gw-tile__note">{{ 'Updated {when}'|t('ghostwriter', {when: voice.updatedAt|timestamp}) }}</span>
+            {% else %}
+                <span class="gw-tile__value"><span class="status disabled" aria-hidden="true"></span>{{ 'Not written yet'|t('ghostwriter') }}</span>
+                <span class="gw-tile__note">{{ 'How your site sounds, learned from what you have published.'|t('ghostwriter') }}</span>
+            {% endif %}
+        </a>
+        <a class="gw-tile" href="{{ cpUrl('ghostwriter/imagery') }}">
+            <span class="gw-tile__label">{{ 'Image style'|t('ghostwriter') }}</span>
+            {% if imagery.exists %}
+                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'In place'|t('ghostwriter') }}</span>
+                <span class="gw-tile__note">{{ 'Updated {when}'|t('ghostwriter', {when: imagery.updatedAt|timestamp}) }}</span>
+            {% else %}
+                <span class="gw-tile__value"><span class="status disabled" aria-hidden="true"></span>{{ 'Not written yet'|t('ghostwriter') }}</span>
+                <span class="gw-tile__note">{{ 'What your pictures look like, for finding and making new ones.'|t('ghostwriter') }}</span>
+            {% endif %}
+        </a>
+        <a class="gw-tile" href="{{ cpUrl('ghostwriter/plan') }}">
+            <span class="gw-tile__label">{{ 'Content plan'|t('ghostwriter') }}</span>
+            <span class="gw-tile__value gw-tile__value--number">{{ planOpen }}</span>
+            <span class="gw-tile__note">{{ '{count, plural, =0{No ideas waiting} =1{idea waiting} other{ideas waiting}}'|t('ghostwriter', {count: planOpen}) }}</span>
+        </a>
+        <a class="gw-tile" href="#gw-in-progress">
+            <span class="gw-tile__label">{{ 'In progress'|t('ghostwriter') }}</span>
+            <span class="gw-tile__value gw-tile__value--number">{{ inProgress|length }}</span>
+            <span class="gw-tile__note">{{ '{count, plural, =0{Nothing being written} =1{piece being written} other{pieces being written}}'|t('ghostwriter', {count: inProgress|length}) }}</span>
+        </a>
+    </div>
+
+    <section class="gw-section">
+        <div class="flex flex-justify gw-row">
+            <div>
+                <h2>{{ 'Sections'|t('ghostwriter') }}</h2>
+                <p class="light gw-sub">{{ 'Write starts a new entry with Ghostwriter beside it. Kinds give a section briefs of their own.'|t('ghostwriter') }}</p>
+            </div>
+            {% if sections|length > 1 %}
+                <button type="button" class="btn small" data-suggest-kinds="" {{ configured ? '' : 'disabled' }}>{{ 'Suggest kinds everywhere'|t('ghostwriter') }}</button>
+            {% endif %}
+        </div>
+
+        <div class="gw-secs">
+        {% for section in sections %}
+            {% set suggestions = section.kinds.suggestions ?? [] %}
+            <div class="gw-section-row gw-sec" data-section="{{ section.handle }}" data-busy="{{ section.learning.status == 'working' or section.kinds.status == 'working' ? 1 : 0 }}">
+                <div class="flex gw-sec__head">
+                    <div class="gw-sec__name">
+                        <h3>{{ section.name }}</h3>
+                        <span class="light smalltext">
+                            {{ '{count, plural, =1{# entry} other{# entries}}'|t('ghostwriter', {count: section.entries}) }}
+                            · {{ section.types|length ? '{count, plural, =1{# kind} other{# kinds}}'|t('ghostwriter', {count: section.types|length}) : 'General brief'|t('ghostwriter') }}
+                        </span>
+                    </div>
+                    <div class="flex gw-sec__actions">
+                        <button type="button" class="btn small menubtn" aria-label="{{ 'More for {section}'|t('ghostwriter', {section: section.name}) }}">{{ 'Kinds'|t('ghostwriter') }}</button>
+                        <div class="menu">
+                            <ul>
+                                <li><a href="{{ cpUrl('ghostwriter/teach/' ~ section.handle) }}">{{ 'Teach it a kind'|t('ghostwriter') }}</a></li>
+                                <li><a data-suggest-kinds="{{ section.handle }}" class="{{ configured and section.kinds.status != 'working' ? '' : 'disabled' }}">{{ 'Suggest kinds'|t('ghostwriter') }}</a></li>
+                            </ul>
+                        </div>
+                        <a class="btn small submit" href="{{ cpUrl('ghostwriter/write/' ~ section.handle) }}">{{ 'Write'|t('ghostwriter') }}</a>
+                    </div>
+                </div>
+
+                {% if section.learning.status == 'working' %}
+                    <p class="light gw-busy"><span class="spinner small"></span> {{ 'Learning a kind of content. This takes a minute or so.'|t('ghostwriter') }}</p>
+                {% elseif section.learning.status == 'failed' %}
+                    <p class="error smalltext">{{ section.learning.error }}</p>
+                {% endif %}
+
+                {% if section.kinds.status == 'working' %}
+                    <p class="light gw-busy"><span class="spinner small"></span> {{ 'Looking at the entries for kinds of content worth teaching…'|t('ghostwriter') }}</p>
+                {% elseif section.kinds.status == 'failed' %}
+                    <p class="error smalltext">{{ 'Looking for kinds did not work: {error}'|t('ghostwriter', {error: section.kinds.error}) }}</p>
+                {% endif %}
+
+                {% if section.types|length %}
+                    <ul class="gw-kinds">
+                        {% for type in section.types %}
+                            <li><a href="{{ type.url }}" class="gw-kind" title="{{ type.description }}">{{ type.title }}{% if type.examples %} <span class="gw-kind__count">{{ type.examples }}</span>{% endif %}</a></li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% if suggestions|length %}
+                    <details class="gw-suggestions">
+                        <summary><span class="gw-dot" aria-hidden="true"></span>{{ '{count, plural, =1{# suggested kind to review} other{# suggested kinds to review}}'|t('ghostwriter', {count: suggestions|length}) }}</summary>
+                        <ul class="gw-review">
+                            {% for kind in suggestions %}
+                                <li>
+                                    <div>
+                                        <strong>{{ kind.title }}</strong>
+                                        <p class="light smalltext">{{ kind.description }}</p>
+                                    </div>
+                                    <span class="flex">
+                                        <button type="button" class="btn small submit" data-learn-kind="{{ kind.id }}" data-section="{{ section.handle }}" {{ configured and section.learning.status != 'working' ? '' : 'disabled' }}>{{ 'Learn this'|t('ghostwriter') }}</button>
+                                        <button type="button" class="btn small" data-dismiss-kind="{{ kind.id }}" data-section="{{ section.handle }}">{{ 'Not this'|t('ghostwriter') }}</button>
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        {% if suggestions|length > 1 %}
+                            <button type="button" class="btn small" data-learn-all="{{ section.handle }}" data-count="{{ suggestions|length }}" {{ configured and section.learning.status != 'working' ? '' : 'disabled' }}>{{ 'Learn all {count}'|t('ghostwriter', {count: suggestions|length}) }}</button>
+                        {% endif %}
+                    </details>
+                {% endif %}
+            </div>
+        {% else %}
+            <p class="zilch">{{ 'No sections are switched on. Choose them in the settings.'|t('ghostwriter') }}</p>
+        {% endfor %}
+        </div>
+    </section>
+
+    {% if inProgress|length %}
+        <section class="gw-section" id="gw-in-progress">
+            <h2>{{ 'In progress'|t('ghostwriter') }}</h2>
+            <p class="light">{{ 'A piece leaves this list once its entry has been saved.'|t('ghostwriter') }}</p>
+            <table class="data fullwidth">
+                <tbody>
+                    {% for s in inProgress %}{{ _self.session(s, stages) }}{% endfor %}
+                </tbody>
+            </table>
+        </section>
+    {% endif %}
+
+    {% if finished|length %}
+        <details class="gw-section">
+            <summary>{{ 'Show {count} finished'|t('ghostwriter', {count: finished|length}) }}</summary>
+            <table class="data fullwidth">
+                <tbody>
+                    {% for s in finished %}{{ _self.session(s, stages) }}{% endfor %}
+                </tbody>
+            </table>
+        </details>
+    {% endif %}
+
+    {% if setup.hidden and not setup.complete %}
+        <p class="gw-foot light"><button type="button" class="gw-link" data-show-setup>{{ 'Show Get started again'|t('ghostwriter') }}</button></p>
+    {% endif %}
+{% endblock %}
+
+{% js %}
+    new Ghostwriter.Dashboard({{ {
+        checking: checking,
+        looking: 'Looking at the entries for kinds of content worth teaching…'|t('ghostwriter'),
+        learning: 'Learning a kind of content. This takes a minute or so.'|t('ghostwriter'),
+        learningAll: 'Learning {count} kinds of content, one after another. This takes about a minute each.'|t('ghostwriter'),
+        confirm: 'Remove “{title}” from Ghostwriter? The conversation and its draft are deleted. Any entry already saved is not touched.'|t('ghostwriter'),
+    }|json_encode|raw }});
+{% endjs %}

@@ -1,0 +1,73 @@
+{
+    "name": "1994/ghostwriter-craft",
+    "description": "Learns a site's tone of voice from its existing content, then drafts new entries in that voice through a questionnaire and a follow-up conversation.",
+    "type": "craft-plugin",
+    "license": "proprietary",
+    "homepage": "https://github.com/1994limited/ghostwriter-craft",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "craft-plugin",
+        "ai",
+        "writing",
+        "content"
+    ],
+    "authors": [
+        {
+            "name": "1994",
+            "homepage": "https://1994.co.uk"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/1994limited/ghostwriter-craft/issues",
+        "source": "https://github.com/1994limited/ghostwriter-craft",
+        "docs": "https://github.com/1994limited/ghostwriter-craft/blob/main/README.md"
+    },
+    "require": {
+        "php": "^8.2",
+        "craftcms/cms": "^5.6",
+        "guzzlehttp/guzzle": "^7.8",
+        "league/commonmark": "^2.4",
+        "symfony/yaml": "^6.4|^7.0"
+    },
+    "require-dev": {
+        "codeception/codeception": "^5.2",
+        "codeception/module-asserts": "^3.0",
+        "codeception/module-yii2": "^1.1.10",
+        "craftcms/ckeditor": "^5.8",
+        "spicyweb/craft-neo": "^5.5",
+        "vlucas/phpdotenv": "^5.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "nineteenninetyfour\\ghostwriter\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "nineteenninetyfour\\ghostwriter\\tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "handle": "ghostwriter",
+        "name": "Ghostwriter",
+        "developer": "1994",
+        "class": "nineteenninetyfour\\ghostwriter\\Plugin",
+        "developerUrl": "https://1994.co.uk",
+        "documentationUrl": "https://github.com/1994limited/ghostwriter-craft/blob/main/README.md",
+        "changelogUrl": "https://raw.githubusercontent.com/1994limited/ghostwriter-craft/main/CHANGELOG.md"
+    },
+    "config": {
+        "allow-plugins": {
+            "craftcms/plugin-installer": true,
+            "yiisoft/yii2-composer": true
+        },
+        "platform": {
+            "php": "8.2.0"
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -1,0 +1,41 @@
+{#
+    Teaches Ghostwriter a kind of content it will be asked for often, so that
+    kind gets its own brief. With nothing chosen it studies the section's
+    newest entries; choose the ones this kind should be modelled on.
+#}
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% set title = 'Teach Ghostwriter a kind of content'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'dashboard' %}
+{% set fullPageForm = true %}
+{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}, {label: section.name|t('site'), url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <button type="submit" class="btn submit" {{ configured ? '' : 'disabled' }}>{{ 'Learn this'|t('ghostwriter') }}</button>
+{% endblock %}
+
+{% block content %}
+    {% include 'ghostwriter/_includes/setup-alert' %}
+
+    {{ actionInput('ghostwriter/sections/analyse') }}
+    {{ hiddenInput('section', section.handle) }}
+
+    <p class="light">{{ 'Worth doing for something you write often. Ghostwriter reads the entries you point it at and writes a brief of its own for that kind, with questions that fit. This takes about a minute and happens once.'|t('ghostwriter') }}</p>
+
+    {{ forms.textField({
+        label: 'What is this kind of content called?'|t('ghostwriter'),
+        instructions: 'For example “Case study” or “Press release”. Leave blank and Ghostwriter will name it.'|t('ghostwriter'),
+        name: 'title',
+        maxlength: 60,
+    }) }}
+
+    {{ forms.elementSelectField({
+        label: 'Model it on'|t('ghostwriter'),
+        instructions: 'Choose up to six entries that are good examples. Leave empty to use the newest published entries.'|t('ghostwriter'),
+        name: 'examples',
+        elementType: 'craft\\elements\\Entry',
+        sources: ['section:' ~ section.uid],
+        limit: 6,
+    }) }}
+{% endblock %}

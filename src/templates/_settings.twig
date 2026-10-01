@@ -1,0 +1,128 @@
+{#
+    Plugin settings. API keys are never entered here: they are read from the
+    environment, and this screen only says which are set.
+#}
+{% import '_includes/forms' as forms %}
+
+{# Craft shows a warning for any non-empty value, so a setting that is not overridden must get null. #}
+{% macro overridden(setting, overrides) -%}
+    {{- 'This is being overridden by the `{setting}` setting in config/ghostwriter.php.'|t('ghostwriter', {setting: setting})|md(inlineOnly=true) -}}
+{%- endmacro %}
+
+{% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
+
+<h2>{{ 'Sections'|t('ghostwriter') }}</h2>
+
+{{ forms.checkboxSelectField({
+    label: 'Write for these sections'|t('ghostwriter'),
+    instructions: 'A “Write with Ghostwriter” button appears on the entry screens of each one. Tick none to offer every section.'|t('ghostwriter'),
+    name: 'sections',
+    options: sectionOptions,
+    values: settings.sections,
+    warning: 'sections' in overrides ? _self.overridden('sections', overrides) : null,
+}) }}
+
+{{ forms.checkboxSelectField({
+    label: 'Learn the voice from these sections'|t('ghostwriter'),
+    instructions: 'Read when the tone of voice guide is generated. Tick none to read every section.'|t('ghostwriter'),
+    name: 'voiceSections',
+    options: sectionOptions,
+    values: settings.voiceSections,
+    warning: 'voiceSections' in overrides ? _self.overridden('voiceSections', overrides) : null,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Show Get started'|t('ghostwriter'),
+    instructions: 'The setup steps at the top of the dashboard and in the menu. Turn this back on to bring them back after hiding them.'|t('ghostwriter'),
+    name: 'showGetStarted',
+    on: settings.showGetStarted,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Suggest kinds of content automatically'|t('ghostwriter'),
+    instructions: 'Ghostwriter looks at each section the first time it is shown on the dashboard, and again once ten or more entries have been published there since, and suggests the kinds of content worth teaching it. Each look is one model call.'|t('ghostwriter'),
+    name: 'suggestKindsAutomatically',
+    on: settings.suggestKindsAutomatically,
+    warning: 'suggestKindsAutomatically' in overrides ? _self.overridden('suggestKindsAutomatically', overrides) : null,
+}) }}
+
+<hr>
+
+<h2>{{ 'AI provider'|t('ghostwriter') }}</h2>
+
+{{ forms.selectField({
+    label: 'Provider'|t('ghostwriter'),
+    name: 'provider',
+    options: {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
+    value: settings.provider,
+    warning: 'provider' in overrides ? _self.overridden('provider', overrides) : null,
+}) }}
+
+{{ forms.textField({
+    label: 'Model'|t('ghostwriter'),
+    instructions: 'Leave blank to use the provider’s default model.'|t('ghostwriter'),
+    name: 'model',
+    value: settings.model,
+    placeholder: {anthropic: 'claude-opus-5-5', openai: 'gpt-5', gemini: 'gemini-2.5-pro'}[settings.provider] ?? '',
+    warning: 'model' in overrides ? _self.overridden('model', overrides) : null,
+}) }}
+
+<hr>
+
+<h2>{{ 'Images'|t('ghostwriter') }}</h2>
+<p class="light">{{ 'Images are made by ChatGPT or Gemini; Claude cannot make them. Each image is modelled on the ones already used in the same field on your other entries. Without a key, free photographs can still be searched for: Openverse needs no key, and Unsplash, Pixabay and Pexels keys add those libraries.'|t('ghostwriter') }}</p>
+
+{{ forms.selectField({
+    label: 'Image provider'|t('ghostwriter'),
+    instructions: 'Leave on “Whichever has a key” unless both do.'|t('ghostwriter'),
+    name: 'imageProvider',
+    options: {'': 'Whichever has a key'|t('ghostwriter'), openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
+    value: settings.imageProvider ?? '',
+    warning: 'imageProvider' in overrides ? _self.overridden('imageProvider', overrides) : null,
+}) }}
+
+{{ forms.textField({
+    label: 'Image model'|t('ghostwriter'),
+    instructions: 'Leave blank to use the provider’s default model.'|t('ghostwriter'),
+    name: 'imageModel',
+    value: settings.imageModel,
+    warning: 'imageModel' in overrides ? _self.overridden('imageModel', overrides) : null,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Mark images still to choose'|t('ghostwriter'),
+    instructions: 'When a draft is put into a new entry, image fields it leaves empty get a striped placeholder where the section’s pages usually have an image, so the layout shows where pictures go. Replace them before publishing.'|t('ghostwriter'),
+    name: 'placeholderImages',
+    on: settings.placeholderImages,
+    warning: 'placeholderImages' in overrides ? _self.overridden('placeholderImages', overrides) : null,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Search Openverse'|t('ghostwriter'),
+    instructions: 'Public-domain and CC0 photographs, with no key needed.'|t('ghostwriter'),
+    name: 'openverse',
+    on: settings.openverse,
+    warning: 'openverse' in overrides ? _self.overridden('openverse', overrides) : null,
+}) }}
+
+<hr>
+
+<h2>{{ 'API keys'|t('ghostwriter') }}</h2>
+<p class="light">{{ 'Keys are read from your .env file each time they are needed and are never stored by Ghostwriter.'|t('ghostwriter') }}</p>
+
+<table class="data fullwidth">
+    <tbody>
+        {% for name, set in keys %}
+            <tr>
+                <th scope="row"><code>{{ name }}</code></th>
+                <td>
+                    {% if set %}
+                        <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
+                    {% else %}
+                        <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

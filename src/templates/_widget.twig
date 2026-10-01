@@ -1,0 +1,52 @@
+{# The Ghostwriter widget on Craft's dashboard. #}
+<div class="gw-widget">
+    {% if not configured %}
+        <p class="warning with-icon smalltext">{{ 'Ghostwriter has no API key yet.'|t('ghostwriter') }}</p>
+    {% elseif not setup.complete and not setup.hidden %}
+        <a class="gw-widget__setup" href="{{ cpUrl('ghostwriter/setup') }}">
+            <span>{{ 'Get started · {done} of {total} done'|t('ghostwriter', {done: setup.done, total: setup.total}) }}</span>
+            <span class="gw-progress gw-progress--wide" aria-hidden="true"><span style="width: {{ (setup.done / setup.total * 100)|round }}%"></span></span>
+        </a>
+    {% endif %}
+
+    <div class="gw-widget__stats">
+        <a href="{{ cpUrl('ghostwriter#gw-in-progress') }}">
+            <strong>{{ inProgress|length + moreInProgress }}</strong>
+            <span class="light">{{ 'in progress'|t('ghostwriter') }}</span>
+        </a>
+        <a href="{{ cpUrl('ghostwriter/plan') }}">
+            <strong>{{ planOpen }}</strong>
+            <span class="light">{{ '{count, plural, =1{idea waiting} other{ideas waiting}}'|t('ghostwriter', {count: planOpen}) }}</span>
+        </a>
+    </div>
+
+    {% if inProgress|length %}
+        <ul class="gw-widget__list">
+            {% for s in inProgress %}
+                <li>
+                    {% if s.url %}<a href="{{ s.url }}">{{ s.title }}</a>{% else %}{{ s.title }}{% endif %}
+                    <span class="light smalltext">{{ s.section ?? s.type }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if moreInProgress %}
+            <p class="smalltext"><a href="{{ cpUrl('ghostwriter#gw-in-progress') }}">{{ 'and {count} more'|t('ghostwriter', {count: moreInProgress}) }}</a></p>
+        {% endif %}
+    {% else %}
+        <p class="light smalltext">{{ 'Nothing being written right now.'|t('ghostwriter') }}</p>
+    {% endif %}
+
+    {% if sections|length and configured %}
+        <div class="gw-widget__write">
+            <button type="button" class="btn small submit menubtn">{{ 'Write something'|t('ghostwriter') }}</button>
+            <div class="menu">
+                <ul>
+                    {% for section in sections %}
+                        <li><a href="{{ cpUrl('ghostwriter/write/' ~ section.handle) }}">{{ section.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <a class="btn small" href="{{ cpUrl('ghostwriter') }}">{{ 'Open Ghostwriter'|t('ghostwriter') }}</a>
+        </div>
+    {% endif %}
+</div>
