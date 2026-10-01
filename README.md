@@ -11,6 +11,8 @@ Ghostwriter learns how your site writes, then drafts new entries in that voice. 
 
 It runs on Claude, ChatGPT or Gemini, using your own API key.
 
+![Drafts in your voice, beside the entry](docs/store/01-writing-panel.png)
+
 ## Features
 
 - **Voice guide.** Ghostwriter reads a sample of your published entries and writes a guide to how the site sounds: who is talking and to whom, how pieces are shaped, the words you use and the ones you never do. You can edit it by hand or ask for changes in plain words.
@@ -26,6 +28,13 @@ It runs on Claude, ChatGPT or Gemini, using your own API key.
 - **Get started.** A step-by-step setup guide, and a widget for Craft's own dashboard.
 
 The writer is told to use only facts from the brief and the conversation. It does not invent figures, quotes or client names.
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Content plan](docs/store/02-content-plan.png) | ![Image choices](docs/store/03-image-choices.png) |
+| ![Voice guide](docs/store/04-voice-guide.png) | |
 
 ## Requirements
 
