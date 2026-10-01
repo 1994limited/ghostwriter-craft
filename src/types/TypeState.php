@@ -3,6 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\types;
 
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\Store;
 use yii\base\Component;
 
 /**
@@ -21,7 +22,13 @@ class TypeState extends Component
      */
     public function get(string $section): array
     {
-        return array_merge(['status' => self::IDLE, 'error' => null], $this->all()[$section] ?? []);
+        $state = array_merge(['status' => self::IDLE, 'error' => null], $this->all()[$section] ?? []);
+
+        if ($state['status'] === self::WORKING && Store::isStale(Plugin::getInstance()->store->stateUpdatedAt('types'))) {
+            $state = ['status' => self::FAILED, 'error' => Store::STOPPED];
+        }
+
+        return $state;
     }
 
     public function set(string $section, string $status, ?string $error = null): void

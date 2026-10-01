@@ -3,6 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\voice;
 
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\Store;
 use yii\base\Component;
 
 /**
@@ -22,7 +23,14 @@ class VoiceState extends Component
      */
     public function get(): array
     {
-        return array_merge($this->defaults(), Plugin::getInstance()->store->state($this->name()));
+        $store = Plugin::getInstance()->store;
+        $state = array_merge($this->defaults(), $store->state($this->name()));
+
+        if ($state['status'] === self::WORKING && Store::isStale($store->stateUpdatedAt($this->name()))) {
+            $state = array_merge($state, ['status' => self::FAILED, 'error' => Store::STOPPED, 'task' => null]);
+        }
+
+        return $state;
     }
 
     /**

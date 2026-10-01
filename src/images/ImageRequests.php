@@ -3,6 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\images;
 
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\Store;
 use yii\base\Component;
 
 /**
@@ -49,9 +50,18 @@ class ImageRequests extends Component
             return null;
         }
 
-        $data = Plugin::getInstance()->store->state("image:{$id}");
+        $store = Plugin::getInstance()->store;
+        $data = $store->state("image:{$id}");
 
-        return $data === [] ? null : $data;
+        if ($data === []) {
+            return null;
+        }
+
+        if (($data['status'] ?? null) === self::WORKING && Store::isStale($store->stateUpdatedAt("image:{$id}"))) {
+            $data = array_merge($data, ['status' => self::FAILED, 'error' => Store::STOPPED]);
+        }
+
+        return $data;
     }
 
     /**

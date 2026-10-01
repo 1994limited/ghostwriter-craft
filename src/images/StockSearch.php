@@ -97,11 +97,31 @@ class StockSearch
             throw new InvalidArgumentException('That photograph has no secure download address.');
         }
 
-        $response = Plugin::getInstance()->providers->http()->request('GET', $photo['file'], ['timeout' => 60]);
+        // Secure all the way, redirects included, and read no further than
+        // the largest image worth keeping.
+        $response = Plugin::getInstance()->providers->http()->request('GET', $photo['file'], [
+            'timeout' => 60,
+            'stream' => true,
+            'allow_redirects' => ['max' => 5, 'protocols' => ['https'], 'strict' => true],
+        ]);
         $mime = strtolower(trim(explode(';', $response->getHeaderLine('Content-Type'))[0]));
-        $content = (string) $response->getBody();
 
-        if (!isset(self::EXTENSIONS[$mime]) || strlen($content) > self::MAX_BYTES || @getimagesizefromstring($content) === false) {
+        if ((int) $response->getHeaderLine('Content-Length') > self::MAX_BYTES) {
+            throw new InvalidArgumentException('That photograph is too large to use.');
+        }
+
+        $body = $response->getBody();
+        $content = '';
+
+        while (!$body->eof() && strlen($content) <= self::MAX_BYTES) {
+            $content .= $body->read(65536);
+        }
+
+        if (strlen($content) > self::MAX_BYTES) {
+            throw new InvalidArgumentException('That photograph is too large to use.');
+        }
+
+        if (!isset(self::EXTENSIONS[$mime]) || @getimagesizefromstring($content) === false) {
             throw new InvalidArgumentException('That file is not an image Ghostwriter can use.');
         }
 

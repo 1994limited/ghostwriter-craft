@@ -56,6 +56,7 @@ class Gemini extends HttpProvider implements TextProvider, ImageProvider
             $text,
             (int) ($data['usageMetadata']['promptTokenCount'] ?? 0),
             (int) ($data['usageMetadata']['candidatesTokenCount'] ?? 0),
+            ($data['candidates'][0]['finishReason'] ?? null) === 'MAX_TOKENS',
         );
     }
 

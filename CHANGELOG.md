@@ -18,3 +18,6 @@
 - Claude, ChatGPT and Gemini, with keys read from the environment and never stored.
 - Everything kept in the database, so it works on read-only and load-balanced hosts; early builds' files are imported on update.
 - Each conversation is private to the person who started it.
+- Requests to providers that are rate limited, overloaded or briefly down are tried again, up to three times.
+- An answer cut off at its length limit is asked for again with more room, and never used half-finished.
+- Work whose job was stopped by a server time limit is shown as failed, so it can be tried again.

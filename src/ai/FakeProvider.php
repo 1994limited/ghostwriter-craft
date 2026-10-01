@@ -31,7 +31,7 @@ class FakeProvider implements TextProvider, ImageProvider
      * Queue answers for one agent. A closure is called with the request and
      * may throw, to stand for a failed call.
      */
-    public function respond(string $agent, string|Closure ...$answers): static
+    public function respond(string $agent, string|Closure|TextResponse ...$answers): static
     {
         $this->answers[$agent] = [...($this->answers[$agent] ?? []), ...$answers];
 
@@ -82,7 +82,7 @@ class FakeProvider implements TextProvider, ImageProvider
         $answer = count($queue) > 1 ? array_shift($this->answers[$request->agent]) : $queue[0];
         $text = $answer instanceof Closure ? $answer($request) : $answer;
 
-        return new TextResponse((string) $text, 100, 50);
+        return $text instanceof TextResponse ? $text : new TextResponse((string) $text, 100, 50);
     }
 
     public function image(ImageRequest $request): Image

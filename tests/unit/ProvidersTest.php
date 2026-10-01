@@ -11,6 +11,7 @@ use nineteenninetyfour\ghostwriter\ai\providers\Anthropic;
 use nineteenninetyfour\ghostwriter\ai\providers\Gemini;
 use nineteenninetyfour\ghostwriter\ai\providers\OpenAi;
 use nineteenninetyfour\ghostwriter\ai\TextRequest;
+use nineteenninetyfour\ghostwriter\ai\TextResponse;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 
 /**
@@ -67,7 +68,8 @@ class ProvidersTest extends TestCase
     {
         $this->http->append(
             new Response(200, [], json_encode(['content' => [], 'stop_reason' => 'refusal'])),
-            new Response(529, [], json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']])),
+            // Overloaded every time it is tried.
+            ...array_fill(0, 3, new Response(529, [], json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]))),
         );
 
         $claude = new Anthropic('secret', $this->plugin->providers->http());
@@ -180,6 +182,85 @@ class ProvidersTest extends TestCase
     /**
      * @param Image[] $images
      */
+    public function testABusyOrRateLimitedProviderIsTriedAgain(): void
+    {
+        $this->http->append(
+            new Response(429, ['retry-after' => '7'], json_encode(['error' => ['message' => 'Rate limited']])),
+            new Response(503, [], 'Service unavailable'),
+            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Hello.']]])),
+        );
+
+        $response = (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request());
+
+        $this->assertSame('Hello.', $response->text);
+        $this->assertCount(3, $this->sent);
+        // As long as the provider asked, then longer each time.
+        $this->assertSame(7.0, $this->waits[0]);
+        $this->assertGreaterThanOrEqual(4.0, $this->waits[1]);
+    }
+
+    public function testARequestThatIsSimplyWrongIsNotTriedAgain(): void
+    {
+        $this->http->append(new Response(401, [], json_encode(['error' => ['message' => 'Invalid key']])));
+
+        try {
+            (new OpenAi('secret', $this->plugin->providers->http()))->text($this->request());
+            $this->fail('Expected a ProviderException.');
+        } catch (ProviderException $exception) {
+            $this->assertStringContainsString('(401): Invalid key', $exception->getMessage());
+        }
+
+        $this->assertCount(1, $this->sent);
+        $this->assertSame([], $this->waits);
+    }
+
+    public function testShouldTheFallbackBetaBeRefusedTheRequestIsSentWithoutIt(): void
+    {
+        $this->http->append(
+            new Response(400, [], json_encode(['error' => ['type' => 'invalid_request_error', 'message' => 'Unknown anthropic-beta: server-side-fallback-2026-07-01']])),
+            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])),
+        );
+
+        $this->assertSame('OK', (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request())->text);
+
+        $retried = json_decode((string) $this->sent[1]['request']->getBody(), true);
+        $this->assertFalse($this->sent[1]['request']->hasHeader('anthropic-beta'));
+        $this->assertArrayNotHasKey('fallbacks', $retried);
+    }
+
+    public function testEachProviderSaysWhenAnAnswerWasCutOff(): void
+    {
+        $this->http->append(
+            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Half a']], 'stop_reason' => 'max_tokens'])),
+            new Response(200, [], json_encode(['choices' => [['message' => ['content' => 'Half a'], 'finish_reason' => 'length']]])),
+            new Response(200, [], json_encode(['candidates' => [['content' => ['parts' => [['text' => 'Half a']]], 'finishReason' => 'MAX_TOKENS']]])),
+            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Whole.']], 'stop_reason' => 'end_turn'])),
+        );
+
+        $http = $this->plugin->providers->http();
+
+        $this->assertTrue((new Anthropic('secret', $http))->text($this->request())->truncated);
+        $this->assertTrue((new OpenAi('secret', $http))->text($this->request())->truncated);
+        $this->assertTrue((new Gemini('secret', $http))->text($this->request())->truncated);
+        $this->assertFalse((new Anthropic('secret', $http))->text($this->request())->truncated);
+    }
+
+    public function testACutOffAnswerIsAskedForAgainWithMoreRoomThenRefused(): void
+    {
+        $cut = new TextResponse('title: Half', 100, 16000, true);
+        $this->fake->respond('writer', $cut, new TextResponse('title: Whole', 100, 20000));
+
+        $this->assertSame('title: Whole', $this->plugin->studio->ask('writer', 'Write.', 'Go.')->text);
+        $this->assertSame([16000, 32000], array_map(fn($request) => $request->maxTokens, $this->fake->prompted('writer')));
+
+        $this->fake->respond('brief-writer', $cut);
+
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('cut off before it finished');
+
+        $this->plugin->studio->ask('brief-writer', 'Write.', 'Go.');
+    }
+
     private function request(array $images = [], ?string $model = null, ?string $effort = null): TextRequest
     {
         return new TextRequest(

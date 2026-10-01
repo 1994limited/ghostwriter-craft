@@ -65,6 +65,7 @@ class OpenAi extends HttpProvider implements TextProvider, ImageProvider
             (string) ($message['content'] ?? ''),
             (int) ($data['usage']['prompt_tokens'] ?? 0),
             (int) ($data['usage']['completion_tokens'] ?? 0),
+            ($data['choices'][0]['finish_reason'] ?? null) === 'length',
         );
     }
 

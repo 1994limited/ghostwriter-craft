@@ -2,6 +2,7 @@
 
 namespace nineteenninetyfour\ghostwriter\images;
 
+use enshrined\svgSanitize\Sanitizer;
 use Imagick;
 use ImagickPixel;
 use InvalidArgumentException;
@@ -73,24 +74,30 @@ class LogoCard
 
     private function read(string $logo, int $width): Imagick
     {
-        $isSvg = str_contains(substr($logo, 0, 2048), '<svg');
+        // Imagick is told what it is reading, never left to guess: only a
+        // PNG, a WebP or a cleaned SVG reaches it.
+        $format = match (true) {
+            str_starts_with($logo, "\x89PNG\r\n\x1a\n") => 'png',
+            str_starts_with($logo, 'RIFF') && substr($logo, 8, 4) === 'WEBP' => 'webp',
+            str_contains(substr($logo, 0, 2048), '<svg') => 'svg',
+            default => throw new InvalidArgumentException('Use a PNG or SVG logo with a transparent background.'),
+        };
 
-        // An SVG can pull in files from elsewhere; a logo has no need to.
-        if ($isSvg && preg_match('/<!ENTITY|<script|<image|<foreignObject|href\s*=\s*["\'](?!#)/i', $logo)) {
-            throw new InvalidArgumentException('That SVG refers to other files or contains scripts. Export it as a plain SVG or a PNG.');
+        if ($format === 'svg') {
+            $logo = $this->cleanSvg($logo);
         }
 
         $mark = new Imagick();
         $mark->setBackgroundColor(new ImagickPixel('transparent'));
 
         try {
-            if ($isSvg) {
+            if ($format === 'svg') {
                 // Drawn large, so it is sharp at any card size.
                 $mark->setResolution(600, 600);
-                $mark->readImageBlob($logo, 'logo.svg');
-            } else {
-                $mark->readImageBlob($logo);
             }
+
+            $mark->setFormat($format);
+            $mark->readImageBlob($logo, "logo.{$format}");
         } catch (\ImagickException) {
             throw new InvalidArgumentException('That logo could not be read. Use a PNG or SVG with a transparent background.');
         }
@@ -105,6 +112,28 @@ class LogoCard
         }
 
         return $mark;
+    }
+
+    /**
+     * An SVG can pull in other files, run scripts or define entities; a logo
+     * needs none of that. Anything it refers to beyond itself is refused,
+     * and what is left goes through the sanitiser Craft itself uses.
+     */
+    private function cleanSvg(string $svg): string
+    {
+        if (preg_match('/<!ENTITY|<!DOCTYPE|<script|<image|<foreignObject|<use[^>]+href\s*=\s*["\'](?!#)|xlink:href\s*=\s*["\'](?!#)|href\s*=\s*["\'](?!#)/i', $svg)) {
+            throw new InvalidArgumentException('That SVG refers to other files or contains scripts. Export it as a plain SVG or a PNG.');
+        }
+
+        $sanitizer = new Sanitizer();
+        $sanitizer->removeRemoteReferences(true);
+        $clean = $sanitizer->sanitize($svg);
+
+        if (!is_string($clean) || !str_contains($clean, '<svg')) {
+            throw new InvalidArgumentException('That SVG could not be read. Export it as a plain SVG or a PNG.');
+        }
+
+        return $clean;
     }
 
     /**

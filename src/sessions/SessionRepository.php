@@ -100,6 +100,18 @@ class SessionRepository extends Component
     {
         $data = Json::decodeIfJson($json);
 
-        return is_array($data) && isset($data['id'], $data['type']) ? Session::fromArray($data) : null;
+        if (!is_array($data) || !isset($data['id'], $data['type'])) {
+            return null;
+        }
+
+        $session = Session::fromArray($data);
+
+        // A turn whose job was stopped before it could answer.
+        if ($session->status === Session::WORKING && Store::isStale($session->updatedAt)) {
+            $session->status = Session::FAILED;
+            $session->error = Store::STOPPED;
+        }
+
+        return $session;
     }
 }

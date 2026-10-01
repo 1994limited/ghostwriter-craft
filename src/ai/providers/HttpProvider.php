@@ -15,6 +15,22 @@ use Psr\Http\Message\ResponseInterface;
  */
 abstract class HttpProvider
 {
+    /** Tries at a request that is refused for being busy, rate limited or broken for a moment. */
+    private const ATTEMPTS = 3;
+
+    /** Statuses that mean "not now" rather than "no": rate limits, overloads, outages. */
+    private const RETRY_ON = [408, 429, 500, 502, 503, 504, 529];
+
+    /** The longest wait between tries, in seconds, whatever the provider asks. */
+    private const MAX_WAIT = 30;
+
+    /**
+     * How to wait, in seconds. Tests replace it, so they don't.
+     *
+     * @var callable(float): void|null
+     */
+    public static $sleep = null;
+
     public function __construct(
         protected readonly string $apiKey,
         protected readonly ClientInterface $http,
@@ -35,12 +51,30 @@ abstract class HttpProvider
             $options['json'] = $this->clean($options['json']);
         }
 
-        try {
-            $response = $this->http->request($method, $url, $options + ['timeout' => $timeout, 'connect_timeout' => 15]);
-        } catch (RequestException $exception) {
-            throw new ProviderException($this->explain($exception->getResponse()) ?? $exception->getMessage(), 0, $exception);
-        } catch (ConnectException|TransferException $exception) {
-            throw new ProviderException("Could not reach {$this->name()}: {$exception->getMessage()}", 0, $exception);
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                $response = $this->http->request($method, $url, $options + ['timeout' => $timeout, 'connect_timeout' => 15]);
+
+                break;
+            } catch (RequestException $exception) {
+                if ($attempt < self::ATTEMPTS && $this->worthRetrying($exception->getResponse())) {
+                    $this->wait($attempt, $exception->getResponse());
+
+                    continue;
+                }
+
+                throw new ProviderException($this->explain($exception->getResponse()) ?? $exception->getMessage(), 0, $exception);
+            } catch (ConnectException $exception) {
+                if ($attempt < self::ATTEMPTS) {
+                    $this->wait($attempt, null);
+
+                    continue;
+                }
+
+                throw new ProviderException("Could not reach {$this->name()}: {$exception->getMessage()}", 0, $exception);
+            } catch (TransferException $exception) {
+                throw new ProviderException("Could not reach {$this->name()}: {$exception->getMessage()}", 0, $exception);
+            }
         }
 
         $data = json_decode((string) $response->getBody(), true);
@@ -50,6 +84,33 @@ abstract class HttpProvider
         }
 
         return $data;
+    }
+
+    private function worthRetrying(?ResponseInterface $response): bool
+    {
+        if ($response === null) {
+            return true;
+        }
+
+        if (in_array($response->getStatusCode(), self::RETRY_ON, true)) {
+            return true;
+        }
+
+        // Anthropic and Google also say "overloaded" in the body.
+        return str_contains(strtolower((string) $response->getBody()), 'overloaded');
+    }
+
+    /**
+     * Wait before trying again: as long as the provider asks, or longer each
+     * time with a little randomness, so many sites don't retry in step.
+     */
+    private function wait(int $attempt, ?ResponseInterface $response): void
+    {
+        $asked = $response?->getHeaderLine('retry-after');
+        $seconds = is_numeric($asked) ? (float) $asked : (2 ** $attempt) + mt_rand(0, 1000) / 1000;
+        $seconds = min(max($seconds, 0), self::MAX_WAIT);
+
+        (self::$sleep ?? fn(float $seconds) => usleep((int) ($seconds * 1_000_000)))($seconds);
     }
 
     private function clean(mixed $value): mixed

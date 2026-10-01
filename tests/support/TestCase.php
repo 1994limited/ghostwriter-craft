@@ -22,6 +22,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use nineteenninetyfour\ghostwriter\ai\FakeProvider;
+use nineteenninetyfour\ghostwriter\ai\providers\HttpProvider;
 use nineteenninetyfour\ghostwriter\Plugin;
 use RuntimeException;
 
@@ -44,6 +45,9 @@ abstract class TestCase extends CraftTestCase
 
     protected string $workspace;
 
+    /** @var array<int, float> Seconds a retry would have waited. */
+    protected array $waits = [];
+
     protected function _before(): void
     {
         parent::_before();
@@ -60,6 +64,12 @@ abstract class TestCase extends CraftTestCase
         $settings->sections = [];
         $settings->voiceSections = [];
         $settings->imageProvider = null;
+
+        // Retries don't wait in tests; what they would have waited is kept.
+        $this->waits = [];
+        HttpProvider::$sleep = function(float $seconds): void {
+            $this->waits[] = $seconds;
+        };
 
         $this->http = new MockHandler();
         $this->sent = [];

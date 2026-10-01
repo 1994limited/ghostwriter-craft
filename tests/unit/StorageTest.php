@@ -83,6 +83,36 @@ class StorageTest extends TestCase
         $this->assertCount(1, $this->plugin->store->documents('idea'));
     }
 
+    public function testWorkWhoseJobWasStoppedIsShownAsFailedAndCanBeTriedAgain(): void
+    {
+        $this->plugin->types->save(ContentType::fromArray('guide', ['title' => 'Guide', 'section' => 'articles']));
+        $owner = $this->signIn();
+        $session = Session::start('guide', ['what' => 'Mine.'], $owner->id);
+        $session->status = Session::WORKING;
+        $this->plugin->sessions->save($session);
+
+        // Still within what a job is allowed: working.
+        $this->assertSame(Session::WORKING, $this->plugin->sessions->find($session->id)->status);
+
+        // Long past it, with nothing to say so: the job was stopped.
+        $long = date('c', time() - 3600);
+        $data = json_decode((string) (new \craft\db\Query())->select('data')->from(\nineteenninetyfour\ghostwriter\Store::SESSIONS)->where(['id' => $session->id])->scalar(), true);
+        \craft\helpers\Db::update(\nineteenninetyfour\ghostwriter\Store::SESSIONS, ['data' => json_encode(['updated_at' => $long] + $data)], ['id' => $session->id]);
+
+        $stuck = $this->plugin->sessions->find($session->id);
+        $this->assertSame(Session::FAILED, $stuck->status);
+        $this->assertStringContainsString('stopped before it finished', $stuck->error);
+
+        $this->fake->respond('writer', 'What is it for?');
+        $this->assertSame(200, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Try again.'])['status']);
+
+        // The same for the guide screens.
+        $this->plugin->voiceState->update(['status' => 'working']);
+        $this->assertSame('working', $this->plugin->voiceState->get()['status']);
+        \craft\helpers\Db::update(\nineteenninetyfour\ghostwriter\Store::STATE, ['dateUpdated' => \craft\helpers\Db::prepareDateForDb(new \DateTime('-1 hour'))], ['name' => 'voice'], updateTimestamp: false);
+        $this->assertSame('failed', $this->plugin->voiceState->get()['status']);
+    }
+
     public function testChangingStateFromTwoPlacesLosesNothing(): void
     {
         $this->plugin->voiceState->addMessage('user', 'One');

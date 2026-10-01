@@ -36,6 +36,9 @@ class Store extends Component
     /** Seconds to wait for another request to finish changing the same thing. */
     private const LOCK_WAIT = 15;
 
+    /** What is said of work that stopped without finishing. */
+    public const STOPPED = 'This stopped before it finished, probably cut off by a time limit on the server. Try again.';
+
     public function document(string $kind, string $handle): ?string
     {
         $body = (new Query())->select('body')->from(self::DOCUMENTS)->where(['kind' => $kind, 'handle' => $handle])->scalar();
@@ -76,6 +79,30 @@ class Store extends Component
         $value = (new Query())->select('value')->from(self::STATE)->where(['name' => $key])->scalar();
 
         return $value === false || $value === null ? [] : (array) Json::decodeIfJson((string) $value);
+    }
+
+    public function stateUpdatedAt(string $key): ?DateTime
+    {
+        $date = (new Query())->select('dateUpdated')->from(self::STATE)->where(['name' => $key])->scalar();
+
+        return $date ? DateTimeHelper::toDateTime($date) ?: null : null;
+    }
+
+    /**
+     * Whether work marked as in hand since then has been going on for far
+     * longer than a job is allowed: its process was stopped (a time limit,
+     * a restart) before it could say so, and nothing else ever will.
+     */
+    public static function isStale(DateTime|string|null $since): bool
+    {
+        if ($since === null || $since === '') {
+            return false;
+        }
+
+        $since = $since instanceof DateTime ? $since : DateTimeHelper::toDateTime($since);
+        $allowed = (Plugin::getInstance()->getSettings()->timeout + 120) * 2;
+
+        return $since !== false && $since->getTimestamp() < time() - $allowed;
     }
 
     /**

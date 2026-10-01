@@ -42,6 +42,9 @@ class Studio extends Component
         'photo-picker' => 2000,
     ];
 
+    /** The most room an answer is given when it needs more than its usual limit. */
+    private const MAX_TOKENS_CEILING = 32000;
+
     /** Entries shown when suggesting kinds: enough to see the pattern. */
     private const KIND_SAMPLE = 60;
 
@@ -486,18 +489,33 @@ class Studio extends Component
     public function ask(string $agent, string $instructions, string $prompt, array $history = [], array $images = [], ?int $maxTokens = null, ?string $effort = null): TextResponse
     {
         $settings = Plugin::getInstance()->getSettings();
+        $limit = $maxTokens ?? self::MAX_TOKENS[$agent] ?? 16000;
 
-        return Plugin::getInstance()->providers->text()->text(new TextRequest(
+        $send = fn(int $limit) => Plugin::getInstance()->providers->text()->text(new TextRequest(
             agent: $agent,
             instructions: $instructions,
             prompt: $prompt,
             history: Message::list($history),
             images: $images,
-            maxTokens: $maxTokens ?? self::MAX_TOKENS[$agent] ?? 16000,
+            maxTokens: $limit,
             model: $settings->model,
             timeout: $settings->timeout,
             effort: $effort,
         ));
+
+        $response = $send($limit);
+
+        // Stopped at the length limit, not finished: a half-written draft
+        // would be taken for a whole one. Ask once more with room to finish.
+        if ($response->truncated && $limit < self::MAX_TOKENS_CEILING) {
+            $response = $send(min($limit * 2, self::MAX_TOKENS_CEILING));
+        }
+
+        if ($response->truncated) {
+            throw new ProviderException('The answer ran past its length limit and was cut off before it finished. Try asking for something shorter.');
+        }
+
+        return $response;
     }
 
     public function prompt(string $name): string

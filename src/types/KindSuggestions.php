@@ -5,6 +5,7 @@ namespace nineteenninetyfour\ghostwriter\types;
 use craft\elements\Entry;
 use craft\models\Section;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\Store;
 use nineteenninetyfour\ghostwriter\sessions\Session;
 use yii\base\Component;
 
@@ -33,10 +34,16 @@ class KindSuggestions extends Component
      */
     public function get(string $section): array
     {
-        return array_merge(
+        $state = array_merge(
             ['status' => self::IDLE, 'error' => null, 'checkedAt' => null, 'entries' => 0, 'suggestions' => [], 'dismissed' => []],
             $this->all()[$section] ?? [],
         );
+
+        if ($state['status'] === self::WORKING && Store::isStale(Plugin::getInstance()->store->stateUpdatedAt('kinds'))) {
+            $state = array_merge($state, ['status' => self::FAILED, 'error' => Store::STOPPED]);
+        }
+
+        return $state;
     }
 
     /**

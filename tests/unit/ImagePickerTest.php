@@ -268,6 +268,64 @@ class ImagePickerTest extends TestCase
         $this->assertSame('#ff2d20', $card['colour']);
     }
 
+    public function testADownloadStaysSecureAndWithinItsSize(): void
+    {
+        $stock = $this->plugin->imagePicker->stock();
+        $photo = fn(string $url) => new Response(200, [], json_encode(['url' => $url, 'license' => 'cc0', 'creator' => 'Ann']));
+
+        // Redirected to plain http: not followed.
+        $this->http->append($photo('https://example.com/a.png'), new Response(302, ['Location' => 'http://example.com/a.png']));
+
+        try {
+            $stock->fetch('openverse', 'abc');
+            $this->fail('An insecure redirect was followed.');
+        } catch (\Throwable $exception) {
+            $this->assertStringContainsString('http', strtolower($exception->getMessage()));
+        }
+
+        // Too large, by what it says and by what arrives.
+        $this->http->append($photo('https://example.com/b.png'), new Response(200, ['Content-Type' => 'image/png', 'Content-Length' => (string) (20 * 1024 * 1024)], 'x'));
+        $this->http->append($photo('https://example.com/c.png'), new Response(200, ['Content-Type' => 'image/png'], str_repeat('x', 15 * 1024 * 1024 + 10)));
+
+        foreach (['b', 'c'] as $id) {
+            try {
+                $stock->fetch('openverse', $id);
+                $this->fail('A photograph over the limit was kept.');
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame('That photograph is too large to use.', $exception->getMessage());
+            }
+        }
+    }
+
+    public function testALogoIsOnlyReadAsAPngWebpOrCleanSvg(): void
+    {
+        if (!LogoCard::available()) {
+            $this->markTestSkipped('Imagick is not installed.');
+        }
+
+        $card = new LogoCard();
+
+        foreach ([
+            'GIF89a not allowed' => 'Use a PNG or SVG logo',
+            "push graphic-context\nviewbox 0 0 10 10\nimage over 0,0 0,0 'https://example.com/x.png'\npop graphic-context" => 'Use a PNG or SVG logo',
+            '<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/passwd"/></svg>' => 'refers to other files',
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="https://example.com/x.svg#a"/></svg>' => 'refers to other files',
+            '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg"><text>&x;</text></svg>' => 'refers to other files',
+        ] as $logo => $refusal) {
+            try {
+                $card->compose($logo, 400, 250);
+                $this->fail('A logo that should be refused was read.');
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertStringContainsString($refusal, $exception->getMessage());
+            }
+        }
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100" onload="alert(1)"><rect x="50" y="25" width="100" height="50" fill="#2b3a64"/></svg>';
+        $made = $card->compose($svg, 400, 250);
+
+        $this->assertSame('#2b3a64', $made['colour']);
+    }
+
     private function draftWithBlock(): Entry
     {
         $draft = $this->newDraft($this->stories);

@@ -2,6 +2,7 @@
 
 namespace nineteenninetyfour\ghostwriter\ai\providers;
 
+use GuzzleHttp\Exception\RequestException;
 use nineteenninetyfour\ghostwriter\ai\ProviderException;
 use nineteenninetyfour\ghostwriter\ai\TextProvider;
 use nineteenninetyfour\ghostwriter\ai\TextRequest;
@@ -64,7 +65,19 @@ class Anthropic extends HttpProvider implements TextProvider
             $headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
         }
 
-        $data = $this->send('POST', self::URL, ['headers' => $headers, 'json' => $body], $request->timeout);
+        try {
+            $data = $this->send('POST', self::URL, ['headers' => $headers, 'json' => $body], $request->timeout);
+        } catch (ProviderException $exception) {
+            // Should the fallback beta be retired or renamed, the API refuses
+            // the request outright. Send it once more without it, rather than
+            // every call failing.
+            if (!isset($headers['anthropic-beta']) || !$this->refusedTheBeta($exception)) {
+                throw $exception;
+            }
+
+            unset($headers['anthropic-beta'], $body['fallbacks']);
+            $data = $this->send('POST', self::URL, ['headers' => $headers, 'json' => $body], $request->timeout);
+        }
 
         $text = implode('', array_map(
             fn(array $block) => (string) $block['text'],
@@ -79,7 +92,22 @@ class Anthropic extends HttpProvider implements TextProvider
             $text,
             (int) ($data['usage']['input_tokens'] ?? 0) + (int) ($data['usage']['cache_read_input_tokens'] ?? 0),
             (int) ($data['usage']['output_tokens'] ?? 0),
+            ($data['stop_reason'] ?? null) === 'max_tokens',
         );
+    }
+
+    private function refusedTheBeta(ProviderException $exception): bool
+    {
+        $previous = $exception->getPrevious();
+        $response = $previous instanceof RequestException ? $previous->getResponse() : null;
+
+        if ($response === null || $response->getStatusCode() !== 400) {
+            return false;
+        }
+
+        $body = strtolower((string) $response->getBody());
+
+        return str_contains($body, 'fallback') || str_contains($body, 'beta');
     }
 
     /**

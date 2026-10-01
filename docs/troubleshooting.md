@@ -16,6 +16,18 @@ Model calls run in Craft's queue.
 
 Long drafts can take several minutes on the larger models. Raise `timeout` in [`config/ghostwriter.php`](configuration.md), for example to `600`. If you run a queue worker with its own time limit, raise that too.
 
+## "This stopped before it finished"
+
+The job doing the work was stopped before it could report back: usually a time limit on the server (the queue's, PHP's `max_execution_time`, or a web request running the queue), or a restart. Anything still marked as working long after a job's time limit is reported this way, so you can try again. If it keeps happening, raise the limits as above, or run a queue worker.
+
+## Busy, overloaded or rate limited
+
+When a provider is rate limited, overloaded or briefly down, Ghostwriter tries the request again, up to three times, waiting as long as the provider asks or a little longer each time. Only if every try fails is the error shown. Wait a minute and try again, or raise your plan's rate limits with the provider.
+
+## "The answer ran past its length limit and was cut off"
+
+A reply that stops at the model's length limit is asked for once more with twice the room. If it is cut off again, the error is shown rather than half a draft. Ask for something shorter, or split the piece in two.
+
 ## "The analysis came back in a form that could not be read. Try again."
 
 When learning a kind, the model's answer couldn't be read, even after one automatic retry. Try again; it usually works the second time. If it keeps happening for one section, teach the kind by hand and choose fewer, more typical example entries.
