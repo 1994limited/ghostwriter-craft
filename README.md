@@ -165,8 +165,10 @@ To write, Ghostwriter sends the chosen provider your voice guide, the brief, the
 
 ## Development
 
+The providers, prompts and draft text handling come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), which is a private repository for now, so Composer needs a GitHub token that can read it:
+
 ```bash
-composer install
+COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}" composer install
 cp tests/.env.example tests/.env   # point it at an empty MySQL database
 vendor/bin/codecept run unit
 ```
