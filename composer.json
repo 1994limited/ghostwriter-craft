@@ -22,7 +22,7 @@
     "support": {
         "issues": "https://github.com/1994limited/ghostwriter-craft/issues",
         "source": "https://github.com/1994limited/ghostwriter-craft",
-        "docs": "https://github.com/1994limited/ghostwriter-craft/blob/main/README.md"
+        "docs": "https://github.com/1994limited/ghostwriter-craft/blob/main/docs/README.md"
     },
     "require": {
         "php": "^8.2",
@@ -55,7 +55,7 @@
         "developer": "1994",
         "class": "nineteenninetyfour\\ghostwriter\\Plugin",
         "developerUrl": "https://1994.co.uk",
-        "documentationUrl": "https://github.com/1994limited/ghostwriter-craft/blob/main/README.md",
+        "documentationUrl": "https://github.com/1994limited/ghostwriter-craft/blob/main/docs/README.md",
         "changelogUrl": "https://raw.githubusercontent.com/1994limited/ghostwriter-craft/main/CHANGELOG.md"
     },
     "config": {

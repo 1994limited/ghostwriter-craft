@@ -13,6 +13,8 @@ It runs on Claude, ChatGPT or Gemini, using your own API key.
 
 ![Drafts in your voice, beside the entry](docs/store/01-writing-panel.png)
 
+**[Read the documentation](docs/README.md)**: installation, getting API keys (including free options), and how to use every part of Ghostwriter.
+
 ## Features
 
 - **Voice guide.** Ghostwriter reads a sample of your published entries and writes a guide to how the site sounds: who is talking and to whom, how pieces are shaped, the words you use and the ones you never do. You can edit it by hand or ask for changes in plain words.
