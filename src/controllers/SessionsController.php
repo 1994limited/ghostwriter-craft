@@ -113,7 +113,9 @@ class SessionsController extends Controller
         // A conversation already editing this entry, with changes not yet put
         // into it, carries on where it was; otherwise it starts again from
         // the entry as it stands.
-        if ($session->status === Session::WORKING || ($session->source === $canonicalId && $session->appliedAt === null && $this->wasEditing($session))) {
+        $fresh = (bool) $this->request->getBodyParam('fresh');
+
+        if ($session->status === Session::WORKING || (!$fresh && $session->source === $canonicalId && $session->appliedAt === null && $this->wasEditing($session))) {
             return $this->asJson((new Presenter())->detail($session));
         }
 

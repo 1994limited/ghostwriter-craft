@@ -62,6 +62,14 @@ class EditingTest extends TestCase
         $this->assertSame($first['id'], $again['id']);
         $this->assertStringStartsWith('title: One, revised', $again['draft']);
 
+        // Unless the person asks to start again from the entry.
+        $fresh = $this->action('ghostwriter/sessions/edit', ['elementId' => $this->one->id, 'siteId' => $this->one->siteId, 'fresh' => 1])['data'];
+        $this->assertStringNotContainsString('revised', $fresh['draft']);
+
+        $session = $this->plugin->sessions->find($first['id']);
+        $session->draft = str_replace('title: One', 'title: One, revised', $session->draft);
+        $this->plugin->sessions->save($session);
+
         // Once they have gone into the entry, it starts from the entry again.
         $session = $this->plugin->sessions->find($first['id']);
         $session->appliedAt = $session::now();

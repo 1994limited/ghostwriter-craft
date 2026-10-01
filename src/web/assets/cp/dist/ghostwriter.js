@@ -413,6 +413,16 @@
             this.render();
         },
 
+        async reloadEntry() {
+            if (!window.confirm(t('Start again from the entry as it stands? Changes asked for here that are not yet in the entry are lost.'))) {
+                return;
+            }
+
+            try {
+                this.receive(await Ghostwriter.request('POST', 'sessions/edit', { elementId: this.config.elementId, siteId: this.config.siteId, fresh: 1 }));
+            } catch (error) {}
+        },
+
         async openSession(id) {
             try {
                 this.receive(await Ghostwriter.request('GET', 'sessions/show', { id }));
@@ -622,6 +632,7 @@
                 case 'toggle-brief': this.showBrief = !this.showBrief; return this.renderConversation();
                 case 'send': return this.send();
                 case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); return this.send();
+                case 'reload-entry': return this.reloadEntry();
                 case 'edit': this.editing = true; return this.renderDraft();
                 case 'view': this.view = $target.data('view'); try { localStorage.setItem('ghostwriter:view', this.view); } catch (error) {} return this.renderDraft();
                 case 'cancel-edit': this.editing = false; this.raw = this.session.draft; return this.renderDraft();
@@ -1029,7 +1040,8 @@
             const conversation = session.messages.slice(1);
             const asking = this.asking();
 
-            let html = `
+            // Editing an entry has no brief to show: the entry is the brief.
+            let html = session.editing ? '' : `
                 <div class="gw-brief">
                     <button type="button" class="gw-link" data-action="toggle-brief">${esc(this.showBrief ? t('Hide the brief') : t('Show the brief'))}</button>
                     ${this.showBrief ? `<div class="gw-pre">${esc(session.messages[0]?.content ?? '')}</div>` : ''}
@@ -1068,7 +1080,9 @@
                 ${asking ? `<p class="gw-composer__flag"><span class="gw-dot" aria-hidden="true"></span>${esc(this.session.draft ? t('Your turn: answer above to carry on.') : t('Your turn: answer the questions above and the draft follows.'))}</p>` : ''}
                 <textarea class="text fullwidth" rows="4" data-model="message" ${working ? 'disabled' : ''} placeholder="${esc(asking ? t('Type your answers here. Short is fine; number them if it helps.') : this.session.draft ? t('Ask for a change…') : t('Answer the questions…'))}">${esc(this.message)}</textarea>
                 <div class="gw-composer__actions">
-                    <button type="button" class="btn small gw-quiet" data-action="start-over">${esc(t('Start over'))}</button>
+                    ${this.session.editing
+                        ? `<button type="button" class="btn small gw-quiet" data-action="reload-entry" title="${esc(t('Throw away the changes asked for here and start again from the entry as it stands.'))}">${esc(t('Start again from the entry'))}</button>`
+                        : `<button type="button" class="btn small gw-quiet" data-action="start-over">${esc(t('Start over'))}</button>`}
                     <span class="light smalltext">${esc(t('⌘↵ to send'))}</span>
                     <button type="button" class="btn submit ${working ? 'loading' : ''} ${working || !this.message.trim() ? 'disabled' : ''}" data-action="send" ${working || !this.message.trim() ? 'disabled' : ''}>${esc(working ? t('Working…') : t('Send'))}</button>
                 </div>`);
@@ -1094,7 +1108,7 @@
                     ? `<div class="flex"><button type="button" class="btn small" data-action="cancel-edit">${esc(t('Cancel'))}</button><button type="button" class="btn small submit" data-action="save-draft">${esc(t('Save changes'))}</button></div>`
                     : `<div class="flex">
                            <button type="button" class="btn small" data-action="edit" ${working ? 'disabled' : ''} title="${esc(t('Change the structure: add, move or remove blocks'))}">${esc(t('Edit YAML'))}</button>
-                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(t('Use this draft'))}</button>
+                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(session.editing ? t('Use these changes') : t('Use this draft'))}</button>
                        </div>`;
             }
 
