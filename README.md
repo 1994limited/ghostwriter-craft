@@ -96,7 +96,7 @@ Ghostwriter adds one permission: **Use Ghostwriter**. Writing into an entry also
 
 ### The queue
 
-Model calls can take a minute or more, so each runs as a job in Craft's queue while the screen checks back for the result. Craft runs the queue from control panel requests by default, so this works with no setup. On a site with a queue worker the jobs run there instead. Each job is allowed the configured timeout plus two minutes.
+Model calls can take a minute or more, so each runs as a job in Craft's queue while the screen checks back for the result. Craft runs the queue from control panel requests by default, so this works with no setup. On a site with a queue worker the jobs run there instead. Each job is allowed three times the configured timeout plus a minute, because a busy provider is tried up to three times.
 
 ## Configuration
 

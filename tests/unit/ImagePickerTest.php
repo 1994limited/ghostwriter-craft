@@ -10,7 +10,8 @@ use craft\fields\PlainText;
 use craft\models\Section;
 use craft\models\Volume;
 use GuzzleHttp\Psr7\Response;
-use nineteenninetyfour\ghostwriter\ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Shape;
 use nineteenninetyfour\ghostwriter\ImageButton;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
@@ -212,7 +213,7 @@ class ImagePickerTest extends TestCase
         $request = $this->fake->imageRequests[0];
 
         $this->assertCount(2, $request->references);
-        $this->assertSame('landscape', $request->shape);
+        $this->assertSame(Shape::Landscape, $request->shape);
         $this->assertStringContainsString('Make the "Cover" image', $request->prompt);
         $this->assertStringContainsString('A mended bowl on a bench', $request->prompt);
 

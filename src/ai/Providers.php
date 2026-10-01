@@ -2,39 +2,33 @@
 
 namespace nineteenninetyfour\ghostwriter\ai;
 
+use Closure;
 use Craft;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\HandlerStack;
-use craft\helpers\App;
-use nineteenninetyfour\ghostwriter\ai\providers\Anthropic;
-use nineteenninetyfour\ghostwriter\ai\providers\Gemini;
-use nineteenninetyfour\ghostwriter\ai\providers\OpenAi;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\Sleeper;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\SystemSleeper;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\Credentials;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers as Registry;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\TextProvider;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
 /**
- * Chooses the provider for each call, from the settings and from which API
- * keys the environment has. Keys are read from the environment every time
- * and never stored.
+ * Craft's side of ghostwriter-core's provider registry: keys from the
+ * environment, clients from Craft, choices from the plugin's settings and
+ * logs to Craft's log. Core chooses and calls the provider.
  *
  * Every request Ghostwriter makes to the outside world, models and photo
- * libraries alike, goes through http(), so one Guzzle handler can stand in
- * for all of them in tests.
+ * libraries alike, goes through Craft's Guzzle clients with $handler, so one
+ * Guzzle handler can stand in for all of them in tests.
  */
 class Providers extends Component
 {
-    /** Environment variable holding each provider's key. */
-    public const KEYS = [
-        'anthropic' => 'ANTHROPIC_API_KEY',
-        'openai' => 'OPENAI_API_KEY',
-        'gemini' => 'GEMINI_API_KEY',
-        'unsplash' => 'UNSPLASH_ACCESS_KEY',
-        'pixabay' => 'PIXABAY_API_KEY',
-        'pexels' => 'PEXELS_API_KEY',
-    ];
-
-    /** Providers that make images, in the order they are tried. */
-    public const IMAGE_PROVIDERS = ['openai', 'gemini'];
+    /** Environment variable holding each service's key. */
+    public const KEYS = Credentials::ENV;
 
     /**
      * Keys to use in place of the environment's, by provider. For tests;
@@ -47,23 +41,54 @@ class Providers extends Component
     /** A Guzzle handler to send every request through, in place of the network. */
     public ?HandlerStack $handler = null;
 
-    private ?FakeProvider $fake = null;
+    /** How retries wait. For tests, which record the waits rather than wait. */
+    public ?Sleeper $sleeper = null;
+
+    private ?Registry $registry = null;
+
+    private ?Credentials $credentials = null;
+
+    /**
+     * Core's registry, built once and shared. The ports read the keys,
+     * handler, sleeper and settings each time, so changing them applies at once.
+     */
+    public function registry(): Registry
+    {
+        return $this->registry ??= new Registry(
+            $this->credentials(),
+            new CraftHttpClients(fn() => $this->handler ? ['handler' => $this->handler] : []),
+            new SettingsProviderSettings(),
+            new CraftLogger(),
+            new class(fn() => $this->sleeper) implements Sleeper {
+                public function __construct(private readonly Closure $sleeper)
+                {
+                }
+
+                public function sleep(float $seconds): void
+                {
+                    (($this->sleeper)() ?? new SystemSleeper())->sleep($seconds);
+                }
+            },
+        );
+    }
 
     /**
      * Stand a fake in for every model, text and image alike.
      */
     public function fake(?FakeProvider $fake = null): FakeProvider
     {
-        return $this->fake = $fake ?? new FakeProvider();
+        return $this->registry()->fake($fake);
+    }
+
+    /** Send model calls to the real providers again. */
+    public function unfake(): void
+    {
+        $this->registry()->unfake();
     }
 
     public function key(string $provider): ?string
     {
-        $key = array_key_exists($provider, $this->keys)
-            ? $this->keys[$provider]
-            : (isset(self::KEYS[$provider]) ? App::env(self::KEYS[$provider]) : null);
-
-        return is_string($key) && trim($key) !== '' ? trim($key) : null;
+        return $this->credentials()->key($provider);
     }
 
     /**
@@ -73,16 +98,10 @@ class Providers extends Component
      */
     public function keyStatus(): array
     {
-        $status = [];
-
-        foreach (self::KEYS as $provider => $variable) {
-            $status[$variable] = $this->key($provider) !== null;
-        }
-
-        return $status;
+        return $this->registry()->keyStatus();
     }
 
-    /** The provider chosen to write with. */
+    /** The provider chosen to write with in the settings, faked or not. */
     public function handle(): string
     {
         return Plugin::getInstance()->getSettings()->provider;
@@ -93,26 +112,15 @@ class Providers extends Component
      */
     public function configured(): bool
     {
-        return $this->fake !== null || $this->key($this->handle()) !== null;
+        return $this->registry()->configured();
     }
 
     /**
-     * @throws ProviderException when the chosen provider has no key.
+     * @throws \NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\NotConfigured when the chosen provider has no key.
      */
     public function text(): TextProvider
     {
-        if ($this->fake) {
-            return $this->fake;
-        }
-
-        $handle = $this->handle();
-        $key = $this->key($handle) ?? throw new ProviderException('No API key is set for ' . $handle . '. Add ' . self::KEYS[$handle] . ' to your .env file.');
-
-        return match ($handle) {
-            'openai' => new OpenAi($key, $this->http()),
-            'gemini' => new Gemini($key, $this->http()),
-            default => new Anthropic($key, $this->http()),
-        };
+        return $this->registry()->text();
     }
 
     /**
@@ -121,38 +129,25 @@ class Providers extends Component
      */
     public function imageHandle(): ?string
     {
-        if ($this->fake) {
-            return 'fake';
-        }
-
-        $chosen = Plugin::getInstance()->getSettings()->imageProvider;
-
-        foreach ($chosen ? [$chosen] : self::IMAGE_PROVIDERS as $provider) {
-            if ($this->key($provider) !== null) {
-                return $provider;
-            }
-        }
-
-        return null;
+        return $this->registry()->imageHandle();
     }
 
     public function image(): ?ImageProvider
     {
-        if ($this->fake) {
-            return $this->fake;
-        }
-
-        $handle = $this->imageHandle();
-
-        return match ($handle) {
-            'openai' => new OpenAi((string) $this->key('openai'), $this->http()),
-            'gemini' => new Gemini((string) $this->key('gemini'), $this->http()),
-            default => null,
-        };
+        return $this->registry()->image();
     }
 
+    /**
+     * A Guzzle client for everything that isn't a model call: photo
+     * libraries and the photographs they link to.
+     */
     public function http(): ClientInterface
     {
         return Craft::createGuzzleClient($this->handler ? ['handler' => $this->handler] : []);
+    }
+
+    private function credentials(): Credentials
+    {
+        return $this->credentials ??= new EnvironmentCredentials(fn() => $this->keys);
     }
 }

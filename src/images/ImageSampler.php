@@ -10,7 +10,7 @@ use craft\elements\Entry;
 use craft\fields\Assets;
 use craft\fields\Matrix;
 use Illuminate\Support\Collection;
-use nineteenninetyfour\ghostwriter\ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use Throwable;
 
 /**

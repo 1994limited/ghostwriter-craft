@@ -8,8 +8,8 @@ use craft\helpers\FileHelper;
 use craft\helpers\StringHelper;
 use GuzzleHttp\Promise\Utils;
 use InvalidArgumentException;
-use nineteenninetyfour\ghostwriter\ai\Image;
-use nineteenninetyfour\ghostwriter\ai\ImageRequest;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageRequest;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -249,14 +249,11 @@ class ImagePicker extends Component
             }
         }
 
-        $settings = $plugin->getSettings();
-
+        // The model and timeout come from the settings.
         return $provider->image(new ImageRequest(
             prompt: $this->prompt($slot, $direction, count($references), $source !== null),
             references: $source ? [...$references, $source] : $references,
             shape: $slot->shape(),
-            model: $settings->imageModel,
-            timeout: $settings->timeout,
         ));
     }
 

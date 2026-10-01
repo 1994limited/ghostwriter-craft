@@ -7,6 +7,14 @@ use craft\elements\Entry;
 use craft\models\EntryType;
 use craft\models\Section;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Agents;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Effort;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\ProviderException;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\Truncated;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Message;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\TextRequest;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\TextResponse;
 use NineteenNinetyFour\Ghostwriter\Core\Text\LenientYaml;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\layouts\PatternFinder;
@@ -21,29 +29,12 @@ use yii\base\Component;
 
 /**
  * Every call Ghostwriter makes to a model goes through here: building the
- * instructions from the prompt files, choosing the provider and model from
- * the settings, and turning the answer back into something the rest of the
- * plugin can use.
+ * instructions from the prompts and turning the answer back into something
+ * the rest of the plugin can use. ghostwriter-core chooses the provider and
+ * model from the settings and makes the call.
  */
 class Studio extends Component
 {
-    /**
-     * Room for each kind of answer. Current models think before they answer
-     * and the thinking counts against this, so it is generous.
-     */
-    private const MAX_TOKENS = [
-        'voice-analyst' => 16000,
-        'voice-editor' => 16000,
-        'type-analyst' => 16000,
-        'brief-writer' => 6000,
-        'writer' => 16000,
-        'kind-finder' => 8000,
-        'imagery-analyst' => 6000,
-        'planner' => 16000,
-        'photo-researcher' => 2000,
-        'photo-picker' => 2000,
-    ];
-
     /** The most room an answer is given when it needs more than its usual limit. */
     private const MAX_TOKENS_CEILING = 32000;
 
@@ -83,7 +74,7 @@ class Studio extends Component
 
         $response = $this->ask('voice-analyst', $this->prompt('voice-analyst'), $prompt);
 
-        return new TaggedResponse('', trim($response->text), $response->inputTokens, $response->outputTokens);
+        return new TaggedResponse('', trim($response->text), $response->usage->input, $response->usage->output);
     }
 
     /**
@@ -95,7 +86,7 @@ class Studio extends Component
 
         $response = $this->ask('voice-editor', $this->prompt('voice-editor'), $prompt, $history);
 
-        return TaggedResponse::parse($response->text, 'document', $response->inputTokens, $response->outputTokens);
+        return TaggedResponse::parse($response->text, 'document', $response->usage->input, $response->usage->output);
     }
 
     /**
@@ -414,7 +405,7 @@ class Studio extends Component
 
         $response = $this->ask('writer', $this->writerInstructions($type, $voice), $prompt, $messages);
 
-        return TaggedResponse::parse($response->text, 'draft', $response->inputTokens, $response->outputTokens);
+        return TaggedResponse::parse($response->text, 'draft', $response->usage->input, $response->usage->output);
     }
 
     /**
@@ -485,13 +476,17 @@ class Studio extends Component
     }
 
     /**
+     * Ask a model. The room it has to answer and how hard it thinks come
+     * from core's Agents unless given here; the model and timeout come from
+     * the settings.
+     *
      * @param array<int, array{role: string, content: string}> $history
      * @param Image[] $images
+     * @throws ProviderException when the call fails, or Truncated when the answer is cut off even with more room.
      */
-    public function ask(string $agent, string $instructions, string $prompt, array $history = [], array $images = [], ?int $maxTokens = null, ?string $effort = null): TextResponse
+    public function ask(string $agent, string $instructions, string $prompt, array $history = [], array $images = [], ?int $maxTokens = null, Effort|string|null $effort = null): TextResponse
     {
-        $settings = Plugin::getInstance()->getSettings();
-        $limit = $maxTokens ?? self::MAX_TOKENS[$agent] ?? 16000;
+        $limit = $maxTokens ?? Agents::maxTokens($agent);
 
         $send = fn(int $limit) => Plugin::getInstance()->providers->text()->text(new TextRequest(
             agent: $agent,
@@ -500,21 +495,19 @@ class Studio extends Component
             history: Message::list($history),
             images: $images,
             maxTokens: $limit,
-            model: $settings->model,
-            timeout: $settings->timeout,
-            effort: $effort,
+            effort: $effort ?? Agents::effort($agent),
         ));
 
         $response = $send($limit);
 
         // Stopped at the length limit, not finished: a half-written draft
         // would be taken for a whole one. Ask once more with room to finish.
-        if ($response->truncated && $limit < self::MAX_TOKENS_CEILING) {
+        if ($response->truncated() && $limit < self::MAX_TOKENS_CEILING) {
             $response = $send(min($limit * 2, self::MAX_TOKENS_CEILING));
         }
 
-        if ($response->truncated) {
-            throw new ProviderException('The answer ran past its length limit and was cut off before it finished. Try asking for something shorter.');
+        if ($response->truncated()) {
+            throw new Truncated('The answer ran past its length limit and was cut off before it finished. Try asking for something shorter.', $response->provider);
         }
 
         return $response;

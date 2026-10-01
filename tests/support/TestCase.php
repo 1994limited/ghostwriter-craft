@@ -21,8 +21,8 @@ use craft\web\TemplateResponseBehavior;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
-use nineteenninetyfour\ghostwriter\ai\FakeProvider;
-use nineteenninetyfour\ghostwriter\ai\providers\HttpProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\RecordingSleeper;
 use nineteenninetyfour\ghostwriter\Plugin;
 use RuntimeException;
 
@@ -45,8 +45,8 @@ abstract class TestCase extends CraftTestCase
 
     protected string $workspace;
 
-    /** @var array<int, float> Seconds a retry would have waited. */
-    protected array $waits = [];
+    /** Records how long each retry would have waited. */
+    protected RecordingSleeper $sleeper;
 
     protected function _before(): void
     {
@@ -66,10 +66,7 @@ abstract class TestCase extends CraftTestCase
         $settings->imageProvider = null;
 
         // Retries don't wait in tests; what they would have waited is kept.
-        $this->waits = [];
-        HttpProvider::$sleep = function(float $seconds): void {
-            $this->waits[] = $seconds;
-        };
+        $this->sleeper = new RecordingSleeper();
 
         $this->http = new MockHandler();
         $this->sent = [];
@@ -78,6 +75,7 @@ abstract class TestCase extends CraftTestCase
 
         $providers = $this->plugin->providers;
         $providers->handler = $stack;
+        $providers->sleeper = $this->sleeper;
         $providers->keys = array_fill_keys(array_keys($providers::KEYS), null) + [];
         $providers->keys['anthropic'] = 'test-key';
         $this->fake = $providers->fake();
@@ -96,9 +94,7 @@ abstract class TestCase extends CraftTestCase
      */
     protected function unfake(): void
     {
-        (function () {
-            $this->fake = null;
-        })->call($this->plugin->providers);
+        $this->plugin->providers->unfake();
     }
 
     protected function makeField(string $class, string $handle, array $config = []): FieldInterface

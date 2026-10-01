@@ -21,3 +21,8 @@
 - Requests to providers that are rate limited, overloaded or briefly down are tried again, up to three times.
 - An answer cut off at its length limit is asked for again with more room, and never used half-finished.
 - Work whose job was stopped by a server time limit is shown as failed, so it can be tried again.
+
+### Changed
+- The AI providers, the prompts and draft text handling now come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), the package shared with the Statamic and Filament versions. No change is expected in how Ghostwriter writes or behaves. Prompts to copy for an override are now in `vendor/1994/ghostwriter-core/resources/prompts/`; overrides in `config/ghostwriter/prompts/` keep working.
+- Each queue job is allowed three times the configured timeout plus a minute, to cover a busy provider being tried three times.
+- Model calls (never their prompts, replies or keys) are logged to Craft's log under the `ghostwriter` category.

@@ -49,7 +49,7 @@ Writing a draft or a guide can take a minute or more, which is longer than a web
 
 - **No setup needed.** By default Craft runs its queue from control panel requests, so jobs start as soon as you ask.
 - **With a queue worker.** If your site sets `runQueueAutomatically` to `false` and runs a worker (`php craft queue/listen`, Supervisor, or your host's daemon), the jobs run there instead. Make sure the worker is running, or nothing will happen.
-- **Job time limit.** Each job is allowed the configured timeout (300 seconds by default) plus two minutes.
+- **Job time limit.** Each job is allowed three times the configured timeout plus a minute (960 seconds with the default 300), because a busy or rate-limited provider is tried up to three times.
 
 ## Updating
 
