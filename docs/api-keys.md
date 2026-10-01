@@ -69,10 +69,7 @@ OpenAI may ask you to verify your organisation before its image models can be us
 
 **Using the free tier**
 
-The free tier covers Gemini's Flash models, with daily limits. Ghostwriter's default Gemini model is a Pro model, which is not free. To write for free:
-
-1. Set **Provider** to Gemini.
-2. Set **Model** to a Flash model, for example `gemini-2.5-flash`.
+The free tier covers Gemini's Flash models, with daily limits. Ghostwriter's default Gemini model, `gemini-3.8-flash`, is a Flash model, so to write for free, set **Provider** to Gemini and leave **Model** blank. A Pro model is not on the free tier. Google now limits the older 2.5 models to accounts that have used them before, so choose a 3.x model if you set one.
 
 Two things to know about the free tier:
 

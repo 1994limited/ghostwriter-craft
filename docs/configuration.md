@@ -40,12 +40,12 @@ return [
 | Key | Default | |
 | --- | --- | --- |
 | `provider` | `anthropic` | `anthropic`, `openai` or `gemini` |
-| `model` | provider's default | `claude-opus-5-5`, `gpt-5` or `gemini-2.5-pro` |
+| `model` | provider's default | `claude-opus-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash` |
 | `timeout` | `300` | Seconds to wait for one response (30–1800) |
 | `sections` | `[]` (all) | Section handles to write for |
 | `voiceSections` | `[]` (all) | Section handles read for the voice guide |
 | `imageProvider` | `null` | `openai` or `gemini`; `null` uses whichever has a key |
-| `imageModel` | provider's default | `gpt-image-1` or `gemini-2.5-flash-image` |
+| `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
 | `suggestKindsAutomatically` | `true` | Look for kinds without being asked |
