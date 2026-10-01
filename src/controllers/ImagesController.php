@@ -24,6 +24,9 @@ use yii\web\Response;
  */
 class ImagesController extends Controller
 {
+    /** Pictures that may be uploaded to put in a made image, by MIME type. */
+    private const UPLOAD_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
+
     /**
      * Start a search (mode "find") or a picture (mode "make").
      */
@@ -61,10 +64,15 @@ class ImagesController extends Controller
             $data = $plugin->imageRequests->create($this->owner($slot) + ['mode' => 'make', 'direction' => trim((string) $request->getBodyParam('direction', ''))]);
 
             if ($upload = UploadedFile::getInstanceByName('source')) {
-                $path = $plugin->imageRequests->file($data['id'] . '-source', strtolower($upload->getExtension() ?: 'png'));
-                \craft\helpers\FileHelper::createDirectory(dirname($path));
-                $upload->saveAs($path, false);
-                $data = $plugin->imageRequests->update($data['id'], ['source' => $path]);
+                // Only pictures, by what the file is, not what it is called.
+                $mime = (string) \craft\helpers\FileHelper::getMimeType($upload->tempName, checkExtension: false);
+                $extension = self::UPLOAD_TYPES[$mime] ?? null;
+
+                if ($extension === null) {
+                    return $this->refuse('Add a PNG, JPEG or WebP picture.');
+                }
+
+                $plugin->imageRequests->putFile($data['id'], 'source', (string) file_get_contents($upload->tempName), $mime, $extension);
             }
 
             MakeImage::start(['request' => $data['id']]);
@@ -86,13 +94,13 @@ class ImagesController extends Controller
     public function actionPreview(): Response
     {
         $data = $this->mine((string) $this->request->getRequiredParam('id'));
-        $path = $data['file'] ? Plugin::getInstance()->paths->storage('images/' . basename($data['file'])) : null;
+        $file = $data['file'] ? Plugin::getInstance()->imageRequests->file($data['id'], 'made') : null;
 
-        if (!$path || !is_file($path)) {
+        if ($file === null) {
             throw new NotFoundHttpException();
         }
 
-        return $this->response->sendFile($path, null, ['mimeType' => $data['mime'] ?? 'image/png', 'inline' => true]);
+        return $this->response->sendContentAsFile($file['content'], $data['id'] . '.' . $file['extension'], ['mimeType' => $file['mime'], 'inline' => true]);
     }
 
     /**
@@ -122,13 +130,13 @@ class ImagesController extends Controller
                     'licence' => $photo['licence'],
                 ]);
             } else {
-                $path = $data['file'] ? $plugin->paths->storage('images/' . basename($data['file'])) : null;
+                $file = $data['file'] ? $plugin->imageRequests->file($data['id'], 'made') : null;
 
-                if (!$path || !is_file($path)) {
+                if ($file === null) {
                     return $this->refuse('That picture is no longer here. Make it again.');
                 }
 
-                $asset = $plugin->imagePicker->keep($slot, (string) file_get_contents($path), pathinfo($path, PATHINFO_EXTENSION), [
+                $asset = $plugin->imagePicker->keep($slot, $file['content'], $file['extension'], [
                     'title' => trim((string) ($data['direction'] ?? '')) !== '' ? mb_substr(trim($data['direction']), 0, 80) : $slot->title(),
                 ]);
             }

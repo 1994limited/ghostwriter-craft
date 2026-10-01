@@ -22,7 +22,7 @@ To control how much it reads, see `voiceSections` and the `voiceMax…` settings
 - **Edit** it directly: the editor has **Edit** and **Preview** tabs and a small toolbar for headings, lists, quotes and links. **Save** (or **⌘S**) when done.
 - Or **Ask for a change** in plain words, for example "We never say solutions. Add that.", then **Update the guide**. Ghostwriter rewrites the guide with the change.
 
-The guide is `config/ghostwriter/voice.md`. Commit it with your project so every environment writes the same way.
+The guide is kept in the database. Each environment has its own; to share one, copy it between environments or the database table (see [Configuration](configuration.md#where-things-are-kept)).
 
 ## The image style guide
 
@@ -38,7 +38,7 @@ The number of images looked at per section is the `imageGuideSamples` setting (1
 
 Edit it in the same editor as the voice guide. Keep a `## Section name` heading for each section: that is how Ghostwriter finds the part that applies to an image.
 
-The guide is `config/ghostwriter/imagery.md`.
+It's kept in the database, like the voice guide.
 
 ### Where it is used
 

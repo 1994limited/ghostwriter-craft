@@ -2,7 +2,6 @@
 
 namespace nineteenninetyfour\ghostwriter\planning;
 
-use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\voice\VoiceState;
 
 /**
@@ -11,8 +10,8 @@ use nineteenninetyfour\ghostwriter\voice\VoiceState;
  */
 class PlanState extends VoiceState
 {
-    protected function path(): string
+    protected function name(): string
     {
-        return Plugin::getInstance()->paths->storage('plan.json');
+        return 'plan';
     }
 }

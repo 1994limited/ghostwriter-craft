@@ -53,7 +53,7 @@ The **content plan** reads what each section has and what it lacks, and suggests
 - **No invented facts.** The writer uses only what's in the brief and the conversation: no made-up figures, quotes or client names.
 - **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save.
 - **Nothing sent until you ask.** Content goes to your chosen provider only when someone in the control panel starts something.
-- **Yours to version.** Guides, kinds and prompts are plain files in your project, and every prompt can be overridden. No database tables.
+- **Works on any host.** Everything is kept in the database, so it works on read-only and load-balanced hosts, including Craft Cloud, and survives deploys. Every prompt can be overridden in your project.
 - **One permission:** *Use Ghostwriter*. Writing into an entry still needs Craft's own permission to save it.
 
 ## Requirements

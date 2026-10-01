@@ -46,6 +46,7 @@ use yii\base\Event;
  * @property-read Providers $providers
  * @property-read Studio $studio
  * @property-read Paths $paths
+ * @property-read Store $store
  * @property-read ContentScanner $scanner
  * @property-read ProseExtractor $prose
  * @property-read VoiceGuide $voiceGuide
@@ -68,7 +69,7 @@ class Plugin extends BasePlugin
     /** The one permission Ghostwriter adds. Editing an entry still needs Craft's own. */
     public const PERMISSION = 'ghostwriter:use';
 
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.1.0';
 
     public bool $hasCpSettings = true;
 
@@ -86,6 +87,7 @@ class Plugin extends BasePlugin
                 'providers' => Providers::class,
                 'studio' => Studio::class,
                 'paths' => Paths::class,
+                'store' => Store::class,
                 'scanner' => ContentScanner::class,
                 'prose' => ProseExtractor::class,
                 'voiceGuide' => VoiceGuide::class,

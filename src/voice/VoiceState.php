@@ -7,8 +7,7 @@ use yii\base\Component;
 
 /**
  * Working state for the voice guide screen: whether a scan or refinement is
- * running, the last error, and the refine conversation. Kept in storage
- * rather than in the project, because it is not content.
+ * running, the last error, and the refine conversation.
  */
 class VoiceState extends Component
 {
@@ -23,14 +22,7 @@ class VoiceState extends Component
      */
     public function get(): array
     {
-        $defaults = ['status' => self::IDLE, 'error' => null, 'task' => null, 'messages' => [], 'scanned' => [], 'pending' => []];
-        $path = $this->path();
-
-        if (!is_file($path)) {
-            return $defaults;
-        }
-
-        return array_merge($defaults, (array) json_decode((string) file_get_contents($path), true));
+        return array_merge($this->defaults(), Plugin::getInstance()->store->state($this->name()));
     }
 
     /**
@@ -38,15 +30,14 @@ class VoiceState extends Component
      */
     public function update(array $changes): void
     {
-        Plugin::getInstance()->paths->write($this->path(), (string) json_encode(array_merge($this->get(), $changes), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        Plugin::getInstance()->store->changeState($this->name(), fn(array $state) => array_merge($this->defaults(), $state, $changes));
     }
 
     public function addMessage(string $role, string $content): void
     {
-        $messages = $this->get()['messages'];
-        $messages[] = ['role' => $role, 'content' => $content];
-
-        $this->update(['messages' => $messages]);
+        Plugin::getInstance()->store->changeState($this->name(), fn(array $state) => array_merge($this->defaults(), $state, [
+            'messages' => [...($state['messages'] ?? []), ['role' => $role, 'content' => $content]],
+        ]));
     }
 
     /**
@@ -60,8 +51,16 @@ class VoiceState extends Component
         }
     }
 
-    protected function path(): string
+    protected function name(): string
     {
-        return Plugin::getInstance()->paths->storage('voice.json');
+        return 'voice';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaults(): array
+    {
+        return ['status' => self::IDLE, 'error' => null, 'task' => null, 'messages' => [], 'scanned' => [], 'pending' => []];
     }
 }

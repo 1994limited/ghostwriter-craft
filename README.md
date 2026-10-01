@@ -114,21 +114,11 @@ Settings are on **Settings → Plugins → Ghostwriter**. To set them in code, o
 | `openverse` | `true` | Search Openverse for free photos |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
 | `suggestKindsAutomatically` | `true` | Look for kinds of content without being asked |
-| `guidesPath` | `@config/ghostwriter` | Guides, kinds, plan and prompt overrides |
-| `storagePath` | `@storage/ghostwriter` | Working state |
+| `guidesPath` | `@config/ghostwriter` | Where prompt overrides are read from, under `prompts/` |
 
 ### Where things are kept
 
-| What | Where | Version it? |
-| --- | --- | --- |
-| Voice guide | `config/ghostwriter/voice.md` | Yes |
-| Image style guide | `config/ghostwriter/imagery.md` | Yes |
-| Kinds of content | `config/ghostwriter/types/*.yaml` | Yes |
-| Content plan | `config/ghostwriter/ideas.yaml` | Yes |
-| Prompt overrides | `config/ghostwriter/prompts/*.md` | Yes |
-| Conversations, drafts, job status | `storage/ghostwriter/` | No |
-
-Ghostwriter adds no database tables.
+Everything Ghostwriter writes (guides, kinds, the plan, conversations, working state) is kept in the database, in its own `ghostwriter_` tables. It works the same on every server, on read-only and load-balanced hosts, and survives deploys. The only files it reads from your project are prompt overrides. Updating from an early build imports the files it kept; see [Configuration](docs/configuration.md#updating-from-an-early-build).
 
 ### Prompts
 
@@ -136,7 +126,7 @@ Every prompt is a markdown file in `src/prompts/`. To change one for your projec
 
 ### Kinds of content
 
-A kind is a YAML file, editable by hand or on its screen in the control panel:
+A kind is stored as YAML in the database, and edited on its screen in the control panel:
 
 ```yaml
 title: Studio page

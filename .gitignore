@@ -1,6 +1,7 @@
 vendor/
 tests/_output/
-tests/_craft/storage/
+tests/_craft/storage/*
+!tests/_craft/storage/.gitkeep
 tests/.env
 tests/_support/_generated/
 .phpunit.cache/

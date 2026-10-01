@@ -54,23 +54,28 @@ return [
 | `voiceMaxChars` | `90000` | Characters read in all |
 | `imageGuideSamples` | `10` | Images looked at per section for the image style guide |
 | `planSuggestions` | `8` | Ideas asked for each time the plan looks for gaps |
-| `guidesPath` | `@config/ghostwriter` | Guides, kinds, plan and prompt overrides |
-| `storagePath` | `@storage/ghostwriter` | Working state |
+| `guidesPath` | `@config/ghostwriter` | Where prompt overrides are read from, under `prompts/` |
 
 API keys are never set here. See [API keys](api-keys.md).
 
 ## Where things are kept
 
-| What | Where | Commit it? |
-| --- | --- | --- |
-| Voice guide | `config/ghostwriter/voice.md` | Yes |
-| Image style guide | `config/ghostwriter/imagery.md` | Yes |
-| Kinds of content | `config/ghostwriter/types/*.yaml` | Yes |
-| Content plan | `config/ghostwriter/ideas.yaml` | Yes |
-| Prompt overrides | `config/ghostwriter/prompts/*.md` | Yes |
-| Conversations, drafts, job status, images waiting to be used | `storage/ghostwriter/` | No |
+Everything Ghostwriter writes is kept in the database, in its own tables, so it works the same on every server, on read-only and load-balanced hosts, and survives deploys:
 
-Ghostwriter adds no database tables. The guides, kinds and plan are project files, so they move between environments with your code. If editors change them on production, pull the changes back into your repository.
+| What | Table |
+| --- | --- |
+| Voice guide, image style guide, kinds of content, content plan | `ghostwriter_documents` |
+| Conversations and drafts | `ghostwriter_sessions` |
+| Working state: suggestions, jobs in hand, image searches | `ghostwriter_state` |
+| Images made or uploaded, waiting to be used (cleared after a day) | `ghostwriter_files` |
+
+The only files Ghostwriter reads from your project are [prompt overrides](#overriding-prompts), in `config/ghostwriter/prompts/`. They're code, so commit them.
+
+Guides, kinds and the plan are content, like your entries: they live in each environment's database. To copy them between environments, copy the database tables, as you would for entries.
+
+### Updating from an early build
+
+Early builds kept guides, kinds and the plan as files in `config/ghostwriter/`, and conversations and working state in `storage/ghostwriter/`. Running `php craft migrate/all` (or `php craft up`) after updating imports them into the database. Nothing already in the database is overwritten. The old files are left where they are: check the import, then delete them, keeping `config/ghostwriter/prompts/` if you have one.
 
 ## Overriding prompts
 

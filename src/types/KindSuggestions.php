@@ -10,7 +10,7 @@ use yii\base\Component;
 
 /**
  * Kinds of content Ghostwriter has suggested for each section, waiting for a
- * person to say which are worth learning. Working state, kept in storage.
+ * person to say which are worth learning. Working state.
  *
  * A section is checked when someone asks, and by itself (when the setting is
  * on) the first time it is seen and again once enough has been published
@@ -44,10 +44,13 @@ class KindSuggestions extends Component
      */
     public function update(string $section, array $changes): void
     {
-        $all = $this->all();
-        $all[$section] = array_merge($this->get($section), $changes);
-
-        Plugin::getInstance()->paths->write($this->path(), (string) json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        Plugin::getInstance()->store->changeState('kinds', fn(array $all) => array_merge($all, [
+            $section => array_merge(
+                ['status' => self::IDLE, 'error' => null, 'checkedAt' => null, 'entries' => 0, 'suggestions' => [], 'dismissed' => []],
+                $all[$section] ?? [],
+                $changes,
+            ),
+        ]));
     }
 
     /**
@@ -119,11 +122,6 @@ class KindSuggestions extends Component
      */
     private function all(): array
     {
-        return is_file($this->path()) ? (array) json_decode((string) file_get_contents($this->path()), true) : [];
-    }
-
-    private function path(): string
-    {
-        return Plugin::getInstance()->paths->storage('kinds.json');
+        return Plugin::getInstance()->store->state('kinds');
     }
 }

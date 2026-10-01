@@ -49,7 +49,7 @@ class WritingTest extends TestCase
         $this->assertSame('articles', $type->section);
         $this->assertSame(['what', 'avoid'], array_column($type->questions, 'handle'));
         $this->assertSame(TypeState::IDLE, $this->plugin->typeState->get('articles')['status']);
-        $this->assertFileExists($this->workspace . '/guides/types/project-article.yaml');
+        $this->assertStringContainsString('section: articles', (string) $this->plugin->store->document('type', 'project-article'));
 
         // The analyst was shown the fields, the pattern and a real entry.
         $prompt = $this->fake->prompted('type-analyst')[0]->prompt;
@@ -394,7 +394,7 @@ class WritingTest extends TestCase
         $this->makeNewsArticle('Award', ['Our founder received an award.']);
 
         $target = $this->newDraft($this->news);
-        $session = Session::start(ContentType::GENERIC . 'news', ['subject' => 'A new collection.']);
+        $session = Session::start(ContentType::GENERIC . 'news', ['subject' => 'A new collection.'], Craft::$app->getUser()->getId());
         $session->elementId = $target->id;
         $session->draft = "title: Fresh News\nnewsBuilder:\n  - type: assetSingle\n  - type: textWithAsset\n    children:\n      - type: text\n        richText: |\n          ### Fresh\n\n          We have news.\n  - type: spacer";
         $this->plugin->sessions->save($session);
@@ -459,9 +459,10 @@ class WritingTest extends TestCase
         $this->saveType();
         $this->signIn(admin: true);
         $target = $this->newDraft($this->articles);
-        $session = $this->sessionWithDraft(self::DRAFT, $target);
 
+        // Their own piece, for an entry they may not save.
         $this->signIn();
+        $session = $this->sessionWithDraft(self::DRAFT, $target);
 
         $this->assertSame(403, $this->action('ghostwriter/sessions/apply', ['id' => $session->id, 'elementId' => $target->id])['status']);
         $this->assertSame(404, $this->action('ghostwriter/sessions/apply', ['id' => $session->id, 'elementId' => $this->entry('One')->id + 9999])['status']);
@@ -565,7 +566,7 @@ class WritingTest extends TestCase
     {
         $type = $this->plugin->types->find('project');
 
-        $session = Session::start('project', ['what' => 'A faceted search.']);
+        $session = Session::start('project', ['what' => 'A faceted search.'], Craft::$app->getUser()->getId());
         $session->addMessage('user', $this->plugin->studio->brief($type, $session));
         $session->status = Session::WORKING;
 

@@ -56,7 +56,7 @@ class OnboardingTest extends TestCase
         $this->assertSame('1 suggestion is waiting on the dashboard.', $steps['kinds']['detail']);
 
         $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
-        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', []));
+        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
 
         $steps = $this->steps();
         $this->assertTrue($steps['kinds']['done']);
@@ -67,7 +67,7 @@ class OnboardingTest extends TestCase
         $this->assertTrue($this->plugin->onboarding->progress()['complete']);
 
         // Undo a step and it shows as undone again.
-        unlink($this->plugin->voiceGuide->path());
+        $this->plugin->store->deleteDocument('guide', 'voice');
         $this->assertFalse($this->plugin->onboarding->progress()['complete']);
     }
 

@@ -100,7 +100,7 @@ class ImageryTest extends TestCase
         $this->signIn(admin: true);
 
         $target = $this->newDraft($this->stories);
-        $session = \nineteenninetyfour\ghostwriter\sessions\Session::start(\nineteenninetyfour\ghostwriter\types\ContentType::GENERIC . 'stories', []);
+        $session = \nineteenninetyfour\ghostwriter\sessions\Session::start(\nineteenninetyfour\ghostwriter\types\ContentType::GENERIC . 'stories', [], \Craft::$app->getUser()->getId());
         $session->elementId = $target->id;
         $session->draft = "title: A New Story\nstoryBuilder:\n  - type: banner\n    heading: Hello\n  - type: footnote\n    note: With thanks.\n  - type: banner\n    heading: Again";
         $this->plugin->sessions->save($session);
@@ -142,7 +142,7 @@ class ImageryTest extends TestCase
         $this->plugin->getSettings()->placeholderImages = false;
 
         $target = $this->newDraft($this->stories);
-        $session = \nineteenninetyfour\ghostwriter\sessions\Session::start(\nineteenninetyfour\ghostwriter\types\ContentType::GENERIC . 'stories', []);
+        $session = \nineteenninetyfour\ghostwriter\sessions\Session::start(\nineteenninetyfour\ghostwriter\types\ContentType::GENERIC . 'stories', [], \Craft::$app->getUser()->getId());
         $session->elementId = $target->id;
         $session->draft = "title: A New Story";
         $this->plugin->sessions->save($session);

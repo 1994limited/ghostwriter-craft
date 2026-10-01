@@ -26,6 +26,6 @@ Each provider's own terms decide how they handle what you send. In particular, o
 
 ## What is kept, and where
 
-- Conversations and drafts are JSON files in `storage/ghostwriter/sessions/`. Remove a piece from the dashboard to delete its conversation.
-- Images made but not yet used are kept in `storage/ghostwriter/images/` for a day.
-- Guides, kinds and the plan are files in `config/ghostwriter/`.
+- Conversations and drafts are kept in the `ghostwriter_sessions` table. Each belongs to the person who started it; nobody else can see or open it. Remove a piece from the dashboard to delete its conversation.
+- Images made or uploaded but not yet used are kept in the `ghostwriter_files` table for a day.
+- Guides, kinds and the plan are kept in the `ghostwriter_documents` table.

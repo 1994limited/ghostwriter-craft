@@ -3,16 +3,15 @@
 namespace nineteenninetyfour\ghostwriter\types;
 
 use Craft;
-use craft\helpers\FileHelper;
 use craft\models\Section;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Symfony\Component\Yaml\Yaml;
 use yii\base\Component;
 
 /**
- * Content types are YAML files in the project, one per kind of content, so
- * they are versioned with the site and can be edited by hand. They are
- * created by studying a section and are the project's to change after.
+ * Kinds of content, kept as YAML in the database, one per kind. They are
+ * created by studying a section and are the site's to change after, on
+ * their screen in the control panel.
  */
 class TypeRepository extends Component
 {
@@ -21,17 +20,10 @@ class TypeRepository extends Component
      */
     public function all(): array
     {
-        $directory = $this->directory();
-
-        if (!is_dir($directory)) {
-            return [];
-        }
-
         $types = [];
 
-        foreach (glob($directory . '/*.yaml') ?: [] as $file) {
-            $handle = basename($file, '.yaml');
-            $types[$handle] = ContentType::fromArray($handle, (array) Yaml::parse((string) file_get_contents($file)));
+        foreach (Plugin::getInstance()->store->documents('type') as $handle => $yaml) {
+            $types[$handle] = ContentType::fromArray($handle, (array) Yaml::parse($yaml));
         }
 
         uasort($types, fn(ContentType $a, ContentType $b) => strcmp($a->title, $b->title));
@@ -82,14 +74,14 @@ class TypeRepository extends Component
 
     public function save(ContentType $type): ContentType
     {
-        Plugin::getInstance()->paths->write($this->directory() . '/' . $type->handle . '.yaml', Yaml::dump($type->toArray(), 6, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+        Plugin::getInstance()->store->putDocument('type', $type->handle, Yaml::dump($type->toArray(), 6, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
 
         return $type;
     }
 
     public function delete(ContentType $type): void
     {
-        FileHelper::unlink($this->directory() . '/' . $type->handle . '.yaml');
+        Plugin::getInstance()->store->deleteDocument('type', $type->handle);
     }
 
     /**
@@ -135,8 +127,4 @@ class TypeRepository extends Component
         return $handle;
     }
 
-    private function directory(): string
-    {
-        return Plugin::getInstance()->paths->guides('types');
-    }
 }

@@ -16,3 +16,5 @@
 - Get started, a step-by-step setup guide, which can be hidden and brought back.
 - A Ghostwriter widget for Craft's dashboard.
 - Claude, ChatGPT and Gemini, with keys read from the environment and never stored.
+- Everything kept in the database, so it works on read-only and load-balanced hosts; early builds' files are imported on update.
+- Each conversation is private to the person who started it.

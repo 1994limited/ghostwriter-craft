@@ -43,7 +43,7 @@ Click a kind on the dashboard to open it. You can change:
 
 ## Where kinds are kept
 
-Each kind is a YAML file in `config/ghostwriter/types/`, so it can be versioned with your project and edited by hand:
+Kinds are kept in the database and edited on their screen. Each is stored as YAML, like this:
 
 ```yaml
 title: Studio page

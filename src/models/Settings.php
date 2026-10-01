@@ -81,13 +81,16 @@ class Settings extends Model
     public int $planSuggestions = 8;
 
     /**
-     * Where the guides, content types, plan and any overridden prompts are
-     * kept. They are the project's to version, so they sit in its config
-     * folder by default.
+     * Where overridden prompts are read from, under prompts/. Guides, kinds
+     * and the plan are kept in the database; early builds kept them here, and
+     * they are imported from here when updating.
      */
     public string $guidesPath = '@config/ghostwriter';
 
-    /** Where working state (sessions, job status) is kept. Not content; not versioned. */
+    /**
+     * No longer used: early builds kept working state here. Read only when
+     * updating, to import it, and kept so older config still loads.
+     */
     public string $storagePath = '@storage/ghostwriter';
 
     /**

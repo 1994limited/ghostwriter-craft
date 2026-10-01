@@ -88,8 +88,9 @@ class PlanTest extends TestCase
         $this->assertSame(['articles'], $job->sections);
         $this->assertSame('Ecommerce.', $job->steer);
 
-        // The plan is a file in the project, versioned with the site.
-        $this->assertFileExists($this->workspace . '/guides/ideas.yaml');
+        // The plan is kept in the database, one row per idea.
+        $this->assertCount(count($this->plugin->ideas->all()), $this->plugin->store->documents('idea'));
+        $this->assertFileDoesNotExist($this->workspace . '/guides/ideas.yaml');
     }
 
     public function testTheListCanBeClearedWithoutTouchingStartedPieces(): void

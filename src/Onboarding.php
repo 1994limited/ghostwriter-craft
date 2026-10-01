@@ -218,14 +218,12 @@ class Onboarding extends Component
 
     public function hidden(): bool
     {
-        $path = Plugin::getInstance()->paths->storage('onboarding.json');
-
-        return is_file($path) && (bool) (json_decode((string) file_get_contents($path), true)['hidden'] ?? false);
+        return (bool) (Plugin::getInstance()->store->state('onboarding')['hidden'] ?? false);
     }
 
     public function hide(bool $hidden = true): void
     {
-        Plugin::getInstance()->paths->write(Plugin::getInstance()->paths->storage('onboarding.json'), (string) json_encode(['hidden' => $hidden]));
+        Plugin::getInstance()->store->putState('onboarding', ['hidden' => $hidden]);
     }
 
     private function providerName(string $provider): string

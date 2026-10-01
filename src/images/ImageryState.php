@@ -2,7 +2,6 @@
 
 namespace nineteenninetyfour\ghostwriter\images;
 
-use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\voice\VoiceState;
 
 /**
@@ -10,8 +9,8 @@ use nineteenninetyfour\ghostwriter\voice\VoiceState;
  */
 class ImageryState extends VoiceState
 {
-    protected function path(): string
+    protected function name(): string
     {
-        return Plugin::getInstance()->paths->storage('imagery.json');
+        return 'imagery';
     }
 }

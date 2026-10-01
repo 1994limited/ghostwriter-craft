@@ -7,26 +7,13 @@ use craft\helpers\FileHelper;
 use yii\base\Component;
 
 /**
- * Where Ghostwriter keeps things on disk. Two places, for two kinds of file:
- *
- *   guides    voice.md, imagery.md, types/*.yaml, ideas.yaml and any
- *             overridden prompts. Content the project versions.
- *   storage   sessions and the status of jobs in flight. Working state.
- *
- * No database tables are needed.
+ * Prompts, and where a project can override them. Everything Ghostwriter
+ * writes is kept in the database (see Store); the only files it reads from
+ * the project are prompt overrides, in config/ghostwriter/prompts/ by
+ * default, which are code and are versioned with it.
  */
 class Paths extends Component
 {
-    public function guides(string $file = ''): string
-    {
-        return $this->join(Plugin::getInstance()->getSettings()->guidesPath, $file);
-    }
-
-    public function storage(string $file = ''): string
-    {
-        return $this->join(Plugin::getInstance()->getSettings()->storagePath, $file);
-    }
-
     /**
      * A prompt's text. A project can override any prompt by putting its own
      * copy in the guides folder under prompts/.
@@ -39,18 +26,9 @@ class Paths extends Component
         return trim((string) file_get_contents($file));
     }
 
-    /**
-     * Write a file, creating its folder first.
-     */
-    public function write(string $path, string $contents): void
+    public function guides(string $file = ''): string
     {
-        FileHelper::createDirectory(dirname($path));
-        FileHelper::writeToFile($path, $contents);
-    }
-
-    private function join(string $base, string $file): string
-    {
-        $base = rtrim(FileHelper::normalizePath(Craft::getAlias($base)), '/');
+        $base = rtrim(FileHelper::normalizePath(Craft::getAlias(Plugin::getInstance()->getSettings()->guidesPath)), '/');
 
         return $file === '' ? $base : $base . '/' . ltrim($file, '/');
     }

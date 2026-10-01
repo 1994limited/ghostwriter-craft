@@ -26,10 +26,7 @@ class TypeState extends Component
 
     public function set(string $section, string $status, ?string $error = null): void
     {
-        $all = $this->all();
-        $all[$section] = ['status' => $status, 'error' => $error];
-
-        Plugin::getInstance()->paths->write($this->path(), (string) json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        Plugin::getInstance()->store->changeState('types', fn(array $all) => array_merge($all, [$section => ['status' => $status, 'error' => $error]]));
     }
 
     /**
@@ -37,11 +34,6 @@ class TypeState extends Component
      */
     private function all(): array
     {
-        return is_file($this->path()) ? (array) json_decode((string) file_get_contents($this->path()), true) : [];
-    }
-
-    private function path(): string
-    {
-        return Plugin::getInstance()->paths->storage('types.json');
+        return Plugin::getInstance()->store->state('types');
     }
 }

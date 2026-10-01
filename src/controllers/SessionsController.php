@@ -376,7 +376,7 @@ class SessionsController extends Controller
         $id = (int) $entry->getCanonicalId();
         $section = $entry->getSection();
 
-        foreach ($plugin->sessions->all() as $session) {
+        foreach ($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()) as $session) {
             if (($session->source === $id || $session->elementId === $id) && $plugin->types->find($session->type)) {
                 return $session;
             }
@@ -421,9 +421,18 @@ class SessionsController extends Controller
         return $type;
     }
 
+    /**
+     * The piece named in the request, if it is the signed-in person's own.
+     * Anyone else's is treated as not there at all.
+     */
     private function session(): Session
     {
-        return Plugin::getInstance()->sessions->find((string) $this->request->getParam('id'))
-            ?? throw new NotFoundHttpException('No such piece of writing.');
+        $session = Plugin::getInstance()->sessions->find((string) $this->request->getParam('id'));
+
+        if ($session === null || $session->userId === null || $session->userId !== (int) Craft::$app->getUser()->getId()) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        return $session;
     }
 }

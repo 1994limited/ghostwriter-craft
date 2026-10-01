@@ -41,10 +41,8 @@ return [
         // Look for kinds of content in each section without being asked.
         // 'suggestKindsAutomatically' => true,
 
-        // Where the guides, content types, plan and prompt overrides are kept.
+        // Where prompt overrides are read from (under prompts/). Guides,
+        // kinds, the plan and conversations are kept in the database.
         // 'guidesPath' => '@config/ghostwriter',
-
-        // Where working state (conversations, job status) is kept.
-        // 'storagePath' => '@storage/ghostwriter',
     ],
 ];

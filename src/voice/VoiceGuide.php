@@ -7,35 +7,34 @@ use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
 /**
- * The site's tone of voice guide: one markdown file in the project, read into
- * every writing prompt and edited either by hand or through the refine chat.
+ * The site's tone of voice guide: markdown, read into every writing prompt
+ * and edited either by hand or through the refine chat. Kept in the
+ * database, so it is the same on every server and survives deploys.
  */
 class VoiceGuide extends Component
 {
-    public function path(): string
+    public function handle(): string
     {
-        return Plugin::getInstance()->paths->guides('voice.md');
+        return 'voice';
     }
 
     public function exists(): bool
     {
-        return is_file($this->path()) && trim((string) file_get_contents($this->path())) !== '';
+        return trim($this->get()) !== '';
     }
 
     public function get(): string
     {
-        return $this->exists() ? (string) file_get_contents($this->path()) : '';
+        return (string) Plugin::getInstance()->store->document('guide', $this->handle());
     }
 
     public function save(string $markdown): void
     {
-        Plugin::getInstance()->paths->write($this->path(), rtrim($markdown) . "\n");
+        Plugin::getInstance()->store->putDocument('guide', $this->handle(), rtrim($markdown) . "\n");
     }
 
     public function updatedAt(): ?DateTime
     {
-        clearstatcache(true, $this->path());
-
-        return $this->exists() ? (new DateTime())->setTimestamp((int) filemtime($this->path())) : null;
+        return $this->exists() ? Plugin::getInstance()->store->documentUpdatedAt('guide', $this->handle()) : null;
     }
 }

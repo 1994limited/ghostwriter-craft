@@ -73,7 +73,7 @@ class Launcher
      */
     private static function currentSession(int $elementId): ?string
     {
-        foreach (Plugin::getInstance()->sessions->all() as $session) {
+        foreach (Plugin::getInstance()->sessions->forUser((int) \Craft::$app->getUser()->getId()) as $session) {
             if ($session->elementId === $elementId && $session->source === null) {
                 return $session->id;
             }

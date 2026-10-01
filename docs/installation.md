@@ -67,6 +67,6 @@ php craft plugin/uninstall ghostwriter
 composer remove 1994/ghostwriter-craft
 ```
 
-Ghostwriter adds no database tables. Its guides and kinds of content stay in `config/ghostwriter/`, and its working files in `storage/ghostwriter/`, until you delete them. Assets it saved (photos, made images, logo cards, the striped placeholder) stay in your volumes.
+Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan and conversations. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, logo cards, the striped placeholder) stay in your volumes.
 
 Next: [API keys](api-keys.md).

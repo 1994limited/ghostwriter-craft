@@ -2,14 +2,14 @@
 
 namespace nineteenninetyfour\ghostwriter\images;
 
-use craft\helpers\FileHelper;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
 /**
- * One search or picture being made from an image field's button, kept as a
- * JSON file while the queue works on it, with the made picture beside it.
- * They are working state, not content: a day later they are cleared away.
+ * One search or picture being made from an image field's button, kept while
+ * the queue works on it, with the made picture (and any picture uploaded to
+ * put in it) stored beside it. They are working state, not content: a day
+ * later they are cleared away.
  */
 class ImageRequests extends Component
 {
@@ -45,13 +45,13 @@ class ImageRequests extends Component
      */
     public function find(string $id): ?array
     {
-        if (!preg_match('/^[0-9a-f]{26}$/', $id) || !is_file($this->path($id))) {
+        if (!preg_match('/^[0-9a-f]{26}$/', $id)) {
             return null;
         }
 
-        $data = json_decode((string) file_get_contents($this->path($id)), true);
+        $data = Plugin::getInstance()->store->state("image:{$id}");
 
-        return is_array($data) ? $data : null;
+        return $data === [] ? null : $data;
     }
 
     /**
@@ -60,7 +60,7 @@ class ImageRequests extends Component
      */
     public function save(array $data): array
     {
-        Plugin::getInstance()->paths->write($this->path($data['id']), (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        Plugin::getInstance()->store->putState("image:{$data['id']}", $data);
 
         return $data;
     }
@@ -71,35 +71,39 @@ class ImageRequests extends Component
      */
     public function update(string $id, array $changes): ?array
     {
-        $data = $this->find($id);
+        if ($this->find($id) === null) {
+            return null;
+        }
 
-        return $data ? $this->save(array_merge($data, $changes)) : null;
+        return Plugin::getInstance()->store->changeState("image:{$id}", fn(array $data) => array_merge($data, $changes));
     }
 
     /**
-     * Where a made picture for this request is kept.
+     * Keep a picture for a request: the one made (`made`) or the one
+     * uploaded to put in it (`source`).
      */
-    public function file(string $id, string $extension): string
+    public function putFile(string $id, string $which, string $content, string $mime, string $extension): void
     {
-        return $this->directory() . '/' . $id . '.' . $extension;
+        Plugin::getInstance()->store->putFile("{$id}-{$which}", $content, $mime, $extension);
+    }
+
+    /**
+     * @return array{content: string, mime: string, extension: string}|null
+     */
+    public function file(string $id, string $which): ?array
+    {
+        return Plugin::getInstance()->store->file("{$id}-{$which}");
+    }
+
+    public function deleteFile(string $id, string $which): void
+    {
+        Plugin::getInstance()->store->deleteFile("{$id}-{$which}");
     }
 
     private function clearOld(): void
     {
-        foreach (glob($this->directory() . '/*') ?: [] as $path) {
-            if (is_file($path) && filemtime($path) < time() - self::KEEP_FOR) {
-                FileHelper::unlink($path);
-            }
-        }
-    }
-
-    private function directory(): string
-    {
-        return Plugin::getInstance()->paths->storage('images');
-    }
-
-    private function path(string $id): string
-    {
-        return $this->directory() . '/' . $id . '.json';
+        $store = Plugin::getInstance()->store;
+        $store->clearStateOlderThan('image:', self::KEEP_FOR);
+        $store->clearFilesOlderThan(self::KEEP_FOR);
     }
 }

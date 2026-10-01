@@ -20,7 +20,7 @@ Ghostwriter learns how your site writes, then drafts and edits entries in that v
 
 ## Reference
 
-- [Configuration](configuration.md): settings, `config/ghostwriter.php`, where files are kept, prompt overrides.
+- [Configuration](configuration.md): settings, `config/ghostwriter.php`, where things are kept, updating from an early build, prompt overrides.
 - [How Ghostwriter reads your fields](fields.md): field types, page builders and house style.
 - [Privacy and data](privacy.md): what is sent where, and when.
 - [Troubleshooting](troubleshooting.md): common problems and fixes.

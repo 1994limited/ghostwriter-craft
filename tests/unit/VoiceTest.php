@@ -76,7 +76,8 @@ class VoiceTest extends TestCase
         $this->assertStringContainsString('We, to you.', $this->plugin->voiceGuide->get());
         $this->assertSame(VoiceState::IDLE, $this->plugin->voiceState->get()['status']);
         $this->assertCount(2, $this->plugin->voiceState->get()['scanned']);
-        $this->assertFileExists($this->workspace . '/guides/voice.md');
+        $this->assertStringContainsString('We, to you.', (string) $this->plugin->store->document('guide', 'voice'));
+        $this->assertFileDoesNotExist($this->workspace . '/guides/voice.md');
 
         $prompt = $this->fake->prompted('voice-analyst')[0];
         $this->assertStringContainsString('Those high end sales? Vanished.', $prompt->prompt);

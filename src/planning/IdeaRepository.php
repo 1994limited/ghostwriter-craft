@@ -2,16 +2,15 @@
 
 namespace nineteenninetyfour\ghostwriter\planning;
 
+use craft\helpers\Json;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\sessions\Session;
-use Symfony\Component\Yaml\Yaml;
 use yii\base\Component;
 
 /**
  * The content plan: ideas for things the site does not have yet. Some are
- * suggested by Ghostwriter from what is missing, some added by hand. It is
- * one YAML file in the project, so the plan is versioned with the site and
- * can be edited there too.
+ * suggested by Ghostwriter from what is missing, some added by hand. Each
+ * idea is a row in the database.
  */
 class IdeaRepository extends Component
 {
@@ -26,19 +25,17 @@ class IdeaRepository extends Component
      */
     public function all(): array
     {
-        if (!is_file($this->path())) {
-            return [];
-        }
-
         $ideas = [];
 
-        foreach ((array) ((array) Yaml::parse((string) file_get_contents($this->path())))['ideas'] ?? [] as $idea) {
+        foreach (Plugin::getInstance()->store->documents('idea') as $id => $json) {
+            $idea = Json::decodeIfJson($json);
+
             if (!is_array($idea) || empty($idea['title']) || empty($idea['section'])) {
                 continue;
             }
 
-            $idea += ['id' => bin2hex(random_bytes(8)), 'type' => null, 'why' => '', 'notes' => '', 'status' => self::OPEN, 'source' => 'added', 'session' => null, 'createdAt' => date('Y-m-d')];
-            $ideas[(string) $idea['id']] = $idea;
+            $idea = ['id' => (string) $id] + $idea + ['type' => null, 'why' => '', 'notes' => '', 'status' => self::OPEN, 'source' => 'added', 'session' => null, 'createdAt' => date('Y-m-d')];
+            $ideas[(string) $id] = $idea;
         }
 
         return $ideas;
@@ -71,9 +68,7 @@ class IdeaRepository extends Component
             'createdAt' => substr(Session::now(), 0, 10),
         ];
 
-        $ideas = $this->all();
-        $ideas[$idea['id']] = $idea;
-        $this->write($ideas);
+        $this->put($idea);
 
         return $idea;
     }
@@ -84,16 +79,18 @@ class IdeaRepository extends Component
      */
     public function update(string $id, array $changes): ?array
     {
-        $ideas = $this->all();
+        return Plugin::getInstance()->store->locked("idea:{$id}", function() use ($id, $changes) {
+            $idea = $this->find($id);
 
-        if (!isset($ideas[$id])) {
-            return null;
-        }
+            if ($idea === null) {
+                return null;
+            }
 
-        $ideas[$id] = array_merge($ideas[$id], array_intersect_key($changes, array_flip(['title', 'section', 'type', 'why', 'notes', 'status', 'session'])));
-        $this->write($ideas);
+            $idea = array_merge($idea, array_intersect_key($changes, array_flip(['title', 'section', 'type', 'why', 'notes', 'status', 'session'])));
+            $this->put($idea);
 
-        return $ideas[$id];
+            return $idea;
+        });
     }
 
     /**
@@ -103,31 +100,25 @@ class IdeaRepository extends Component
      */
     public function clear(string $status): int
     {
-        $ideas = $this->all();
-        $keep = array_filter($ideas, fn(array $idea) => $idea['status'] !== $status);
+        $gone = array_filter($this->all(), fn(array $idea) => $idea['status'] === $status);
 
-        $this->write($keep);
+        foreach ($gone as $id => $idea) {
+            $this->delete((string) $id);
+        }
 
-        return count($ideas) - count($keep);
+        return count($gone);
     }
 
     public function delete(string $id): void
     {
-        $ideas = $this->all();
-        unset($ideas[$id]);
-        $this->write($ideas);
+        Plugin::getInstance()->store->deleteDocument('idea', $id);
     }
 
     /**
-     * @param array<string, array<string, mixed>> $ideas
+     * @param array<string, mixed> $idea
      */
-    private function write(array $ideas): void
+    private function put(array $idea): void
     {
-        Plugin::getInstance()->paths->write($this->path(), Yaml::dump(['ideas' => array_values($ideas)], 4, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
-    }
-
-    private function path(): string
-    {
-        return Plugin::getInstance()->paths->guides('ideas.yaml');
+        Plugin::getInstance()->store->putDocument('idea', (string) $idea['id'], Json::encode($idea));
     }
 }

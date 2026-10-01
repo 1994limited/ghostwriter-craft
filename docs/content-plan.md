@@ -25,4 +25,4 @@ Under **Add your own**, give a working title, choose the section, and add notes 
 
 ## Where the plan is kept
 
-The plan is `config/ghostwriter/ideas.yaml`, so it can be versioned and shared across environments.
+The plan is kept in the database, one row per idea, with each environment's own plan.

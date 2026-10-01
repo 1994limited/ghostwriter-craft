@@ -2,13 +2,16 @@
 
 namespace nineteenninetyfour\ghostwriter\sessions;
 
-use craft\helpers\FileHelper;
+use craft\db\Query;
+use craft\helpers\Db;
+use craft\helpers\Json;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\Store;
 use yii\base\Component;
 
 /**
- * Sessions are stored one JSON file each, so the plugin needs no tables of
- * its own and a session can be read, or thrown away, by hand.
+ * Sessions, one row each, with the whole session as JSON beside the columns
+ * it is looked up by.
  */
 class SessionRepository extends Component
 {
@@ -17,11 +20,17 @@ class SessionRepository extends Component
      */
     public function all(): array
     {
-        $sessions = array_filter(array_map(fn(string $path) => $this->read($path), glob($this->directory() . '/*.json') ?: []));
+        return $this->rows((new Query())->from(Store::SESSIONS));
+    }
 
-        usort($sessions, fn(Session $a, Session $b) => strcmp((string) $b->updatedAt, (string) $a->updatedAt));
-
-        return $sessions;
+    /**
+     * Someone's own sessions, newest first.
+     *
+     * @return Session[]
+     */
+    public function forUser(?int $userId): array
+    {
+        return $userId === null ? [] : $this->rows((new Query())->from(Store::SESSIONS)->where(['userId' => $userId]));
     }
 
     public function find(string $id): ?Session
@@ -31,41 +40,66 @@ class SessionRepository extends Component
             return null;
         }
 
-        return $this->read($this->path($id));
+        $data = (new Query())->select('data')->from(Store::SESSIONS)->where(['id' => $id])->scalar();
+
+        return $data === false ? null : $this->session((string) $data);
     }
 
     public function save(Session $session): Session
     {
         $session->updatedAt = Session::now();
 
-        Plugin::getInstance()->paths->write($this->path($session->id), (string) json_encode($session->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        Db::upsert(Store::SESSIONS, [
+            'id' => $session->id,
+            'userId' => $session->userId,
+            'elementId' => $session->elementId,
+            'data' => Json::encode($session->toArray()),
+        ]);
 
         return $session;
     }
 
     public function delete(Session $session): void
     {
-        FileHelper::unlink($this->path($session->id));
+        Db::delete(Store::SESSIONS, ['id' => $session->id]);
     }
 
-    private function read(string $path): ?Session
+    /**
+     * Change a session with nobody else changing it in between: the job
+     * writing a reply and a request from the panel can overlap.
+     *
+     * @param callable(Session): void $change
+     */
+    public function change(string $id, callable $change): ?Session
     {
-        if (!is_file($path)) {
-            return null;
-        }
+        return Plugin::getInstance()->store->locked("session:{$id}", function() use ($id, $change) {
+            $session = $this->find($id);
 
-        $data = json_decode((string) file_get_contents($path), true);
+            if ($session === null) {
+                return null;
+            }
+
+            $change($session);
+
+            return $this->save($session);
+        });
+    }
+
+    /**
+     * @return Session[]
+     */
+    private function rows(Query $query): array
+    {
+        return array_values(array_filter(array_map(
+            fn($data) => $this->session((string) $data),
+            $query->select('data')->orderBy(['dateUpdated' => SORT_DESC, 'id' => SORT_DESC])->column(),
+        )));
+    }
+
+    private function session(string $json): ?Session
+    {
+        $data = Json::decodeIfJson($json);
 
         return is_array($data) && isset($data['id'], $data['type']) ? Session::fromArray($data) : null;
-    }
-
-    private function directory(): string
-    {
-        return Plugin::getInstance()->paths->storage('sessions');
-    }
-
-    private function path(string $id): string
-    {
-        return $this->directory() . '/' . $id . '.json';
     }
 }

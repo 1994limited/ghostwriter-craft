@@ -77,7 +77,7 @@ class PluginTest extends TestCase
     {
         $this->assertStringStartsWith('You are an editor who writes house style guides.', $this->plugin->paths->prompt('voice-analyst'));
 
-        $this->plugin->paths->write($this->plugin->paths->guides('prompts/voice-analyst.md'), "Our own instructions.\n");
+        \craft\helpers\FileHelper::writeToFile($this->plugin->paths->guides('prompts/voice-analyst.md'), "Our own instructions.\n");
 
         $this->assertSame('Our own instructions.', $this->plugin->paths->prompt('voice-analyst'));
     }
