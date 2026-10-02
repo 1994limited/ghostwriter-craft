@@ -9,7 +9,7 @@ Every section can be written for straight away, with a general brief. A **kind**
 
 ## Suggested kinds
 
-Ghostwriter looks at a section's entries and suggests the kinds of content in it, with a line on why each one is worth teaching.
+Ghostwriter looks at a section's entries and suggests the kinds of content in it. Each suggestion has a line on why it is worth teaching, and the titles of up to three entries it was seen in.
 
 - It looks **by itself** the first time a section appears on the dashboard, and again once ten or more entries have been published there since. Each look is one model call. Turn this off with **Suggest kinds of content automatically** in the settings.
 - **Suggest kinds** in a section's **Kinds** menu on the dashboard asks again now. **Suggest kinds everywhere** does every section.

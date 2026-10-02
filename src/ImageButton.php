@@ -43,17 +43,26 @@ class ImageButton
         }
 
         $plugin = Plugin::getInstance();
+        $tools = [
+            'canFind' => $plugin->imagePicker->canFind(),
+            'canMake' => $plugin->imagePicker->canMake(),
+            'canLogo' => LogoCard::available(),
+        ];
+
+        // No photo source, no image model and no Imagick: there is nothing
+        // the button could do, so there is no button.
+        if (!in_array(true, $tools, true)) {
+            return '';
+        }
+
         $view = Craft::$app->getView();
         $view->registerAssetBundle(GhostwriterAsset::class);
 
-        $config = [
+        $config = $tools + [
             'fieldId' => (int) $field->id,
             'elementId' => (int) $element->id,
             'siteId' => (int) $element->siteId,
             'label' => $slot->label(),
-            'canFind' => $plugin->imagePicker->canFind(),
-            'canMake' => $plugin->imagePicker->canMake(),
-            'canLogo' => LogoCard::available(),
             'icon' => (string) file_get_contents(__DIR__ . '/mark.svg'),
         ];
 

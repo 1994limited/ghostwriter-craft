@@ -19,7 +19,7 @@ Under **Add your own**, give a working title, choose the section, and add notes 
 
 ## Writing from an idea
 
-**Draft this** opens a new entry in that section with Ghostwriter open, and the brief filled in from the idea. The idea is marked as drafted.
+**Draft this** opens a new entry in that section with Ghostwriter open, and the brief filled in from the idea. The idea moves to **In progress** once you start writing it, not when the entry opens.
 
 **Not this one** dismisses an idea. Dismissed ideas can be put back. **Hide finished and dismissed** tidies the list; **Delete all dismissed** and **Clear the list** remove them for good.
 

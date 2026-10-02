@@ -45,7 +45,7 @@ class ImageryController extends Controller
                     'empty' => Craft::t('ghostwriter', 'No guide yet. Choose which sections to look at, then generate it.'),
                     'read' => Craft::t('ghostwriter', 'Ghostwriter looks at the images used by the newest published entries in each section you tick, and writes a section for each.'),
                     'note' => Craft::t('ghostwriter', 'Markdown, with a ## heading for each section. Read whenever images are searched for, chosen or made.'),
-                    'scanned' => Craft::t('ghostwriter', 'Last written from {count} images.'),
+                    'scanned' => Craft::t('ghostwriter', 'Last written from {count, plural, =1{# image} other{# images}}.'),
                     'confirm' => Craft::t('ghostwriter', 'Look at the site again and replace the current guide? Any edits you have made to it will be lost.'),
                     'saved' => Craft::t('ghostwriter', 'Image style saved'),
                 ],

@@ -85,7 +85,11 @@
 {% js %}
     $('#gw-type-delete').on('click', async () => {
         if (!confirm({{ 'Delete this kind of content? Entries already written are not affected.'|t('ghostwriter')|json_encode|raw }})) return;
-        await Craft.sendActionRequest('POST', 'ghostwriter/types/delete', {data: {handle: {{ type.handle|json_encode|raw }}}});
-        window.location.href = {{ cpUrl('ghostwriter')|json_encode|raw }};
+        try {
+            await Craft.sendActionRequest('POST', 'ghostwriter/types/delete', {data: {handle: {{ type.handle|json_encode|raw }}}});
+            window.location.href = {{ cpUrl('ghostwriter')|json_encode|raw }};
+        } catch (error) {
+            Craft.cp.displayError(error?.response?.data?.message ?? {{ 'Something went wrong.'|t('ghostwriter')|json_encode|raw }});
+        }
     });
 {% endjs %}

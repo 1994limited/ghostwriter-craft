@@ -167,6 +167,8 @@
                                     <div>
                                         <strong>{{ kind.title }}</strong>
                                         <p class="light smalltext">{{ kind.description }}</p>
+                                        {% if kind.why %}<p class="smalltext gw-why">{{ kind.why }}</p>{% endif %}
+                                        {% if kind.exampleTitles %}<p class="light smalltext">{{ 'For example: {titles}'|t('ghostwriter', {titles: kind.exampleTitles|map(t => '“' ~ t ~ '”')|join(', ')}) }}</p>{% endif %}
                                     </div>
                                     <span class="flex">
                                         <button type="button" class="btn small submit" data-learn-kind="{{ kind.id }}" data-section="{{ section.handle }}" {{ configured and section.learning.status != 'working' ? '' : 'disabled' }}>{{ 'Learn this'|t('ghostwriter') }}</button>
@@ -210,8 +212,8 @@
         </details>
     {% endif %}
 
-    {% if setup.hidden and not setup.complete %}
-        <p class="gw-foot light"><button type="button" class="gw-link" data-show-setup>{{ 'Show Get started again'|t('ghostwriter') }}</button></p>
+    {% if setup.hidden %}
+        <p class="gw-foot light"><button type="button" class="gw-link" data-show-setup>{{ 'Show Get started'|t('ghostwriter') }}</button></p>
     {% endif %}
 {% endblock %}
 

@@ -40,7 +40,7 @@ class DashboardController extends Controller
                 'name' => Craft::t('site', $section->name),
                 'entries' => (int) Entry::find()->section($section->handle)->status(null)->count(),
                 'learning' => $plugin->typeState->get($section->handle),
-                'kinds' => $plugin->kinds->get($section->handle),
+                'kinds' => ['suggestions' => $plugin->kinds->presented($section->handle)] + $plugin->kinds->get($section->handle),
                 'types' => array_values(array_map(fn(ContentType $type) => [
                     'title' => $type->title,
                     'description' => $type->description,
@@ -51,7 +51,7 @@ class DashboardController extends Controller
             'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()), 0, 30)),
             'checking' => $checking,
             'setup' => $plugin->onboarding->progress(),
-            'nextStep' => $this->nextStep(),
+            'nextStep' => $plugin->onboarding->nextStep(),
             'imagery' => ['exists' => $plugin->imageryGuide->exists(), 'updatedAt' => $plugin->imageryGuide->updatedAt()],
             'planOpen' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === \nineteenninetyfour\ghostwriter\planning\IdeaRepository::OPEN)),
             'autoKinds' => $plugin->getSettings()->suggestKindsAutomatically,
@@ -66,22 +66,6 @@ class DashboardController extends Controller
      *
      * @return array<int, string> The sections queued.
      */
-    /**
-     * The first setup step still to do, with its place in the list.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function nextStep(): ?array
-    {
-        foreach (Plugin::getInstance()->onboarding->steps() as $i => $step) {
-            if (!$step['done']) {
-                return $step + ['number' => $i + 1];
-            }
-        }
-
-        return null;
-    }
-
     private function checkForKinds(): array
     {
         $plugin = Plugin::getInstance();

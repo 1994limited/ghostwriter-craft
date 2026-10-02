@@ -17,9 +17,12 @@ use yii\web\Response;
  */
 class TypesController extends Controller
 {
-    public function actionEdit(string $handle): Response
+    /**
+     * @param ContentType|null $type The kind as it was posted, when saving it failed.
+     */
+    public function actionEdit(string $handle, ?ContentType $type = null): Response
     {
-        $type = $this->type($handle);
+        $type ??= $this->type($handle);
 
         return $this->renderTemplate('ghostwriter/types/_edit', [
             'type' => $type,
@@ -79,13 +82,7 @@ class TypesController extends Controller
             ], fn($value) => $value !== null);
         }
 
-        if ($title === '' || $questions === []) {
-            $this->setFailFlash(Craft::t('ghostwriter', 'A kind of content needs a name and at least one question.'));
-
-            return null;
-        }
-
-        Plugin::getInstance()->types->save(ContentType::fromArray($type->handle, [
+        $posted = ContentType::fromArray($type->handle, [
             'title' => $title,
             'description' => trim((string) $this->request->getBodyParam('description')),
             'questions' => $questions,
@@ -97,7 +94,18 @@ class TypesController extends Controller
             'entryType' => $type->entryType,
             'where' => $type->where,
             'defaults' => $type->defaults,
-        ]));
+        ]);
+
+        if ($title === '' || $questions === []) {
+            $this->setFailFlash(Craft::t('ghostwriter', 'A kind of content needs a name and at least one question.'));
+
+            // The form again, with what was typed into it.
+            Craft::$app->getUrlManager()->setRouteParams(['type' => $posted]);
+
+            return null;
+        }
+
+        Plugin::getInstance()->types->save($posted);
 
         $this->setSuccessFlash(Craft::t('ghostwriter', 'Saved.'));
 
@@ -110,11 +118,12 @@ class TypesController extends Controller
 
         Plugin::getInstance()->types->delete($this->type((string) $this->request->getRequiredBodyParam('handle')));
 
+        // Shown on the dashboard, where the screen goes next, either way.
+        $this->setSuccessFlash(Craft::t('ghostwriter', 'Kind deleted. Entries already written are not affected.'));
+
         if ($this->request->getAcceptsJson()) {
             return $this->asJson(['deleted' => true]);
         }
-
-        $this->setSuccessFlash(Craft::t('ghostwriter', 'Deleted. Entries already written are not affected.'));
 
         return $this->redirect('ghostwriter');
     }

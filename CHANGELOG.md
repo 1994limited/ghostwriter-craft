@@ -26,3 +26,14 @@
 - The AI providers, the prompts and draft text handling now come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), the package shared with the Statamic and Filament versions. No change is expected in how Ghostwriter writes or behaves. Prompts to copy for an override are now in `vendor/1994/ghostwriter-core/resources/prompts/`; overrides in `config/ghostwriter/prompts/` keep working.
 - Each queue job is allowed three times the configured timeout plus a minute, to cover a busy provider being tried three times.
 - Model calls (never their prompts, replies or keys) are logged to Craft's log under the `ghostwriter` category.
+
+### Fixed
+- **Generate the guide** on the voice guide (and on Get started) with no section ticked no longer reads every section on the site: the button is off until a section is ticked, and the server refuses an empty choice.
+- A kind of content that fails to save (no name, or no question) comes back with what was typed, rather than the stored version.
+- Deleting a kind of content says so on the dashboard, and an error deleting it is shown.
+- The dashboard widget without an API key now shows a one-line warning and keeps Get started and **Open Ghostwriter**, with **Write something** shown but switched off. It also names the next setup step.
+- **Show Get started** at the foot of the dashboard is there whenever Get started is hidden, including once setup is complete.
+- The notes after **Use this draft** (choices left, links to settle, placeholders) are one notification listing them all, which stays until it is closed, instead of a toast per note.
+- Suggested kinds show why each is worth teaching and up to three example titles, on the dashboard and on Get started, as the docs said.
+- The image button no longer appears when there is no image tool at all (no photo library, no image key, no Imagick).
+- Counts read "1 suggestion", "1 idea", "1 entry" rather than "1 ideas".

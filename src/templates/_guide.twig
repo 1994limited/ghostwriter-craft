@@ -61,7 +61,7 @@
         <button type="button" id="gw-voice-scan" class="btn {{ state.exists ? '' : 'submit' }} fullwidth{{ configured ? '' : ' disabled' }}" {{ configured ? '' : 'disabled' }}>
             {{ state.exists ? 'Rescan and rewrite'|t('ghostwriter') : 'Generate the guide'|t('ghostwriter') }}
         </button>
-        <p id="gw-voice-scanned" class="light{{ state.scanned|length ? '' : ' hidden' }}">{{ guide.labels.scanned|replace({'{count}': state.scanned|length}) }}</p>
+        <p id="gw-voice-scanned" class="light{{ state.scanned|length ? '' : ' hidden' }}">{{ guide.labels.scanned|t('ghostwriter', {count: state.scanned|length}) }}</p>
     </div>
 
     {% if guide.actions.refine %}

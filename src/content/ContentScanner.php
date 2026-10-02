@@ -38,6 +38,13 @@ class ContentScanner extends Component
     public function samples(?array $sections = null): array
     {
         $settings = Plugin::getInstance()->getSettings();
+
+        // An empty list asked for reads nothing; only the setting's empty
+        // list means every section.
+        if ($sections === []) {
+            return [];
+        }
+
         $handles = $sections ?? $settings->voiceSections;
 
         if ($handles === []) {

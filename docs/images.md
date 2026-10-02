@@ -2,7 +2,7 @@
 
 On every image field in a section Ghostwriter writes for, a **Ghostwriter** button sits beside **Add an asset** and **Upload a file**. When the field is full, it sits just below the field instead.
 
-It isn't shown on fields that only accept other kinds of file (for example PDFs), or on fields with no upload location.
+It isn't shown on fields that only accept other kinds of file (for example PDFs), on fields with no upload location, or when no image tool is available (no photo library, no OpenAI or Gemini key, and no Imagick for logo cards).
 
 Click it to choose an image for that one field.
 

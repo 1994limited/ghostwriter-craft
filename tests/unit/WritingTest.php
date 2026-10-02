@@ -547,6 +547,42 @@ class WritingTest extends TestCase
         $this->assertNull($this->plugin->types->find('project'));
     }
 
+    public function testAKindThatCannotBeSavedKeepsWhatWasTyped(): void
+    {
+        $this->signIn();
+        $this->saveType();
+
+        $response = $this->action('ghostwriter/types/save', [
+            'handle' => 'project',
+            'title' => '',
+            'description' => 'Typed, not saved.',
+            'questions' => [['label' => 'Who was it for?', 'type' => 'text']],
+            'guidance' => 'New guidance.',
+        ], json: false);
+
+        $this->assertSame([], $response['data']);
+        $this->assertSame('A project write-up.', $this->plugin->types->find('project')->description);
+
+        // The form comes back with what was typed, not what is stored.
+        $posted = Craft::$app->getUrlManager()->getRouteParams()['type'];
+        $screen = $this->action('ghostwriter/types/edit', method: 'GET', params: ['handle' => 'project', 'type' => $posted])['data']['variables'];
+        $this->assertSame('Typed, not saved.', $screen['type']->description);
+        $this->assertSame('New guidance.', $screen['type']->guidance);
+        $this->assertSame(['Who was it for?'], array_column($screen['questions'], 'label'));
+    }
+
+    public function testDeletingAKindSaysSo(): void
+    {
+        $this->signIn();
+        $this->saveType();
+
+        $this->action('ghostwriter/types/delete', ['handle' => 'project']);
+
+        // Shown on the dashboard the screen goes to, though the request asked for JSON.
+        $this->assertNull($this->plugin->types->find('project'));
+        $this->assertSame('Kind deleted. Entries already written are not affected.', Craft::$app->getSession()->getSuccess());
+    }
+
     private function saveType(): ContentType
     {
         return $this->plugin->types->save(ContentType::fromArray('project', [

@@ -94,6 +94,7 @@
             this.addListener(this.$scan, 'click', 'scan');
             this.addListener(this.$send, 'click', 'refine');
             this.addListener(this.$document, 'input', 'render');
+            this.addListener($('#gw-voice-sections input[type=checkbox]'), 'change', 'render');
 
             // Cmd/Ctrl+S saves, as on any other edit screen.
             Garnish.uiLayerManager.registerShortcut({ keyCode: Garnish.S_KEY, ctrl: true }, () => this.save());
@@ -148,7 +149,8 @@
             this.$document.prop('readonly', working);
             this.$save.toggleClass('disabled', !dirty || working).prop('disabled', !dirty || working);
             // Craft styles a disabled button by its class, not the attribute.
-            const scanOff = !this.config.configured || working;
+            // Nothing ticked is nothing to read.
+            const scanOff = !this.config.configured || working || !this.selected().length;
             const sendOff = !this.config.configured || working || dirty;
 
             this.$scan.toggleClass('loading', working && state.task === 'scan').toggleClass('disabled', scanOff).prop('disabled', scanOff);
@@ -180,6 +182,10 @@
         },
 
         async scan() {
+            if (!this.selected().length) {
+                return;
+            }
+
             if (this.current.exists && !confirm(this.config.labels.confirm)) {
                 return;
             }
@@ -241,18 +247,29 @@
     const t = (message, params) => Craft.t('ghostwriter', message, params);
     const NOTICE = 'ghostwriter:applied';
 
-    // Notes from a draft just put into the form, shown once the form has reloaded.
+    // A draft just put into the form, said once the form has reloaded: one
+    // notification, listing anything still to do. With notes it stays until
+    // it is closed, since the notes are a to-do list.
     $(() => {
         try {
             const notes = JSON.parse(sessionStorage.getItem(NOTICE) ?? 'null');
 
             if (notes) {
                 sessionStorage.removeItem(NOTICE);
-                Craft.cp.displaySuccess(notes.message);
-                notes.notes.forEach((note) => Craft.cp.displayNotice(note));
+                Ghostwriter.announceApplied(notes.message, notes.notes ?? []);
             }
         } catch (error) {}
     });
+
+    Ghostwriter.announceApplied = function (message, notes) {
+        if (!notes.length) {
+            return Craft.cp.displaySuccess(message);
+        }
+
+        const $list = $('<ul class="gw-notes"/>').append(notes.map((note) => $('<li/>').text(note)));
+
+        return Craft.cp.displaySuccess(message, { details: $list, persist: true });
+    };
 
     Ghostwriter.Launcher = Garnish.Base.extend({
         init(config) {
@@ -1532,8 +1549,8 @@
         clear(status) {
             const count = this.plan.ideas.filter((idea) => idea.status === status).length;
             const question = status === 'open'
-                ? t('Remove all {count} ideas from the list? Started and dismissed ones stay. This cannot be undone.', { count })
-                : t('Delete all {count} dismissed ideas? Ghostwriter will no longer know not to suggest them again.', { count });
+                ? t('{count, plural, =1{Remove the one idea from the list?} other{Remove all # ideas from the list?}} Started and dismissed ones stay. This cannot be undone.', { count })
+                : t('{count, plural, =1{Delete the dismissed idea?} other{Delete all # dismissed ideas?}} Ghostwriter will no longer know not to suggest them again.', { count });
 
             if (confirm(question)) this.send('plan/clear', { status });
         },
@@ -1705,7 +1722,16 @@
             this.current = fromHash >= 1 && fromHash <= state.steps.length ? fromHash - 1 : Math.max(0, firstOpen);
 
             this.addListener(this.$root, 'click', 'onClick');
+            this.addListener(this.$root, 'change', 'onChange');
             this.render();
+        },
+
+        // The voice is read from the sections ticked: with none, there is
+        // nothing to read.
+        onChange() {
+            const none = !this.$root.find('input[name="voiceRead"]:checked').length;
+
+            this.$root.find('[data-wizard="voice"]').prop('disabled', none || !this.state.configured).toggleClass('disabled', none || !this.state.configured);
         },
 
         go(index) {
@@ -1875,7 +1901,7 @@
                 <p class="light">${esc(t('Read the newest published entries from:'))}</p>
                 <div class="gw-checks">${choose}</div>
                 ${this.keyless()}
-                <button type="button" class="btn ${v.exists ? '' : 'submit'}" data-wizard="voice" ${this.state.configured ? '' : 'disabled'}>${esc(v.exists ? t('Read the site again') : t('Write the voice guide'))}</button>`;
+                <button type="button" class="btn ${v.exists ? '' : 'submit'}" data-wizard="voice" ${this.state.configured && this.state.details.sections.some((s) => (s.writeFor || s.voice) && s.voice && s.entries) ? '' : 'disabled'}>${esc(v.exists ? t('Read the site again') : t('Write the voice guide'))}</button>`;
         },
 
         step_kinds() {
@@ -1900,7 +1926,7 @@
                         ${k.types.length ? `<p class="gw-wizard__ok">✓ ${esc(t('Learned'))}: ${k.types.map((type) => `<a href="${esc(type.url)}">${esc(type.title)}</a>`).join(', ')}</p>` : ''}
                         ${k.suggestions.map((s) => `
                             <div class="gw-type gw-type--suggested">
-                                <span><strong>${esc(s.title)}</strong> <span class="light">${esc(s.description)}</span>${s.why ? `<span class="light smalltext gw-why">${esc(s.why)}</span>` : ''}</span>
+                                <span><strong>${esc(s.title)}</strong> <span class="light">${esc(s.description)}</span>${s.why ? `<span class="light smalltext gw-why">${esc(s.why)}</span>` : ''}${s.exampleTitles?.length ? `<span class="light smalltext gw-why">${esc(t('For example: {titles}', { titles: s.exampleTitles.map((title) => `“${title}”`).join(', ') }))}</span>` : ''}</span>
                                 <span class="flex">
                                     <button type="button" class="btn small submit" data-wizard="learn-kind" data-section="${esc(k.handle)}" data-id="${esc(s.id)}" ${k.learning.status === 'working' ? 'disabled' : ''}>${esc(t('Learn this'))}</button>
                                     <button type="button" class="btn small" data-wizard="dismiss-kind" data-section="${esc(k.handle)}" data-id="${esc(s.id)}">${esc(t('Not this'))}</button>
@@ -1930,8 +1956,8 @@
 
             return `
                 ${this.failed(p.status === 'failed' ? p.error : null)}
-                ${p.pending ? `<p class="gw-wizard__ok">${esc(t('{count} ideas are waiting for you to look over.', { count: p.pending }))} <a class="btn small submit" href="${esc(p.url)}">${esc(t('Look over them'))}</a></p>` : ''}
-                ${p.ideas ? `<p class="gw-wizard__ok">✓ ${esc(t('{count} ideas on the plan.', { count: p.ideas }))} <a href="${esc(p.url)}">${esc(t('Open the content plan'))}</a></p>` : ''}
+                ${p.pending ? `<p class="gw-wizard__ok">${esc(t('{count, plural, =1{# suggestion is} other{# suggestions are}} waiting for you to look over.', { count: p.pending }))} <a class="btn small submit" href="${esc(p.url)}">${esc(t('Look over them'))}</a></p>` : ''}
+                ${p.ideas ? `<p class="gw-wizard__ok">✓ ${esc(t('{count, plural, =1{# idea} other{# ideas}} on the plan.', { count: p.ideas }))} <a href="${esc(p.url)}">${esc(t('Open the content plan'))}</a></p>` : ''}
                 ${this.keyless()}
                 ${p.pending ? '' : `<button type="button" class="btn ${p.ideas ? '' : 'submit'}" data-wizard="plan" ${this.state.configured ? '' : 'disabled'}>${esc(t('Suggest ideas'))}</button>`}`;
         },

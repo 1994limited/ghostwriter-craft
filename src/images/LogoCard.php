@@ -20,9 +20,12 @@ class LogoCard
 
     private const MAX_HEIGHT = 0.3;
 
+    /** Stands in for whether the extension is loaded; for tests. */
+    public static ?bool $imagick = null;
+
     public static function available(): bool
     {
-        return extension_loaded('imagick');
+        return self::$imagick ?? extension_loaded('imagick');
     }
 
     /**

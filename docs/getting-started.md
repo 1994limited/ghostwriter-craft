@@ -43,6 +43,6 @@ Pick a section and start a new entry with Ghostwriter beside it. See [Writing a 
 Once you're set up, put it away:
 
 - **Hide** on the dashboard card, or **Hide Get started** on the Get started page, removes it from the dashboard and the Ghostwriter menu.
-- To bring it back, use **Show Get started again** at the foot of the dashboard, or turn on **Show Get started** in the plugin settings.
+- To bring it back, use **Show Get started** at the foot of the dashboard, or turn on **Show Get started** in the plugin settings.
 
 The last step's **Finish and hide this** does the same.

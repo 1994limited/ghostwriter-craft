@@ -166,7 +166,7 @@ class Onboarding extends Component
                 'title' => Craft::t('site', $section->name),
                 'state' => $plugin->kinds->get($section->handle)['status'],
                 'error' => $plugin->kinds->get($section->handle)['error'],
-                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why'])), $plugin->kinds->get($section->handle)['suggestions']),
+                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why', 'exampleTitles'])), $plugin->kinds->presented($section->handle)),
                 'learning' => $plugin->typeState->get($section->handle),
                 'types' => array_values(array_map(fn($type) => ['title' => $type->title, 'url' => UrlHelper::cpUrl('ghostwriter/types/' . $type->handle)], $plugin->types->forSection($section->handle))),
             ], $plugin->types->sections()),
@@ -214,6 +214,29 @@ class Onboarding extends Component
             'complete' => !array_filter($required, fn(array $step) => !$step['done']),
             'hidden' => $this->hidden(),
         ];
+    }
+
+    /**
+     * The first step still to do, with its place in the list: a required
+     * one first, since those are what setting up needs.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function nextStep(): ?array
+    {
+        $steps = $this->steps();
+        $open = array_filter($steps, fn(array $step) => !$step['done']);
+        $required = array_filter($open, fn(array $step) => !$step['optional']);
+
+        foreach ([$required, $open] as $candidates) {
+            if ($candidates !== []) {
+                $i = array_key_first($candidates);
+
+                return $steps[$i] + ['number' => $i + 1];
+            }
+        }
+
+        return null;
     }
 
     public function hidden(): bool

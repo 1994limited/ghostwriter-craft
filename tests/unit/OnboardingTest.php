@@ -115,6 +115,39 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->plugin->onboarding->hidden());
     }
 
+    public function testTheWidgetWithoutAKeyStillLeadsIntoGhostwriter(): void
+    {
+        $this->unfake();
+        $this->plugin->providers->keys['anthropic'] = null;
+
+        $html = $this->widget();
+
+        // A warning, not a wall: Get started and the way in stay, and
+        // Write something shows, switched off.
+        $this->assertStringContainsString('Ghostwriter has no API key yet.', $html);
+        $this->assertStringContainsString('Get started · ', $html);
+        $this->assertStringContainsString('Next: Connect a model', $html);
+        $this->assertStringContainsString('#step-1', $html);
+        $this->assertStringContainsString('Open Ghostwriter', $html);
+        $this->assertMatchesRegularExpression('/<button[^>]*disabled[^>]*>Write something</', $html);
+
+        $this->plugin->providers->keys['anthropic'] = 'test-key';
+        $this->assertStringNotContainsString('no API key', $this->widget());
+        $this->assertStringContainsString('menubtn">Write something', $this->widget());
+    }
+
+    public function testGetStartedCanBeBroughtBackOnceSetupIsComplete(): void
+    {
+        $this->plugin->voiceGuide->save('# Tone of voice');
+        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+        $this->assertTrue($this->plugin->onboarding->progress()['complete']);
+
+        $this->plugin->onboarding->hide();
+
+        $this->assertStringContainsString('data-show-setup>Show Get started<', $this->dashboard());
+    }
+
     public function testTheScreenRenders(): void
     {
         $response = $this->action('ghostwriter/setup/show', method: 'GET');
@@ -123,6 +156,20 @@ class OnboardingTest extends TestCase
 
         $this->assertStringContainsString('new Ghostwriter.SetupScreen', $html);
         $this->assertStringContainsString('Learn your voice', $html);
+    }
+
+    private function widget(): string
+    {
+        Craft::$app->getView()->setTemplateMode(View::TEMPLATE_MODE_CP);
+
+        return (string) (new \nineteenninetyfour\ghostwriter\widgets\GhostwriterWidget())->getBodyHtml();
+    }
+
+    private function dashboard(): string
+    {
+        $response = $this->action('ghostwriter/dashboard/index', method: 'GET');
+
+        return Craft::$app->getView()->renderPageTemplate($response['data']['template'], $response['data']['variables'], View::TEMPLATE_MODE_CP);
     }
 
     /**

@@ -169,6 +169,19 @@ class VoiceTest extends TestCase
         $this->assertStringContainsString('We, to you.', $status['document']);
     }
 
+    public function testWithNoSectionTickedNothingIsRead(): void
+    {
+        $this->signIn();
+
+        $response = $this->action('ghostwriter/voice/scan', ['sections' => []]);
+
+        // Not every section on the site, which is what an empty setting means.
+        $this->assertSame(422, $response['status']);
+        $this->assertSame('Choose at least one section to read.', $response['data']['message']);
+        $this->assertSame([], $this->queued(GenerateVoiceGuide::class));
+        $this->assertSame([], $this->plugin->scanner->samples([]));
+    }
+
     public function testNothingIsSentWithoutAnApiKey(): void
     {
         $this->unfake();

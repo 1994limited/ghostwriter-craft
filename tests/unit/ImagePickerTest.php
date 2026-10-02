@@ -83,6 +83,27 @@ class ImagePickerTest extends TestCase
         $this->assertSame('', ImageButton::htmlFor($this->cover, $draft, false));
     }
 
+    public function testTheButtonIsNotOfferedWithNothingToMakeOrFindImagesWith(): void
+    {
+        $this->signIn();
+        $draft = $this->newDraft($this->stories);
+
+        // No photo library, no OpenAI or Gemini key, no Imagick.
+        $this->unfake();
+        $this->plugin->getSettings()->openverse = false;
+        LogoCard::$imagick = false;
+
+        try {
+            $this->assertSame('', ImageButton::htmlFor($this->cover, $draft, false));
+
+            // Any one tool is enough.
+            LogoCard::$imagick = true;
+            $this->assertStringContainsString('&quot;canLogo&quot;:true', ImageButton::htmlFor($this->cover, $draft, false));
+        } finally {
+            LogoCard::$imagick = null;
+        }
+    }
+
     public function testTheButtonIsNotOfferedWithoutThePermission(): void
     {
         $this->signIn(permitted: false);

@@ -16,9 +16,10 @@
 
 Add **Ghostwriter** to Craft's own dashboard with **New widget**. It shows:
 
-- Get started progress, until it is hidden.
+- Get started progress and the next step, until setup is done or Get started is hidden.
+- A one-line warning when there is no API key yet.
 - How many pieces are in progress, and how many ideas are waiting.
 - The latest pieces in progress, with their section.
-- **Write something**, a menu of sections to start a new entry in, and **Open Ghostwriter**.
+- **Write something**, a menu of sections to start a new entry in (switched off until there is an API key), and **Open Ghostwriter**.
 
 In the widget's settings you can choose how many pieces it lists (5 by default). Only people with the **Use Ghostwriter** permission can add it.

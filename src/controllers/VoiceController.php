@@ -41,7 +41,7 @@ class VoiceController extends Controller
                     'empty' => Craft::t('ghostwriter', 'No guide yet. Choose which sections to read, then generate it.'),
                     'read' => Craft::t('ghostwriter', 'Ghostwriter reads the newest published entries from each section you tick.'),
                     'note' => Craft::t('ghostwriter', 'Markdown. Every writing prompt includes this guide as it stands.'),
-                    'scanned' => Craft::t('ghostwriter', 'Last written from {count} entries.'),
+                    'scanned' => Craft::t('ghostwriter', 'Last written from {count, plural, =1{# entry} other{# entries}}.'),
                     'confirm' => Craft::t('ghostwriter', 'Read the site again and replace the current guide? Any edits you have made to it will be lost.'),
                     'saved' => Craft::t('ghostwriter', 'Voice guide saved'),
                 ],
@@ -63,7 +63,13 @@ class VoiceController extends Controller
         }
 
         $sections = $this->request->getBodyParam('sections');
-        $sections = is_array($sections) ? array_values(array_filter($sections, 'is_string')) : null;
+        $sections = is_array($sections) ? array_values(array_filter($sections, fn($handle) => is_string($handle) && $handle !== '')) : null;
+
+        // Sections were offered and none was ticked: nothing to read. (Not
+        // the same as none asked for, which reads the configured set.)
+        if ($sections === []) {
+            return $this->refuse('Choose at least one section to read.');
+        }
 
         Plugin::getInstance()->voiceState->update(['status' => VoiceState::WORKING, 'error' => null, 'task' => 'scan']);
 
