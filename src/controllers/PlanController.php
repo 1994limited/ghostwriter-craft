@@ -211,6 +211,12 @@ class PlanController extends Controller
         $session = $idea['session'] ? $plugin->sessions->find($idea['session']) : null;
         $progress = $session ? (new Presenter())->summary($session) : null;
 
+        // With conversations kept private, someone else's piece can't be
+        // opened, so it gets no link to resume it.
+        if ($session && !$plugin->sessions->canSee($session, (int) Craft::$app->getUser()->getId())) {
+            unset($progress['url']);
+        }
+
         // A piece whose conversation was removed is back to being just an idea.
         if ($idea['status'] === IdeaRepository::DRAFTED && !$session) {
             $idea['status'] = IdeaRepository::OPEN;
@@ -222,6 +228,10 @@ class PlanController extends Controller
             'finished' => $progress['finished'] ?? false,
             'resumeUrl' => $progress['url'] ?? null,
             'entryUrl' => $progress['entryUrl'] ?? null,
+            // Who started it and who last changed it, when conversations are shared.
+            'startedBy' => $progress['startedBy'] ?? null,
+            'touchedBy' => $progress['touchedBy'] ?? null,
+            'waitingOn' => $progress['waitingOn'] ?? null,
             'sectionTitle' => $this->sectionTitle($idea['section']),
             'typeTitle' => $idea['type'] ? $plugin->types->find($idea['type'])?->title : null,
             // A new entry with Ghostwriter open on it and this idea's brief filling itself in.

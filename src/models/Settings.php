@@ -77,6 +77,13 @@ class Settings extends Model
      */
     public bool $showGetStarted = true;
 
+    /**
+     * Conversations are shared with everyone who may use Ghostwriter: any of
+     * them can open, carry on or remove a piece. Off, each person sees only
+     * the pieces they started.
+     */
+    public bool $sharedConversations = true;
+
     /** Ideas asked for each time the content plan looks for gaps. */
     public int $planSuggestions = 8;
 
@@ -104,7 +111,7 @@ class Settings extends Model
             [['timeout'], 'integer', 'min' => 30, 'max' => 1800],
             [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions'], 'integer', 'min' => 1],
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
-            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted'], 'boolean'],
+            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations'], 'boolean'],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
         ];
     }

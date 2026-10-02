@@ -45,6 +45,8 @@ class Session
         public ?int $source = null,
         public ?string $entryType = null,
         public ?string $appliedAt = null,
+        public ?int $touchedBy = null,
+        public ?int $runBy = null,
         public ?string $createdAt = null,
         public ?string $updatedAt = null,
     ) {
@@ -79,6 +81,8 @@ class Session
             elementId: $int('element_id'),
             siteId: $int('site_id'),
             userId: $int('user_id'),
+            touchedBy: $int('touched_by'),
+            runBy: $int('run_by'),
             usage: array_merge(['input' => 0, 'output' => 0], (array) ($data['usage'] ?? [])),
             examples: array_values(array_map('intval', (array) ($data['examples'] ?? []))),
             images: (array) ($data['images'] ?? []),
@@ -90,9 +94,35 @@ class Session
         );
     }
 
-    public function addMessage(string $role, string $content): void
+    /**
+     * @param int|null $by Who sent it, for a person's message.
+     */
+    public function addMessage(string $role, string $content, ?int $by = null): void
     {
-        $this->messages[] = ['role' => $role, 'content' => $content, 'at' => self::now()];
+        $this->messages[] = ['role' => $role, 'content' => $content, 'at' => self::now()] + ($by !== null ? ['by' => $by] : []);
+    }
+
+    /**
+     * Someone did something to the piece: asked for something, edited the
+     * draft, or put it into the entry.
+     */
+    public function touch(?int $userId): void
+    {
+        if ($userId !== null) {
+            $this->touchedBy = $userId;
+        }
+    }
+
+    /**
+     * Who the message being answered now came from: they are the one
+     * waiting on Ghostwriter.
+     */
+    public function run(?int $userId): void
+    {
+        $this->status = self::WORKING;
+        $this->error = null;
+        $this->runBy = $userId;
+        $this->touch($userId);
     }
 
     /**
@@ -129,6 +159,8 @@ class Session
             'element_id' => $this->elementId,
             'site_id' => $this->siteId,
             'user_id' => $this->userId,
+            'touched_by' => $this->touchedBy,
+            'run_by' => $this->runBy,
             'usage' => $this->usage,
             'examples' => $this->examples,
             'images' => $this->images,

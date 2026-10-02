@@ -33,6 +33,45 @@ class SessionRepository extends Component
         return $userId === null ? [] : $this->rows((new Query())->from(Store::SESSIONS)->where(['userId' => $userId]));
     }
 
+    /**
+     * Whether conversations are shared with everyone who may use
+     * Ghostwriter (the sharedConversations setting), rather than kept to
+     * the person who started each.
+     */
+    public function shared(): bool
+    {
+        return (bool) Plugin::getInstance()->getSettings()->sharedConversations;
+    }
+
+    /**
+     * The sessions someone may see, newest first: everyone's when
+     * conversations are shared, otherwise their own.
+     *
+     * @return Session[]
+     */
+    public function visibleTo(?int $userId): array
+    {
+        if ($userId === null) {
+            return [];
+        }
+
+        return $this->shared() ? $this->all() : $this->forUser($userId);
+    }
+
+    /**
+     * Whether someone may open, carry on or remove a session. Anyone who may
+     * use Ghostwriter when conversations are shared; otherwise only the
+     * person who started it.
+     */
+    public function canSee(Session $session, ?int $userId): bool
+    {
+        if ($userId === null) {
+            return false;
+        }
+
+        return $this->shared() || ($session->userId !== null && $session->userId === $userId);
+    }
+
     public function find(string $id): ?Session
     {
         // IDs are ours; anything else is not ours to look up.
@@ -66,9 +105,11 @@ class SessionRepository extends Component
 
     /**
      * Change a session with nobody else changing it in between: the job
-     * writing a reply and a request from the panel can overlap.
+     * writing a reply and a request from the panel can overlap, and so can
+     * two people's requests when conversations are shared. A change that
+     * returns false is called off: nothing is saved.
      *
-     * @param callable(Session): void $change
+     * @param callable(Session): (void|bool) $change
      */
     public function change(string $id, callable $change): ?Session
     {
@@ -79,7 +120,9 @@ class SessionRepository extends Component
                 return null;
             }
 
-            $change($session);
+            if ($change($session) === false) {
+                return $session;
+            }
 
             return $this->save($session);
         });

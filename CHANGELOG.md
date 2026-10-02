@@ -17,7 +17,7 @@
 - A Ghostwriter widget for Craft's dashboard.
 - Claude, ChatGPT and Gemini, with keys read from the environment and never stored.
 - Everything kept in the database, so it works on read-only and load-balanced hosts; early builds' files are imported on update.
-- Each conversation is private to the person who started it.
+- Conversations are shared with everyone who may use Ghostwriter (decision E7), from the dashboard, the widget, the content plan and the entry. Each message shows who sent it, pieces show who started them and who last changed them, and while Ghostwriter answers one person's message, others see "<name> is waiting on Ghostwriter". **Share conversations** (`sharedConversations`, default on, can be set in `config/ghostwriter.php`) turned off keeps each conversation to the person who started it.
 - Requests to providers that are rate limited, overloaded or briefly down are tried again, up to three times.
 - An answer cut off at its length limit is asked for again with more room, and never used half-finished.
 - Work whose job was stopped by a server time limit is shown as failed, so it can be tried again.

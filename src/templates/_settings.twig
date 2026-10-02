@@ -53,6 +53,15 @@
     disabled: 'suggestKindsAutomatically' in overrides,
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Share conversations'|t('ghostwriter'),
+    instructions: 'Everyone who may use Ghostwriter sees every piece being written, and can carry it on, with each message showing who sent it. Off, each person sees only the pieces they started.'|t('ghostwriter'),
+    name: 'sharedConversations',
+    on: settings.sharedConversations,
+    warning: 'sharedConversations' in overrides ? _self.overridden('sharedConversations', overrides) : null,
+    disabled: 'sharedConversations' in overrides,
+}) }}
+
 <hr>
 
 <h2>{{ 'AI provider'|t('ghostwriter') }}</h2>

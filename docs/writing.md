@@ -72,3 +72,13 @@ The conversation is saved. Reopen the entry, or click the piece under **In progr
 **Start over** goes back to **What are you writing?** to begin a new piece on the same entry. The earlier conversation isn't deleted; it is offered under **Or carry on with**, and stays on the dashboard until you remove it.
 
 A piece leaves **In progress** once its entry has been saved.
+
+## Sharing conversations
+
+Conversations are shared with everyone who has the **Use Ghostwriter** permission: from the dashboard, the widget, the content plan and the entry itself, anyone can open a piece and carry it on.
+
+- Each message says who sent it: **You**, or the person's name.
+- Pieces show who started them and who last changed them ("Started by Ann · last changed by you").
+- Ghostwriter answers one request at a time. While it works on someone else's message, the panel says "Ann is waiting on Ghostwriter", and sending is switched off until the reply arrives.
+
+To keep each conversation to the person who started it, turn off **Share conversations** in the settings, or set `'sharedConversations' => false` in [`config/ghostwriter.php`](configuration.md).

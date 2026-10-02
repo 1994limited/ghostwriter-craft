@@ -267,7 +267,7 @@ class SectionsController extends Controller
             )),
             'sessions' => array_values(array_filter(array_map(
                 fn($session) => $presenter->summary($session),
-                array_filter($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()), fn($session) => isset($types[$session->type]) && $session->source === null),
+                array_filter($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()), fn($session) => isset($types[$session->type]) && $session->source === null),
             ), fn(array $summary) => !$summary['finished'])),
         ];
     }

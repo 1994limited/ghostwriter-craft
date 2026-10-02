@@ -71,7 +71,7 @@ class GhostwriterWidget extends Widget
 
         $plugin = Plugin::getInstance();
         $presenter = new Presenter();
-        $sessions = array_map(fn($session) => $presenter->summary($session), $plugin->sessions->forUser((int) Craft::$app->getUser()->getId()));
+        $sessions = array_map(fn($session) => $presenter->summary($session), $plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()));
         $inProgress = array_values(array_filter($sessions, fn(array $summary) => !$summary['finished']));
 
         Craft::$app->getView()->registerAssetBundle(GhostwriterAsset::class);
