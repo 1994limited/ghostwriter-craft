@@ -16,6 +16,7 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 | **Learn the voice from these sections** | Sections read for the voice guide. None ticked means all. |
 | **Show Get started** | The setup steps at the top of the Overview and in the menu. Turn it back on to bring them back after hiding them. |
 | **Suggest kinds of content automatically** | Look at each section for kinds when Get started's kinds step opens. Nowhere else looks without a click. Each look is one model call. |
+| **New entries start unpublished** | On (the default), a new entry Ghostwriter puts a draft into has its **Enabled** switch turned off, so it can be saved straight away and isn't published by accident. Switch on **Enabled** when it's ready. Existing entries are never changed. `draftsUnpublished` in config. |
 | **Share conversations** | On (the default), everyone with **Use Ghostwriter** sees and can carry on every piece. Off, each person sees only the pieces they started. See [Shared conversations](permissions.md#shared-conversations). |
 
 **AI provider**
@@ -89,6 +90,7 @@ return [
 | `openverse` | `true` | Search Openverse |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
 | `suggestKindsAutomatically` | `true` | Suggest kinds when Get started's kinds step opens |
+| `draftsUnpublished` | `true` | A new entry Ghostwriter writes starts with **Enabled** off; existing entries are never changed |
 | `sharedConversations` | `true` | Share conversations with everyone who may use Ghostwriter; `false` keeps each to the person who started it |
 | `voiceMaxEntries` | `24` | Entries read for the voice guide |
 | `voiceMaxCharsPerEntry` | `6000` | Characters read from each |

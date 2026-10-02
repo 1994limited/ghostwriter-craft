@@ -28,7 +28,8 @@ use nineteenninetyfour\ghostwriter\Plugin;
  * draft ("edited, not saved"), made if they do not have one yet.
  *
  * Nothing is published. The person reviews the filled-in form and saves it,
- * or discards the changes, as with any edit they made themselves.
+ * or discards the changes, as with any edit they made themselves. A new
+ * entry starts with Enabled switched off (`draftsUnpublished`).
  */
 class Applier
 {
@@ -113,6 +114,16 @@ class Applier
         }
 
         $entry->setFieldValues($this->values->forCraft($data, $schema, $existing));
+
+        // A new entry starts unpublished, so it saves at once and an AI
+        // draft is never published by accident. The Enabled switch shows
+        // off in the form, for the editor to turn on. Never an existing
+        // entry: that is only ever a draft of it.
+        if (!$editing && $entry->getIsUnpublishedDraft() && Plugin::getInstance()->getSettings()->draftsUnpublished) {
+            $entry->enabled = false;
+            $entry->setEnabledForSite(false);
+            $notes[] = Craft::t('ghostwriter', 'Ghostwriter drafts start unpublished. Switch on Enabled when you’re ready.');
+        }
 
         // A draft is saved as Craft saves one while a person types: only the
         // essentials are checked, and the rest when they save the entry.

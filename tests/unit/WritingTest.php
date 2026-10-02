@@ -422,6 +422,44 @@ class WritingTest extends TestCase
         $this->assertSame('in_form', (new Presenter())->summary($this->plugin->sessions->find($session->id))['stage']);
     }
 
+    public function testANewEntryStartsUnpublishedSoItCanBeSavedAtOnce(): void
+    {
+        $this->signIn(admin: true);
+        $this->saveType();
+        $target = $this->newDraft($this->articles);
+        $this->assertTrue($target->enabled, 'Craft makes new entries enabled by default.');
+
+        $session = $this->sessionWithDraft(self::DRAFT, $target);
+        $response = $this->action('ghostwriter/sessions/apply', ['id' => $session->id, 'elementId' => $target->id]);
+
+        $this->assertSame(200, $response['status'], json_encode($response['data']));
+        $this->assertContains('Ghostwriter drafts start unpublished. Switch on Enabled when you’re ready.', $response['data']['notes']);
+
+        // The form shows Enabled off (the site's switch too: on a single
+        // site Craft keeps it as Enabled alone); the editor can switch it on.
+        $draft = Entry::find()->id($target->id)->drafts(null)->status(null)->one();
+        $this->assertFalse($draft->enabled);
+        $this->assertFalse($draft->enabled && $draft->getEnabledForSite());
+
+        // Saved as it is, it is a disabled entry, not a live one.
+        Craft::$app->getDrafts()->applyDraft($draft);
+        $this->assertSame(Entry::STATUS_DISABLED, Entry::find()->id($target->id)->status(null)->one()->getStatus());
+    }
+
+    public function testWithDraftsUnpublishedOffANewEntryKeepsItsDefault(): void
+    {
+        $this->signIn(admin: true);
+        $this->saveType();
+        $this->plugin->getSettings()->draftsUnpublished = false;
+        $target = $this->newDraft($this->articles);
+
+        $response = $this->action('ghostwriter/sessions/apply', ['id' => $this->sessionWithDraft(self::DRAFT, $target)->id, 'elementId' => $target->id]);
+
+        $this->assertNotContains('Ghostwriter drafts start unpublished. Switch on Enabled when you’re ready.', $response['data']['notes']);
+        $this->assertTrue(Entry::find()->id($target->id)->drafts(null)->status(null)->one()->enabled);
+        $this->plugin->getSettings()->draftsUnpublished = true;
+    }
+
     public function testANeoDraftIsPutIntoTheEntryWithItsChildBlocks(): void
     {
         $this->signIn(admin: true);
