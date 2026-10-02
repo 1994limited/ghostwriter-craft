@@ -35,6 +35,12 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 | **Mark images still to choose** | Striped placeholders in empty image fields on new entries. See [Placeholders](images.md#placeholders). |
 | **Search Openverse** | Free public-domain and CC0 photos, with no key. |
 
+**Troubleshooting**
+
+| Setting | What it does |
+| --- | --- |
+| **Log replies that can't be read** | Off by default. On, a model reply Ghostwriter can't read goes into the log in full. See [Logging](#logging). Can be an environment variable. |
+
 **API keys** lists each key Ghostwriter can use as **Set** or **Not set**, never the key itself. Keys aren't settings: see [API keys](api-keys.md).
 
 ### Settings fixed in config
@@ -138,6 +144,20 @@ Ghostwriter logs to Craft's own logs under the `ghostwriter` category: `storage/
 - each finished model call, with the provider, model, tokens used and time taken
 - each retry of a model call, with the provider, the status and the wait
 - each failed model call, with the provider and the error
+- a reply cut off at its length limit, asked for again with more room, and (for a plan, a list of kinds, a brief or an image style guide) kept as far as it got
+- a reply it couldn't read, with what was wrong with it ("there was no `<type>` block", "the YAML did not parse at line 3"), but not the reply itself
 - a failed photo search or ranking, and an image it couldn't read
 
-Prompts, replies and keys are never logged.
+Prompts and keys are never logged. Replies aren't either, unless you turn on **Log replies that can't be read**.
+
+### Logging unreadable replies
+
+When a reply keeps coming back in a form Ghostwriter can't read, the log says what was wrong but not what the model wrote. To see the reply itself, turn on **Log replies that can't be read** under **Troubleshooting** in the settings, or set `logReplies` in `config/ghostwriter.php`:
+
+```php
+'logReplies' => '$GHOSTWRITER_LOG_REPLIES',
+```
+
+with `GHOSTWRITER_LOG_REPLIES=true` in `.env` on the environment you're looking into. The whole reply is then added to that log line's context, as `reply`. It is never put in the message itself, and prompts and keys are still never logged.
+
+A reply holds your site's content, and drafts written from it, so turn this on only while you look into a problem, and off again afterwards.

@@ -75,7 +75,7 @@ class ProvidersTest extends TestCase
             'usage' => ['input_tokens' => 12, 'output_tokens' => 3],
         ])));
 
-        $response = $this->plugin->studio->ask('photo-researcher', 'Be brief.', 'Say hello.', [['role' => 'user', 'content' => 'Earlier.'], ['role' => 'assistant', 'content' => 'Noted.']]);
+        $response = $this->plugin->studio->core()->ask('photo-researcher', 'Say hello.', [['role' => 'user', 'content' => 'Earlier.'], ['role' => 'assistant', 'content' => 'Noted.']], instructions: 'Be brief.');
 
         $this->assertSame('Hello.', $response->text);
         $this->assertSame([12, 3], [$response->usage->input, $response->usage->output]);
@@ -109,7 +109,7 @@ class ProvidersTest extends TestCase
             $this->assertNull($settings->baseUrl('openai'));
 
             $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Hello.']]])));
-            $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.');
+            $this->plugin->studio->core()->ask('writer', 'Say hello.', instructions: 'Be brief.');
 
             $this->assertSame('https://gateway.example.com/anthropic/v1/messages', (string) $this->sent[0]['request']->getUri());
         } finally {
@@ -171,12 +171,12 @@ class ProvidersTest extends TestCase
             ...array_fill(0, 3, new Response(529, [], json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]))),
         );
 
-        $this->assertSame('Hello.', $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.')->text);
+        $this->assertSame('Hello.', $this->plugin->studio->core()->ask('writer', 'Say hello.', instructions: 'Be brief.')->text);
         // As long as the provider asked, and recorded rather than waited.
         $this->assertSame(7.0, $this->sleeper->waits[0]);
 
         try {
-            $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.');
+            $this->plugin->studio->core()->ask('writer', 'Say hello.', instructions: 'Be brief.');
             $this->fail('Expected Overloaded.');
         } catch (Overloaded $exception) {
             $this->assertSame('Anthropic is busy right now. Try again shortly.', $exception->getMessage());
@@ -186,32 +186,37 @@ class ProvidersTest extends TestCase
         $this->assertCount(3, $this->sleeper->waits);
     }
 
-    public function testACutOffAnswerIsAskedForAgainWithMoreRoomThenRefused(): void
+    public function testACutOffAnswerIsAskedForAgainWithMoreRoomThenRefusedOrKept(): void
     {
         $cut = new TextResponse('title: Half', StopReason::MaxTokens, new Usage(100, 16000));
         $this->fake->respond('writer', $cut, new TextResponse('title: Whole', StopReason::End, new Usage(100, 20000)));
 
-        $this->assertSame('title: Whole', $this->plugin->studio->ask('writer', 'Write.', 'Go.')->text);
-        $this->assertSame([16000, 32000], array_map(fn($request) => $request->maxTokens, $this->fake->prompted('writer')));
+        $response = $this->plugin->studio->core()->ask('writer', 'Go.', instructions: 'Write.');
+        $this->assertSame('title: Whole', $response->text);
+        $this->assertSame([16000, 32000], array_map(fn($request) => $request->resolvedMaxTokens(), $this->fake->prompted('writer')));
+        // Both calls are counted.
+        $this->assertSame(36000, $response->usage->output);
 
+        // Anything but a draft or guide keeps what came back.
         $this->fake->respond('brief-writer', $cut);
+        $this->assertSame('title: Half', $this->plugin->studio->core()->ask('brief-writer', 'Go.', instructions: 'Write.')->text);
+
+        $this->fake->reset('writer')->respond('writer', $cut);
 
         $this->expectException(Truncated::class);
         $this->expectExceptionMessage('cut off before it finished');
 
-        $this->plugin->studio->ask('brief-writer', 'Write.', 'Go.');
+        $this->plugin->studio->core()->ask('writer', 'Go.', instructions: 'Write.');
     }
 
-    public function testAnAgentsLimitAndEffortComeFromCoreUnlessGiven(): void
+    public function testAnAgentsLimitAndEffortComeFromCore(): void
     {
         $this->fake->respond('photo-picker', '1, 2');
 
-        $this->plugin->studio->ask('photo-picker', 'Pick.', 'Go.');
-        $this->plugin->studio->ask('photo-picker', 'Pick.', 'Go.', maxTokens: 500, effort: 'high');
+        $this->plugin->studio->core()->ask('photo-picker', 'Go.', instructions: 'Pick.');
 
         $sent = $this->fake->prompted('photo-picker');
 
-        $this->assertSame([2000, Effort::Low], [$sent[0]->maxTokens, $sent[0]->effort]);
-        $this->assertSame([500, Effort::High], [$sent[1]->maxTokens, $sent[1]->effort]);
+        $this->assertSame([2000, Effort::Low], [$sent[0]->resolvedMaxTokens(), $sent[0]->resolvedEffort()]);
     }
 }

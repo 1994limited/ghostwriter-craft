@@ -40,6 +40,6 @@ Everything is kept in your database, in Ghostwriter's own tables (see [Where thi
 - **Photo requests** in `ghostwriter_state`, each belonging to the person who made it, and pictures made or uploaded but not yet used in `ghostwriter_files`. Both are cleared after a day.
 - **The guides, kinds and plan** in `ghostwriter_documents`.
 
-Logs hold the provider, model, tokens and time of each call, and any retries and failures, never the words sent or the keys (see [Logging](configuration.md#logging)).
+Logs hold the provider, model, tokens and time of each call, and any retries and failures, never the words sent or the keys (see [Logging](configuration.md#logging)). A model's reply is only logged if you turn on **Log replies that can't be read**, and then only a reply Ghostwriter couldn't read.
 
 API keys are read from the environment when they're needed. Ghostwriter never stores them, never shows them, and never sends them anywhere but the service they belong to.

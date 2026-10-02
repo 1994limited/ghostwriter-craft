@@ -25,7 +25,8 @@ Long drafts can take several minutes on the larger models. A call that runs past
 Shown with the reason, and **Try again**, which sends the same message again, so nothing has to be typed twice. The reason is the provider's or Ghostwriter's own. Common ones:
 
 - **"The analysis came back in a form that could not be read. Try again."** When learning a kind, the model's answer couldn't be read, even after one automatic retry. Try again; it usually works the second time. If it keeps happening for one section, teach the kind by hand and choose fewer, more typical example entries.
-- **"The answer ran past its length limit and was cut off"**: a reply that stops at the model's length limit is asked for once more with twice the room. If it's cut off again, the error is shown rather than half a draft. Ask for something shorter, or split the piece in two.
+- **"The answer ran past its length limit and was cut off"**: a reply that stops at the model's length limit is asked for once more with twice the room. If a draft, a voice guide or a kind's description is cut off again, the error is shown rather than half of it. Ask for something shorter, or split the piece in two. A content plan, a list of suggested kinds, a brief or an image style guide is kept as far as it got, with a warning in the log.
+- **"Ghostwriter did not come back with any ideas"**, **"…any kinds"** or **"…could not put a brief together"**: the model's answer wasn't in the form asked for. Try again. If it keeps happening, see [Seeing what went wrong](#seeing-what-went-wrong).
 - **OpenAI image models need verification:** see [OpenAI](api-keys.md#openai-chatgpt-and-images).
 
 ![A piece in the writing panel that failed, with That didn't work, the provider's message and Try again](images/writing-failed.png)
@@ -81,6 +82,8 @@ The free tier covers Flash models only, with daily limits. Ghostwriter's default
 ## Seeing what went wrong
 
 Ghostwriter logs each model call, retry and failure to Craft's logs under the `ghostwriter` category: `storage/logs/web.log` and `storage/logs/queue.log`. See [Logging](configuration.md#logging).
+
+A reply Ghostwriter couldn't read is logged with what was wrong with it, not the reply itself. To see the whole reply, turn on **Log replies that can't be read** for a while (or set `logReplies`), try again, and look for the `reply` in that log line. See [Logging unreadable replies](configuration.md#logging-unreadable-replies).
 
 ## The plugin settings can't be changed
 

@@ -105,6 +105,14 @@ class Settings extends Model
     public int $planSuggestions = 8;
 
     /**
+     * Put the model's whole reply in the log when it can't be read, for
+     * troubleshooting. Off, only what was wrong with it is logged. Prompts
+     * and keys are never logged either way. May be an environment variable
+     * ("$GHOSTWRITER_LOG_REPLIES").
+     */
+    public bool|string $logReplies = false;
+
+    /**
      * Where overridden prompts are read from, under prompts/. Guides, kinds
      * and the plan are kept in the database; early builds kept them here, and
      * they are imported from here when updating.
@@ -131,7 +139,29 @@ class Settings extends Model
             [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations'], 'boolean'],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
             [['baseUrls'], 'validateBaseUrls'],
+            [['logReplies'], 'validateLogReplies'],
         ];
+    }
+
+    /**
+     * On, off, or an environment variable holding one of those.
+     */
+    public function validateLogReplies(string $attribute): void
+    {
+        $value = $this->$attribute;
+
+        if (is_string($value) && !str_starts_with($value, '$') && App::normalizeBooleanValue($value) === null) {
+            $this->addError($attribute, \Craft::t('ghostwriter', 'Choose yes or no, or an environment variable.'));
+        }
+    }
+
+    /**
+     * Whether whole unreadable replies go in the log, with any environment
+     * variable read. An unset variable means no.
+     */
+    public function logsReplies(): bool
+    {
+        return App::parseBooleanEnv($this->logReplies) ?? false;
     }
 
     /**
@@ -225,6 +255,12 @@ class Settings extends Model
             foreach (self::BASE_URL_PROVIDERS as $provider) {
                 $values['baseUrls'][$provider] = is_string($given[$provider] ?? null) ? trim($given[$provider]) : '';
             }
+        }
+
+        // The settings form sends "1", "0" or an environment variable.
+        if (array_key_exists('logReplies', $values) && is_string($values['logReplies'])) {
+            $given = trim($values['logReplies']);
+            $values['logReplies'] = $given === '' ? false : (str_starts_with($given, '$') ? $given : (App::normalizeBooleanValue($given) ?? $given));
         }
 
         foreach (['sections', 'voiceSections'] as $key) {

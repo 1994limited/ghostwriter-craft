@@ -8,9 +8,9 @@ use Psr\Log\LogLevel;
 use Stringable;
 
 /**
- * Core's logs (a call finished, was retried or failed) written to Craft's
- * own log under the ghostwriter category. Core never logs prompts, replies
- * or keys.
+ * Core's logs (a call finished, was retried or failed, a reply couldn't be
+ * read) written to Craft's own log under the ghostwriter category. Core
+ * never logs prompts or keys, and logs a reply only with logReplies on.
  */
 final class CraftLogger extends AbstractLogger
 {

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e3ed46c271195988eaeaaab939bb4a31",
+    "content-hash": "ca455ae63265d066a549d3cae58a4c6b",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
-            "version": "v0.2.0",
+            "version": "v0.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/1994limited/ghostwriter-core.git",
-                "reference": "ec931c1525ea223484ddfe79720014a306be0b07"
+                "reference": "3d72eb61dbe16fd855e8124c841d41d015381f27"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/ec931c1525ea223484ddfe79720014a306be0b07",
-                "reference": "ec931c1525ea223484ddfe79720014a306be0b07",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/3d72eb61dbe16fd855e8124c841d41d015381f27",
+                "reference": "3d72eb61dbe16fd855e8124c841d41d015381f27",
                 "shasum": ""
             },
             "require": {
@@ -43,10 +43,13 @@
                 "ext-intl": "Transliterates non-Latin scripts in photo file names (Text\\Slug); without it they are dropped.",
                 "guzzlehttp/guzzle": "Required (^7.8 or ^8.0) to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
             },
+            "bin": [
+                "bin/compare-requests"
+            ],
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.2.x-dev"
+                    "dev-main": "0.3.x-dev"
                 }
             },
             "autoload": {
@@ -64,7 +67,7 @@
                     "homepage": "https://1994.co.uk"
                 }
             ],
-            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer and photo search.",
+            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer, the Studio (every model job) and photo search.",
             "homepage": "https://github.com/1994limited/ghostwriter-core",
             "keywords": [
                 "ai",
@@ -76,7 +79,7 @@
                 "issues": "https://github.com/1994limited/ghostwriter-core/issues",
                 "source": "https://github.com/1994limited/ghostwriter-core"
             },
-            "time": "2026-10-02T00:44:36+00:00"
+            "time": "2026-10-02T13:02:36+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",
