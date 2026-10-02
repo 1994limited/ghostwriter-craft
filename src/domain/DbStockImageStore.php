@@ -157,7 +157,7 @@ class DbStockImageStore implements StockImageStore
             'requestedAt' => Db::prepareDateForDb(new DateTimeImmutable()),
             'requestedById' => is_numeric($userId) ? (int) $userId : null,
             'requestedByName' => $name !== null ? mb_substr($name, 0, 255) : null,
-        ], ['id' => $id], updateTimestamps: false);
+        ], ['id' => $id], updateTimestamp: false);
     }
 
     /**

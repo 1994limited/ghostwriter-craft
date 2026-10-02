@@ -2159,6 +2159,232 @@
             window.location.reload();
         } catch (error) {}
     });
+
+    /**
+     * Stock photos: the badge that marks a preview (on an image field, in
+     * the asset's sidebar, on the ledger screen), and what its buttons do:
+     * License & replace (with the confirm step), Request licence, Refresh
+     * preview, Download again and replace.
+     */
+    Ghostwriter.Stock = {
+        t(message, params) {
+            return Craft.t('ghostwriter', message, params);
+        },
+
+        /** The badge: its state and library, and what can be done. */
+        badgeHtml(item) {
+            const t = this.t;
+            const esc = Ghostwriter.escape;
+            const actions = [];
+
+            if (item.mayLicense) {
+                actions.push(`<button type="button" class="btn small submit" data-stock="license">${t('License')}</button>`);
+            }
+
+            if (item.mayReplace) {
+                actions.push(`<button type="button" class="btn small submit" data-stock="replace">${t('Download again and replace')}</button>`);
+            }
+
+            if (item.mayRefresh) {
+                actions.push(`<button type="button" class="btn small" data-stock="refresh">${t('Refresh preview')}</button>`);
+            }
+
+            if (!item.mayLicense && !item.mayReplace && ['preview', 'failed', 'licensing'].includes(item.state)) {
+                actions.push(`<span class="light">${t('Ask a manager to license')}</span>`);
+
+                if (item.mayRequest) {
+                    actions.push(`<button type="button" class="btn small" data-stock="request">${t('Request licence')}</button>`);
+                } else if (item.requested) {
+                    actions.push(`<span class="light">${esc(t('Licence requested by {name}', { name: item.requested.name ?? '' }))}</span>`);
+                }
+            }
+
+            return `
+                <div class="gw-stock-badge gw-stock-badge--${esc(item.state)}${item.expired ? ' gw-stock-badge--expired' : ''}" data-stock-id="${esc(item.id)}">
+                    <span class="gw-stock-badge__status">${esc(item.status)}</span>
+                    <span class="light">${esc(item.library)} ${esc(item.externalId)}</span>
+                    ${item.error && item.state !== 'preview' ? `<span class="error gw-stock-badge__error">${esc(item.error)}</span>` : ''}
+                    ${actions.length ? `<span class="gw-stock-badge__actions">${actions.join(' ')}</span>` : ''}
+                </div>`;
+        },
+
+        /**
+         * Put badges into a container and wire their buttons. `changed` is
+         * called with the result of anything that changes a record.
+         */
+        render($container, items, changed) {
+            $container.html(items.map((item) => this.badgeHtml(item)).join(''));
+            Ghostwriter.prepareButtons($container);
+
+            items.forEach((item) => {
+                const $badge = $container.find(`[data-stock-id="${item.id}"]`);
+                this.wire($badge, item, changed);
+            });
+        },
+
+        wire($root, item, changed) {
+            $root.find('[data-stock="license"]').on('click', () => this.license(item, changed));
+            $root.find('[data-stock="request"]').on('click', (event) => this.act('stock/request', item, $(event.currentTarget), changed));
+            $root.find('[data-stock="refresh"]').on('click', (event) => this.act('stock/refresh', item, $(event.currentTarget), changed));
+            $root.find('[data-stock="replace"]').on('click', (event) => this.act('stock/replace-again', item, $(event.currentTarget), changed));
+        },
+
+        async act(action, item, $button, changed) {
+            $button.addClass('loading');
+
+            try {
+                const result = await Ghostwriter.request('POST', action, { id: item.id });
+                Craft.cp.displaySuccess(result.message);
+                changed?.(result);
+            } catch (error) {
+            } finally {
+                $button.removeClass('loading');
+            }
+        },
+
+        /**
+         * The confirm step (§8.3): the photo, the licence option, what it
+         * costs in the account's own terms, any restrictions and notices,
+         * the credit that will be kept; then License & replace.
+         */
+        async license(item, changed) {
+            const t = this.t;
+            const esc = Ghostwriter.escape;
+            let quote;
+
+            try {
+                quote = await Ghostwriter.request('GET', 'stock/quote', { id: item.id });
+            } catch (error) {
+                return;
+            }
+
+            const $modal = $('<div class="modal gw-license-modal" role="dialog"/>').attr('aria-label', t('License & replace')).appendTo(Garnish.$bod);
+            const options = quote.quotes.map((option, i) => `<option value="${esc(option.option)}"${i === 0 ? ' selected' : ''}>${esc(option.name)}</option>`).join('');
+
+            $modal.html(`
+                <div class="gw-panel">
+                    <div class="gw-panel__header">
+                        <h2 class="gw-panel__title">${t('License & replace')}</h2>
+                        <button type="button" class="btn gw-license-close">${t('Close')}</button>
+                    </div>
+                    <div class="gw-panel__body gw-license">
+                        <div class="gw-license__photo">
+                            ${quote.thumb ? `<img src="${esc(quote.thumb)}" alt="">` : ''}
+                            <div>
+                                <strong>${esc(quote.title ?? '')}</strong>
+                                <div class="light">${esc(quote.library)} ${esc(quote.externalId)}</div>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="heading"><label for="gw-license-option">${t('Licence')}</label></div>
+                            ${quote.quotes.length > 1
+                                ? `<div class="select"><select id="gw-license-option">${options}</select></div>`
+                                : `<div>${esc(quote.quotes[0]?.name ?? '')}</div><input type="hidden" id="gw-license-option" value="${esc(quote.quotes[0]?.option ?? '')}">`}
+                        </div>
+                        <p class="gw-license__cost"></p>
+                        <div class="gw-license__notices"></div>
+                        ${quote.restrictions ? `<p class="warning with-icon">${esc(quote.restrictions)}</p>` : ''}
+                        ${quote.editorial ? `<label class="gw-license__ack"><input type="checkbox" id="gw-license-ack"> ${t('This image is for editorial use only. I’ll use it on news or other editorial pages, not to advertise or promote anything.')}</label>` : ''}
+                        ${quote.credit ? `<p class="gw-license__credit">${t('Credit:')} <strong>${esc(quote.credit)}</strong><br><span class="light">${t('If this page is news, a blog post or other editorial use, show this credit next to the image.')}</span></p>` : ''}
+                        <p class="error gw-license__error hidden" role="alert"></p>
+                    </div>
+                    <div class="gw-panel__footer">
+                        <button type="button" class="btn submit gw-license-go">${t('License & replace')}</button>
+                    </div>
+                </div>`);
+
+            const modal = new Garnish.Modal($modal, { hideOnEsc: true, hideOnShadeClick: true, resizable: false, onHide: () => setTimeout(() => modal.destroy?.(), 300) });
+            Ghostwriter.prepareButtons($modal);
+
+            const describe = () => {
+                const chosen = quote.quotes.find((option) => option.option === $modal.find('#gw-license-option').val()) ?? quote.quotes[0];
+                $modal.find('.gw-license__cost').text(chosen?.cost ?? '');
+                $modal.find('.gw-license__notices').html((chosen?.notices ?? []).map((notice) => `<p class="notice with-icon">${esc(notice)}</p>`).join(''));
+                modal.updateSizeAndPosition?.();
+            };
+
+            describe();
+            $modal.find('#gw-license-option').on('change', describe);
+            $modal.find('.gw-license-close').on('click', () => modal.hide());
+            $modal.find('img').on('load', () => modal.updateSizeAndPosition?.());
+
+            $modal.find('.gw-license-go').on('click', async (event) => {
+                const $go = $(event.currentTarget);
+
+                if (quote.editorial && !$modal.find('#gw-license-ack').prop('checked')) {
+                    $modal.find('.gw-license__error').text(t('This image is for editorial use only. Tick the box to confirm, then license it.')).removeClass('hidden');
+
+                    return;
+                }
+
+                $go.addClass('loading').prop('disabled', true);
+                $modal.find('.gw-license__error').addClass('hidden');
+
+                try {
+                    const result = await Ghostwriter.request('POST', 'stock/license', { id: item.id, option: $modal.find('#gw-license-option').val(), acknowledge: $modal.find('#gw-license-ack').prop('checked') ? 1 : 0 });
+
+                    (result.replaced ? Craft.cp.displaySuccess : Craft.cp.displayError).call(Craft.cp, result.message);
+                    modal.hide();
+                    changed?.(result);
+                } catch (error) {
+                    $modal.find('.gw-license__error').text(error?.response?.data?.message ?? t('Something went wrong.')).removeClass('hidden');
+                    modal.updateSizeAndPosition?.();
+
+                    // The price changed: show the new one before asking again.
+                    if (error?.response?.status === 409) {
+                        try {
+                            quote = await Ghostwriter.request('GET', 'stock/quote', { id: item.id });
+                            describe();
+                        } catch (e) {}
+                    }
+                } finally {
+                    $go.removeClass('loading').prop('disabled', false);
+                }
+            });
+        },
+
+        /** The asset sidebar's panel: everything the ledger knows, and the badge's buttons. */
+        panelHtml(item) {
+            const t = this.t;
+            const esc = Ghostwriter.escape;
+            const row = (label, value) => value ? `<div class="data"><h5 class="heading">${esc(label)}</h5><div class="value">${value}</div></div>` : '';
+            const licence = item.licence ? [item.licence.orderId, item.licence.cost, item.licence.by, item.licence.at].filter(Boolean).map(esc).join(' · ') : '';
+            const used = (item.usages ?? []).map((usage) => `<div><a href="${esc(usage.url)}">${esc(usage.title ?? usage.label)}</a><br><span class="light">${esc(usage.label)}</span></div>`).join('');
+
+            return [
+                row(t('Status'), esc(item.status)),
+                row(t('Library'), `${esc(item.library)} ${esc(item.externalId)}`),
+                row(t('Licence'), licence),
+                row(t('Credit'), esc(item.credit ?? '')),
+                row(t('Restrictions'), esc(item.restrictions ?? '')),
+                row(t('Used on'), used),
+                `<div class="gw-stock-panel__badge"></div>`,
+            ].join('');
+        },
+    };
+
+    /**
+     * The stock panel in an asset's sidebar.
+     */
+    Ghostwriter.initStockPanels = function (root) {
+        $(root).find('.gw-stock-panel[data-ghostwriter-stock]').addBack('.gw-stock-panel[data-ghostwriter-stock]').each((i, panel) => {
+            if (panel.dataset.ghostwriterReady) return;
+
+            panel.dataset.ghostwriterReady = '1';
+
+            const show = (item) => {
+                const $panel = $(panel).html(Ghostwriter.Stock.panelHtml(item));
+                const actionable = item.mayLicense || item.mayReplace || item.mayRefresh || item.mayRequest || item.requested;
+
+                if (actionable) {
+                    Ghostwriter.Stock.render($panel.find('.gw-stock-panel__badge'), [item], (result) => result.badge && show(result.badge));
+                }
+            };
+
+            show(JSON.parse(panel.dataset.ghostwriterStock));
+        });
+    };
+
     /**
      * The Ghostwriter button on an image field, beside "Add an asset" and
      * "Upload a file". It finds a photograph or has a picture made, and puts
@@ -2209,6 +2435,32 @@
             }
             Ghostwriter.prepareButtons(this.$button);
             this.addListener(this.$button, 'click', 'open');
+
+            // Stock photo previews in the field: a badge each, under the field.
+            this.$badges = $('<div class="gw-stock-badges"/>').insertAfter(this.$holder);
+            this.badges(this.config.stock ?? []);
+            this.addListener(this.$holder, 'ghostwriter:stock-changed', 'refreshBadges');
+            this.$select.on('change', () => this.refreshBadges());
+        },
+
+        badges(items) {
+            Ghostwriter.Stock.render(this.$badges, items, (result) => {
+                // Licensed: the field's thumbnail shows the new file.
+                if (result.thumb && result.assetId) {
+                    this.$select.find(`.element[data-id="${result.assetId}"] img`).attr({ src: result.thumb, srcset: result.thumb });
+                }
+
+                this.refreshBadges();
+            });
+        },
+
+        async refreshBadges() {
+            const ids = this.$select.find('.element[data-id]').map((i, element) => $(element).data('id')).get();
+
+            try {
+                const { data } = await Craft.sendActionRequest('GET', 'ghostwriter/stock/badges', { params: { assetIds: ids } });
+                this.badges(data.badges ?? []);
+            } catch (error) {}
         },
 
         open() {
@@ -2617,7 +2869,13 @@
 
     $(() => {
         Ghostwriter.initImageButtons(document.body);
+        Ghostwriter.initStockPanels(document.body);
 
-        new MutationObserver((changes) => changes.forEach((change) => change.addedNodes.forEach((node) => node.nodeType === 1 && Ghostwriter.initImageButtons(node)))).observe(document.body, { childList: true, subtree: true });
+        new MutationObserver((changes) => changes.forEach((change) => change.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+                Ghostwriter.initImageButtons(node);
+                Ghostwriter.initStockPanels(node);
+            }
+        }))).observe(document.body, { childList: true, subtree: true });
     });
 })();

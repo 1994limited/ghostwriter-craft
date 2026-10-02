@@ -70,12 +70,15 @@ class PluginTest extends TestCase
         $this->assertNotContains('Dashboard', array_column($ours['subnav'], 'label'));
     }
 
-        public function testThereIsOnePermission(): void
+    public function testThereAreTwoPermissionsOfItsOwn(): void
     {
         $groups = Craft::$app->getUserPermissions()->getAllPermissions();
         $ours = array_values(array_filter($groups, fn(array $group) => $group['heading'] === 'Ghostwriter'));
 
-        $this->assertSame([Plugin::PERMISSION => ['label' => 'Use Ghostwriter']], $ours[0]['permissions']);
+        // Using it, and licensing stock images, which spends money.
+        $this->assertSame([Plugin::PERMISSION, Plugin::LICENSE_PERMISSION], array_keys($ours[0]['permissions']));
+        $this->assertSame('Use Ghostwriter', $ours[0]['permissions'][Plugin::PERMISSION]['label']);
+        $this->assertSame('License stock images', $ours[0]['permissions'][Plugin::LICENSE_PERMISSION]['label']);
         $this->assertSame([], array_filter($groups, fn(array $group) => isset($group['permissions']['accessPlugin-ghostwriter'])));
     }
 
