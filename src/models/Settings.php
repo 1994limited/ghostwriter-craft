@@ -62,6 +62,47 @@ class Settings extends Model
     /** Openverse needs no key, and is searched for public-domain and CC0 work only. */
     public bool $openverse = true;
 
+    /** "On publish" choices for a page that still holds a stock photo preview. */
+    public const STOCK_BLOCK = 'block';
+
+    public const STOCK_WARN = 'warn';
+
+    /**
+     * Paid photo libraries switched on or off, by ID ("demo", "getty",
+     * "shutterstock"). A library not listed is on. Its keys still come
+     * from .env.
+     *
+     * @var array<string, bool>
+     */
+    public array $stockLibraries = [];
+
+    /**
+     * Where the image dialog's "Search in" starts for someone who hasn't
+     * chosen yet: "free", "everything" or a paid library's ID. Each person's
+     * last choice wins after that.
+     */
+    public string $stockDefaultSource = 'free';
+
+    /** Include editorial-only images in searches by default. */
+    public bool $stockIncludeEditorial = false;
+
+    /**
+     * When an entry holding a stock photo preview (not licensed yet) is
+     * saved live: "block" refuses the save with a message on the field;
+     * "warn" saves it and says so. Drafts always save.
+     */
+    public string $stockOnPublish = self::STOCK_BLOCK;
+
+    /**
+     * Offer the demo library ("Demo stock (no charge)") outside dev mode,
+     * for a test site or screenshots. Never in production, whatever this
+     * says. May be an environment variable ("$GHOSTWRITER_STOCK_DEMO").
+     */
+    public bool|string $stockDemo = '$GHOSTWRITER_STOCK_DEMO';
+
+    /** Days a stock photo stand-in no entry uses is kept before cleanup removes it. */
+    public int $stockUnusedDays = 30;
+
     /** How much of the site is read for the voice guide, so one scan is one affordable request. */
     public int $voiceMaxEntries = 24;
 
@@ -143,7 +184,11 @@ class Settings extends Model
             [['provider'], 'in', 'range' => ['anthropic', 'openai', 'gemini']],
             [['imageProvider'], 'in', 'range' => ['openai', 'gemini'], 'skipOnEmpty' => true],
             [['timeout'], 'integer', 'min' => 30, 'max' => 1800],
-            [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions'], 'integer', 'min' => 1],
+            [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions', 'stockUnusedDays'], 'integer', 'min' => 1],
+            [['stockOnPublish'], 'in', 'range' => [self::STOCK_BLOCK, self::STOCK_WARN]],
+            [['stockDefaultSource'], 'match', 'pattern' => '/^[a-z0-9_-]{1,64}$/'],
+            [['stockIncludeEditorial'], 'boolean'],
+            [['stockLibraries'], 'each', 'rule' => ['boolean']],
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
             [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished'], 'boolean'],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
@@ -162,6 +207,23 @@ class Settings extends Model
         if (is_string($value) && !str_starts_with($value, '$') && App::normalizeBooleanValue($value) === null) {
             $this->addError($attribute, \Craft::t('ghostwriter', 'Choose yes or no, or an environment variable.'));
         }
+    }
+
+    /**
+     * Whether `stockDemo` asks for the demo library, with any environment
+     * variable read. An unset variable means no.
+     */
+    public function demoRequested(): bool
+    {
+        return App::parseBooleanEnv($this->stockDemo) ?? false;
+    }
+
+    /**
+     * Whether a live save holding a preview is refused (or only warned of).
+     */
+    public function blocksPreviewsOnPublish(): bool
+    {
+        return $this->stockOnPublish !== self::STOCK_WARN;
     }
 
     /**
@@ -270,6 +332,11 @@ class Settings extends Model
         if (array_key_exists('logReplies', $values) && is_string($values['logReplies'])) {
             $given = trim($values['logReplies']);
             $values['logReplies'] = $given === '' ? false : (str_starts_with($given, '$') ? $given : (App::normalizeBooleanValue($given) ?? $given));
+        }
+
+        // Lightswitches post "1" or "".
+        if (array_key_exists('stockLibraries', $values)) {
+            $values['stockLibraries'] = array_map(fn($on) => (bool) $on, array_filter(is_array($values['stockLibraries']) ? $values['stockLibraries'] : [], fn($key) => is_string($key) && preg_match('/^[a-z0-9_-]{1,64}$/', $key), ARRAY_FILTER_USE_KEY));
         }
 
         foreach (['sections', 'voiceSections'] as $key) {
