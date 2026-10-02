@@ -13,8 +13,12 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Plan;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Queue\Waiting;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\SessionAccess;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\SessionGuard;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\ModelInputGuard;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\Person;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\StockImages;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Viewer;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
+use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
@@ -87,6 +91,36 @@ class Domain extends Component
     public function images(): ImageRequests
     {
         return new ImageRequests(Plugin::getInstance()->imageStore, Plugin::getInstance()->lock, $this->options());
+    }
+
+    /**
+     * The stock image ledger and its rules: every stock image Ghostwriter
+     * put into the site, free or paid, where it is used and its licence.
+     */
+    public function stock(): StockImages
+    {
+        return new StockImages(Plugin::getInstance()->stockImages, Plugin::getInstance()->lock, $this->options());
+    }
+
+    /**
+     * Keeps Getty and iStock images, and any other library's whose terms
+     * allow no AI use, out of every model call: reference images, imagery
+     * samples, the pictures a new one is modelled on.
+     */
+    public function guard(): ModelInputGuard
+    {
+        return new ModelInputGuard(Plugin::getInstance()->stockImages, new CraftLogger());
+    }
+
+    /**
+     * Who did something to a stock image, as the ledger keeps them: their
+     * ID and their name as it is now.
+     */
+    public function person(?User $user = null): ?Person
+    {
+        $user ??= Craft::$app->getUser()->getIdentity();
+
+        return $user ? new Person((int) $user->id, (string) ($user->getFriendlyName() ?? $user->username)) : null;
     }
 
     /**
