@@ -84,7 +84,9 @@ class Presenter
         return [
             'startedBy' => $shared ? ($session->userId === $me ? Craft::t('ghostwriter', 'you') : self::name($session->userId)) : null,
             'touchedBy' => $shared && $touched !== $session->userId ? ($touched === $me ? Craft::t('ghostwriter', 'you') : self::name($touched)) : null,
-            'waitingOn' => $session->status === Session::WORKING && $session->runBy !== null && $session->runBy !== $me ? self::name($session->runBy) : null,
+            // Only when shared: a private piece is only ever its starter's
+            // to wait on, and naming them elsewhere (the plan) would leak it.
+            'waitingOn' => $shared && $session->status === Session::WORKING && $session->runBy !== null && $session->runBy !== $me ? self::name($session->runBy) : null,
         ];
     }
 

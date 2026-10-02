@@ -164,20 +164,29 @@ class SessionsController extends Controller
             return $refusal;
         }
 
-        if ($session->status === Session::WORKING) {
-            return $this->busy($session, 'Ghostwriter is still working on the last message.');
-        }
-
         $message = trim((string) $this->request->getBodyParam('message'));
 
         if ($message === '' || mb_strlen($message) > 50000) {
             return $this->refuse('Write a message first.');
         }
 
-        $session->addMessage('user', $message, $this->me());
-        $session->run($this->me());
+        // One run at a time: checked and started under the session's lock,
+        // so two people sending at once can't both start one.
+        $started = false;
+        $session = $plugin->sessions->change($session->id, function(Session $session) use ($message, &$started): bool {
+            if ($session->status === Session::WORKING) {
+                return false;
+            }
 
-        $plugin->sessions->save($session);
+            $session->addMessage('user', $message, $this->me());
+            $session->run($this->me());
+
+            return $started = true;
+        }) ?? throw new NotFoundHttpException('No such piece of writing.');
+
+        if (!$started) {
+            return $this->busy($session, 'Ghostwriter is still working on the last message.');
+        }
 
         RunSessionTurn::start(['sessionId' => $session->id]);
 
@@ -199,16 +208,26 @@ class SessionsController extends Controller
             return $refusal;
         }
 
-        $last = $session->messages[array_key_last($session->messages) ?? 0] ?? null;
+        // Under the session's lock, like a new message, and recording who is
+        // waiting on it.
+        $started = false;
+        $session = $plugin->sessions->change($session->id, function(Session $session) use (&$started): bool {
+            $last = $session->messages[array_key_last($session->messages) ?? 0] ?? null;
 
-        if ($session->status !== Session::FAILED || ($last['role'] ?? null) !== 'user') {
-            return $this->refuse('There is nothing to try again.', 409);
+            if ($session->status !== Session::FAILED || ($last['role'] ?? null) !== 'user') {
+                return false;
+            }
+
+            $session->run($this->me());
+
+            return $started = true;
+        }) ?? throw new NotFoundHttpException('No such piece of writing.');
+
+        if (!$started) {
+            return $session->status === Session::WORKING
+                ? $this->busy($session, 'Ghostwriter is already trying again.')
+                : $this->refuse('There is nothing to try again.', 409);
         }
-
-        $session->status = Session::WORKING;
-        $session->error = null;
-
-        $plugin->sessions->save($session);
 
         RunSessionTurn::start(['sessionId' => $session->id]);
 

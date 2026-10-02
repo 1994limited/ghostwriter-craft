@@ -790,6 +790,10 @@
             } catch (error) {
                 this.message = message;
                 this.renderComposer();
+
+                // Someone else's message is being answered: show it, and
+                // wait with them.
+                if (error?.response?.status === 409) this.openSession(this.session.id);
             }
         },
 
@@ -801,7 +805,9 @@
 
             try {
                 this.receive(await Ghostwriter.request('POST', 'sessions/retry', { id: this.session.id }));
-            } catch (error) {}
+            } catch (error) {
+                if (error?.response?.status === 409) this.openSession(this.session.id);
+            }
         },
 
         // Writing edited where it is shown: remembered on the way in, saved

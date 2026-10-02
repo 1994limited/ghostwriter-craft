@@ -105,9 +105,11 @@ class SessionRepository extends Component
 
     /**
      * Change a session with nobody else changing it in between: the job
-     * writing a reply and a request from the panel can overlap.
+     * writing a reply and a request from the panel can overlap, and so can
+     * two people's requests when conversations are shared. A change that
+     * returns false is called off: nothing is saved.
      *
-     * @param callable(Session): void $change
+     * @param callable(Session): (void|bool) $change
      */
     public function change(string $id, callable $change): ?Session
     {
@@ -118,7 +120,9 @@ class SessionRepository extends Component
                 return null;
             }
 
-            $change($session);
+            if ($change($session) === false) {
+                return $session;
+            }
 
             return $this->save($session);
         });

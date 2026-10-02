@@ -98,7 +98,7 @@ class SharingTest extends TestCase
         $this->assertNotContains($session->id, array_column($this->dashboardSessions(), 'id'));
         $this->assertStringNotContainsString('Started by', $this->dashboard());
 
-        foreach (['show' => 'GET', 'message' => 'POST', 'delete' => 'POST'] as $action => $method) {
+        foreach (['show' => 'GET', 'message' => 'POST', 'retry' => 'POST', 'draft' => 'POST', 'delete' => 'POST'] as $action => $method) {
             $this->assertSame(404, $this->action("ghostwriter/sessions/{$action}", ['id' => $session->id, 'message' => 'Hi'], $method)['status'], $action);
         }
 
@@ -107,6 +107,49 @@ class SharingTest extends TestCase
         $shown = $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data'];
         $this->assertSame([null, null, null], [$shown['startedBy'], $shown['touchedBy'], $shown['waitingOn']]);
         $this->assertContains($session->id, array_column($this->dashboardSessions(), 'id'));
+    }
+
+    public function testTryingAgainRecordsWhoIsWaitingAndRunsOnce(): void
+    {
+        $session = $this->annsPiece();
+        $session->status = Session::FAILED;
+        $session->error = 'The provider is overloaded.';
+        $session->addMessage('user', 'Make it shorter.', $this->ann->id);
+        $this->plugin->sessions->save($session);
+
+        // Bo tries Ann's failed turn again: he is the one waiting now.
+        $this->as($this->bo);
+        $retried = $this->action('ghostwriter/sessions/retry', ['id' => $session->id]);
+        $this->assertSame(200, $retried['status']);
+        $this->assertSame($this->bo->id, $this->plugin->sessions->find($session->id)->runBy);
+
+        // Ann sees him waiting, and can neither try again nor send meanwhile.
+        $this->as($this->ann);
+        $this->assertSame('Bo Brown', $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data']['waitingOn']);
+        $this->assertSame('Bo Brown is waiting on Ghostwriter.', $this->action('ghostwriter/sessions/retry', ['id' => $session->id])['data']['message']);
+        $this->assertSame(409, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'And add a quote.'])['status']);
+        $this->assertCount(1, $this->queued(RunSessionTurn::class));
+    }
+
+    public function testWithSharingOffThePlanDoesNotOpenOrNameSomeoneElsesPiece(): void
+    {
+        $this->plugin->getSettings()->sharedConversations = false;
+        $session = $this->annsPiece();
+        $session->run($this->ann->id);
+        $this->plugin->sessions->save($session);
+
+        $ideas = $this->plugin->ideas;
+        $ideas->update($ideas->add(['title' => 'Faceted search', 'section' => 'articles'])['id'], ['status' => \nineteenninetyfour\ghostwriter\planning\IdeaRepository::DRAFTED, 'session' => $session->id]);
+
+        $this->as($this->bo);
+        $idea = $this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'][0];
+        $this->assertSame('drafted', $idea['status']);
+        $this->assertSame([null, null, null, null], [$idea['resumeUrl'], $idea['startedBy'], $idea['touchedBy'], $idea['waitingOn']]);
+
+        // Shared, Bo can pick it up and sees whose it is.
+        $this->plugin->getSettings()->sharedConversations = true;
+        $idea = $this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'][0];
+        $this->assertSame(['Ann Archer', 'Ann Archer'], [$idea['startedBy'], $idea['waitingOn']]);
     }
 
     public function testSomeoneWithoutGhostwriterSeesNothing(): void

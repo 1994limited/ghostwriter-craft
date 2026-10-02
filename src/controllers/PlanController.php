@@ -211,6 +211,12 @@ class PlanController extends Controller
         $session = $idea['session'] ? $plugin->sessions->find($idea['session']) : null;
         $progress = $session ? (new Presenter())->summary($session) : null;
 
+        // With conversations kept private, someone else's piece can't be
+        // opened, so it gets no link to resume it.
+        if ($session && !$plugin->sessions->canSee($session, (int) Craft::$app->getUser()->getId())) {
+            unset($progress['url']);
+        }
+
         // A piece whose conversation was removed is back to being just an idea.
         if ($idea['status'] === IdeaRepository::DRAFTED && !$session) {
             $idea['status'] = IdeaRepository::OPEN;
