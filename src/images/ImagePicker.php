@@ -10,12 +10,15 @@ use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageRequest;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetRef;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoContext;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoResults;
+use NineteenNinetyFour\Ghostwriter\Core\Images\ReferenceImage;
 use NineteenNinetyFour\Ghostwriter\Core\Images\StockSearch;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use Throwable;
 use yii\base\Component;
 
@@ -59,7 +62,8 @@ class ImagePicker extends Component
     {
         $plugin = Plugin::getInstance();
 
-        return $this->finder ??= new PhotoFinder($this->stock(), $plugin->providers->registry(), $plugin->paths->prompts(), new CraftLogger());
+        // The ranker's reference images go through the model-input guard.
+        return $this->finder ??= new PhotoFinder($this->stock(), $plugin->providers->registry(), $plugin->paths->prompts(), new CraftLogger(), guard: $plugin->domain->guard());
     }
 
     public function canFind(): bool
@@ -85,13 +89,19 @@ class ImagePicker extends Component
 
         foreach ($slot->references() as $asset) {
             try {
-                $references[] = (string) $asset->getContents();
+                $content = (string) $asset->getContents();
+
+                // With where it came from, so the model-input guard can
+                // check its ledger record and name as well as its bytes.
+                if ($content !== '') {
+                    $references[] = new ReferenceImage($content, self::ref($asset), (string) $asset->filename);
+                }
             } catch (Throwable $exception) {
                 Craft::warning("Could not read {$asset->filename}: {$exception->getMessage()}", 'ghostwriter');
             }
         }
 
-        return $this->finder()->find($this->context($slot), array_values(array_filter($references)), $terms ?: null);
+        return $this->finder()->find($this->context($slot), $references, $terms ?: null);
     }
 
     public function context(ImageSlot $slot): PhotoContext
@@ -116,7 +126,7 @@ class ImagePicker extends Component
         $file = $this->stock()->fetch($source, $id);
         $photo = $file->photo;
 
-        return $this->keep($slot, $file->content, $file->extension, [
+        $asset = $this->keep($slot, $file->content, $file->extension, [
             'filename' => $photo->filenameBase($slot->title() ?: null),
             'title' => $photo->assetTitle($slot->title() ?: null),
             'alt' => $photo->alt($slot->title() ?: null),
@@ -124,6 +134,23 @@ class ImagePicker extends Component
             'credit_url' => $photo->creditUrl,
             'licence' => $photo->licence,
         ]);
+
+        // A free library's photo is licensed at once: the ledger says where
+        // it came from, under which licence, and where it is used.
+        $plugin = Plugin::getInstance();
+        $capabilities = $this->stock()->library($source)?->capabilities();
+        $plugin->domain->stock()->recordFree($photo, self::ref($asset), $plugin->domain->person(), StockUsages::usageFor($slot->element, $slot->field), (bool) $capabilities?->noModelInput);
+        $plugin->stockUsages->forget();
+
+        return $asset;
+    }
+
+    /**
+     * An asset as the ledger refers to it: its ID, with its volume and path.
+     */
+    public static function ref(Asset $asset): AssetRef
+    {
+        return AssetRef::craft((int) $asset->id, (string) $asset->getVolume()->handle, (string) $asset->getPath());
     }
 
     /**
@@ -139,10 +166,17 @@ class ImagePicker extends Component
             ?? throw new InvalidArgumentException('No image provider has an API key. Set OPENAI_API_KEY or GEMINI_API_KEY.');
 
         $references = [];
+        $guard = $plugin->domain->guard();
 
         foreach ($slot->references() as $asset) {
             try {
-                $references[] = Image::fromString((string) $asset->getContents());
+                $content = (string) $asset->getContents();
+
+                // Never a Getty or iStock image, nor any other a library's
+                // terms keep from models.
+                if ($guard->allowsImage($content, self::ref($asset), (string) $asset->filename)) {
+                    $references[] = Image::fromString($content);
+                }
             } catch (Throwable) {
             }
         }

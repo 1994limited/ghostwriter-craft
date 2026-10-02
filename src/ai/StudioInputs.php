@@ -174,12 +174,12 @@ class StudioInputs
     }
 
     /**
-     * @param array<int, array{label: string, entry: string, image: Image}> $samples From the image sampler.
+     * @param array<int, array{label: string, entry: string, image: Image, asset?: \NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetRef|null, filename?: string|null}> $samples From the image sampler.
      * @return array<int, ImagerySample>
      */
     public function imagerySamples(array $samples): array
     {
-        return array_map(fn(array $sample) => new ImagerySample($sample['label'], $sample['entry'], $sample['image']), array_values($samples));
+        return array_map(fn(array $sample) => new ImagerySample($sample['label'], $sample['entry'], $sample['image'], $sample['asset'] ?? null, $sample['filename'] ?? null), array_values($samples));
     }
 
     public function kind(ContentType $type): ContentKind

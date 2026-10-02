@@ -19,7 +19,8 @@ use yii\base\Component;
  *   state      working state: suggestions, jobs in hand, image requests
  *   files      pictures made or uploaded, while they wait to be used
  *
- * Sessions have a table of their own. Core's stores (see domain/) read and
+ * Sessions have a table of their own, and so does the stock image ledger
+ * (`stock_images`, with `stock_usages` beside it), which is never cleared. Core's stores (see domain/) read and
  * write their records here; its Lock is Craft's mutex (domain/CraftLock).
  */
 class Store extends Component
@@ -31,6 +32,12 @@ class Store extends Component
     public const FILES = '{{%ghostwriter_files}}';
 
     public const SESSIONS = '{{%ghostwriter_sessions}}';
+
+    /** The stock image ledger: one row per stock image put into the site. Never deleted. */
+    public const STOCK_IMAGES = '{{%ghostwriter_stock_images}}';
+
+    /** Where each ledger image is used, from Craft's relations. */
+    public const STOCK_USAGES = '{{%ghostwriter_stock_usages}}';
 
     public function document(string $kind, string $handle): ?string
     {

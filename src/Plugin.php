@@ -15,7 +15,9 @@ use craft\events\RegisterCpNavItemsEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\events\RegisterComponentTypesEvent;
+use craft\events\ElementEvent;
 use craft\services\Dashboard;
+use craft\services\Elements;
 use craft\services\UserPermissions;
 use craft\events\TemplateEvent;
 use craft\web\View;
@@ -31,9 +33,11 @@ use nineteenninetyfour\ghostwriter\domain\DbImageRequestStore;
 use nineteenninetyfour\ghostwriter\domain\DbKindStore;
 use nineteenninetyfour\ghostwriter\domain\DbPlanStore;
 use nineteenninetyfour\ghostwriter\domain\DbSessionStore;
+use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
 use nineteenninetyfour\ghostwriter\types\TypeRepository;
@@ -58,6 +62,8 @@ use yii\base\Event;
  * @property-read DbGuideStore $guides
  * @property-read DbImageRequestStore $imageStore
  * @property-read DbWaitingStore $waitingStore
+ * @property-read DbStockImageStore $stockImages
+ * @property-read StockUsages $stockUsages
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -69,7 +75,7 @@ class Plugin extends BasePlugin
     /** The one permission Ghostwriter adds. Editing an entry still needs Craft's own. */
     public const PERMISSION = 'ghostwriter:use';
 
-    public string $schemaVersion = '1.1.0';
+    public string $schemaVersion = '1.2.0';
 
     public bool $hasCpSettings = true;
 
@@ -99,6 +105,9 @@ class Plugin extends BasePlugin
                 'guides' => DbGuideStore::class,
                 'imageStore' => DbImageRequestStore::class,
                 'waitingStore' => DbWaitingStore::class,
+                // The stock image ledger, and where its images are used.
+                'stockImages' => DbStockImageStore::class,
+                'stockUsages' => StockUsages::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -144,6 +153,16 @@ class Plugin extends BasePlugin
             if ($event->templateMode === View::TEMPLATE_MODE_CP && in_array($event->template, ['entries', 'entries/index'], true)) {
                 Launcher::registerIndexButton();
             }
+        });
+
+        // Where stock images are used, from Craft's relations, kept up to
+        // date as entries are saved; a deleted asset's record is removed.
+        Event::on(Elements::class, Elements::EVENT_AFTER_SAVE_ELEMENT, function(ElementEvent $event): void {
+            $this->stockUsages->afterSave($event->element);
+        });
+
+        Event::on(Elements::class, Elements::EVENT_AFTER_DELETE_ELEMENT, function(ElementEvent $event): void {
+            $this->stockUsages->afterDelete($event->element);
         });
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event): void {

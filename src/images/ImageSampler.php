@@ -11,6 +11,7 @@ use craft\fields\Assets;
 use craft\fields\Matrix;
 use Illuminate\Support\Collection;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
 
 /**
@@ -33,7 +34,7 @@ class ImageSampler
      * first, taking turns between fields so one busy field does not crowd
      * out the rest.
      *
-     * @return array<int, array{label: string, entry: string, image: Image}>
+     * @return array<int, array{label: string, entry: string, image: Image, asset: \NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetRef, filename: string}>
      */
     public function samples(string $section, int $limit = 10): array
     {
@@ -66,7 +67,8 @@ class ImageSampler
             }
 
             if ($image = $this->small($sample['asset'])) {
-                $samples[] = ['label' => $sample['label'], 'entry' => $sample['entry'], 'image' => $image];
+                // Where it came from goes with it, for the model-input guard.
+                $samples[] = ['label' => $sample['label'], 'entry' => $sample['entry'], 'image' => $image, 'asset' => ImagePicker::ref($sample['asset']), 'filename' => (string) $sample['asset']->filename];
             }
         }
 
@@ -126,6 +128,13 @@ class ImageSampler
         }
 
         if ($content === '' || @getimagesizefromstring($content) === false) {
+            return null;
+        }
+
+        // Read before it is made small, which drops the embedded credit:
+        // an image whose IPTC or XMP names Getty Images or iStock never
+        // goes to a model.
+        if (!Plugin::getInstance()->domain->guard()->allowsImage($content, ImagePicker::ref($asset), (string) $asset->filename)) {
             return null;
         }
 

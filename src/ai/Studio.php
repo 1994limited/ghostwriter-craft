@@ -63,6 +63,8 @@ class Studio extends Component
             $plugin->paths->prompts(),
             $this->logger ?? new CraftLogger(),
             StudioOptions::craft(logReplies: $plugin->getSettings()->logsReplies()),
+            // Imagery samples go through the model-input guard.
+            $plugin->domain->guard(),
         );
     }
 
