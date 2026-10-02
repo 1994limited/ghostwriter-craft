@@ -9,7 +9,6 @@ use InvalidArgumentException;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
 use nineteenninetyfour\ghostwriter\images\ImageRequests;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
-use nineteenninetyfour\ghostwriter\images\LogoCard;
 use nineteenninetyfour\ghostwriter\images\Placeholders;
 use nineteenninetyfour\ghostwriter\jobs\FindImages;
 use nineteenninetyfour\ghostwriter\jobs\MakeImage;
@@ -18,9 +17,9 @@ use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
- * Behind the Ghostwriter button on an image field: find photographs, have a
- * picture made, or set a logo on a ground, and turn the one chosen into an
- * asset the field's own input then shows.
+ * Behind the Ghostwriter button on an image field: find photographs or have
+ * a picture made, and turn the one chosen into an asset the field's own
+ * input then shows.
  */
 class ImagesController extends Controller
 {
@@ -147,47 +146,6 @@ class ImagesController extends Controller
         return $this->asJson($this->kept($asset));
     }
 
-    /**
-     * A logo centred on a flat or gradient ground, drawn in code so the
-     * logo comes out exactly as it went in.
-     */
-    public function actionLogo(): Response
-    {
-        $this->requirePostRequest();
-
-        $plugin = Plugin::getInstance();
-        $slot = $this->slot();
-        $upload = UploadedFile::getInstanceByName('logo');
-
-        if (!LogoCard::available()) {
-            return $this->refuse('Logo cards need the Imagick PHP extension, which this server does not have.');
-        }
-
-        if (!$upload) {
-            return $this->refuse('Choose the logo file: a PNG or SVG with a transparent background.');
-        }
-
-        [$width, $height] = $this->size($slot);
-
-        try {
-            $card = (new LogoCard())->compose(
-                (string) file_get_contents($upload->tempName),
-                $width,
-                $height,
-                $this->request->getBodyParam('colour') ?: null,
-                $this->request->getBodyParam('colourTo') ?: null,
-                (bool) $this->request->getBodyParam('white', true),
-            );
-
-            $name = pathinfo((string) $upload->name, PATHINFO_FILENAME);
-            $asset = $plugin->imagePicker->keep($slot, $card['content'], 'jpg', ['title' => trim(str_replace(['-', '_'], ' ', $name)) ?: 'Logo']);
-        } catch (InvalidArgumentException $exception) {
-            return $this->refuse($exception->getMessage());
-        }
-
-        return $this->asJson($this->kept($asset));
-    }
-
     private function slot(): ImageSlot
     {
         $request = $this->request;
@@ -234,28 +192,6 @@ class ImagesController extends Controller
         }
 
         return $data;
-    }
-
-    /**
-     * The pixel size to draw a logo card at, going by the pictures in that place.
-     *
-     * @return array{0: int, 1: int}
-     */
-    private function size(ImageSlot $slot): array
-    {
-        $reference = $slot->references()[0] ?? null;
-        $width = (int) $reference?->getWidth();
-        $height = (int) $reference?->getHeight();
-
-        if ($width && $height) {
-            return [min($width, 2400), (int) round($height * min($width, 2400) / $width)];
-        }
-
-        return match ($slot->shape()) {
-            'portrait' => [1200, 1600],
-            'square' => [1600, 1600],
-            default => [1600, 1000],
-        };
     }
 
     /**

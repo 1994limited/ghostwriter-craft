@@ -38,7 +38,8 @@ class OnboardingTest extends TestCase
         $this->assertSame('Writing for every section: Press.', $steps['sections']['detail']);
         $this->assertSame(['type' => 'post', 'label' => 'Write the voice guide', 'route' => 'voice/scan', 'data' => [], 'needsKey' => true], $steps['voice']['action']);
         $this->assertTrue($steps['imagery']['optional']);
-        $this->assertSame(['done' => 1, 'total' => 7, 'complete' => false, 'hidden' => false], $this->plugin->onboarding->progress());
+        // Only the five steps setup needs are counted.
+        $this->assertSame(['done' => 1, 'total' => 5, 'complete' => false, 'hidden' => false], $this->plugin->onboarding->progress());
 
         // Doing each thing ticks it off.
         $this->plugin->providers->keys['anthropic'] = 'test-key';
@@ -62,9 +63,10 @@ class OnboardingTest extends TestCase
         $this->assertTrue($steps['kinds']['done']);
         $this->assertTrue($steps['write']['done']);
 
-        // The optional steps need not be done for setup to be complete.
+        // The optional steps need not be done for setup to be complete,
+        // and the count reaches the end without them.
         $this->assertFalse($steps['imagery']['done']);
-        $this->assertTrue($this->plugin->onboarding->progress()['complete']);
+        $this->assertSame(['done' => 5, 'total' => 5, 'complete' => true, 'hidden' => false], $this->plugin->onboarding->progress());
 
         // Undo a step and it shows as undone again.
         $this->plugin->store->deleteDocument('guide', 'voice');
@@ -101,6 +103,43 @@ class OnboardingTest extends TestCase
         $this->assertTrue($this->action('ghostwriter/dashboard/index', method: 'GET')['data']['variables']['setup']['hidden']);
     }
 
+    public function testOnlyAnAdminCanHideOrShowGetStarted(): void
+    {
+        $this->signIn();
+
+        $this->assertSame(403, $this->action('ghostwriter/setup/hide', ['hidden' => 1])['status']);
+        $this->assertFalse($this->plugin->onboarding->hidden());
+
+        $html = $this->dashboard();
+        $this->assertStringContainsString('Get started · ', $html);
+        $this->assertStringNotContainsString('data-hide-setup', $html);
+        $this->assertFalse($this->plugin->onboarding->details()['canHide']);
+
+        // And with it hidden, there is no link to bring it back either.
+        $this->plugin->onboarding->hide();
+        $this->assertStringNotContainsString('data-show-setup', $this->dashboard());
+
+        $this->signIn(admin: true);
+        $this->assertStringContainsString('data-show-setup', $this->dashboard());
+        $this->assertSame(200, $this->action('ghostwriter/setup/hide', ['hidden' => 0])['status']);
+        $this->assertFalse($this->plugin->onboarding->hidden());
+    }
+
+    public function testOnceSetUpTheCardSaysSoUntilItIsHidden(): void
+    {
+        $this->plugin->voiceGuide->save('# Tone of voice');
+        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+
+        $html = $this->dashboard();
+        $this->assertStringContainsString('You’re set up', $html);
+        $this->assertStringContainsString('data-hide-setup', $html);
+        $this->assertStringNotContainsString('Get started · ', $html);
+
+        $this->plugin->onboarding->hide();
+        $this->assertStringNotContainsString('You’re set up', $this->dashboard());
+    }
+
     public function testGetStartedIsSwitchedFromTheSettings(): void
     {
         $this->signIn(admin: true);
@@ -115,6 +154,39 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->plugin->onboarding->hidden());
     }
 
+    public function testTheWidgetWithoutAKeyStillLeadsIntoGhostwriter(): void
+    {
+        $this->unfake();
+        $this->plugin->providers->keys['anthropic'] = null;
+
+        $html = $this->widget();
+
+        // A warning, not a wall: Get started and the way in stay, and
+        // Write something shows, switched off.
+        $this->assertStringContainsString('Ghostwriter has no API key yet.', $html);
+        $this->assertStringContainsString('Get started · ', $html);
+        $this->assertStringContainsString('Next: Connect a model', $html);
+        $this->assertStringContainsString('#step-1', $html);
+        $this->assertStringContainsString('Open Ghostwriter', $html);
+        $this->assertMatchesRegularExpression('/<button[^>]*disabled[^>]*>Write something</', $html);
+
+        $this->plugin->providers->keys['anthropic'] = 'test-key';
+        $this->assertStringNotContainsString('no API key', $this->widget());
+        $this->assertStringContainsString('menubtn">Write something', $this->widget());
+    }
+
+    public function testGetStartedCanBeBroughtBackOnceSetupIsComplete(): void
+    {
+        $this->plugin->voiceGuide->save('# Tone of voice');
+        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+        $this->assertTrue($this->plugin->onboarding->progress()['complete']);
+
+        $this->plugin->onboarding->hide();
+
+        $this->assertStringContainsString('data-show-setup>Show Get started<', $this->dashboard());
+    }
+
     public function testTheScreenRenders(): void
     {
         $response = $this->action('ghostwriter/setup/show', method: 'GET');
@@ -123,6 +195,20 @@ class OnboardingTest extends TestCase
 
         $this->assertStringContainsString('new Ghostwriter.SetupScreen', $html);
         $this->assertStringContainsString('Learn your voice', $html);
+    }
+
+    private function widget(): string
+    {
+        Craft::$app->getView()->setTemplateMode(View::TEMPLATE_MODE_CP);
+
+        return (string) (new \nineteenninetyfour\ghostwriter\widgets\GhostwriterWidget())->getBodyHtml();
+    }
+
+    private function dashboard(): string
+    {
+        $response = $this->action('ghostwriter/dashboard/index', method: 'GET');
+
+        return Craft::$app->getView()->renderPageTemplate($response['data']['template'], $response['data']['variables'], View::TEMPLATE_MODE_CP);
     }
 
     /**

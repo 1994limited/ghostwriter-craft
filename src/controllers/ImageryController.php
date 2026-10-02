@@ -19,9 +19,8 @@ class ImageryController extends Controller
     public function actionShow(): Response
     {
         $plugin = Plugin::getInstance();
+        // A failure stays on screen until the next run.
         $payload = $this->payload();
-
-        $plugin->imageryState->forgetFailure();
 
         $this->view->registerAssetBundle(GhostwriterAsset::class);
 
@@ -45,9 +44,13 @@ class ImageryController extends Controller
                     'empty' => Craft::t('ghostwriter', 'No guide yet. Choose which sections to look at, then generate it.'),
                     'read' => Craft::t('ghostwriter', 'Ghostwriter looks at the images used by the newest published entries in each section you tick, and writes a section for each.'),
                     'note' => Craft::t('ghostwriter', 'Markdown, with a ## heading for each section. Read whenever images are searched for, chosen or made.'),
-                    'scanned' => Craft::t('ghostwriter', 'Last written from {count} images.'),
-                    'confirm' => Craft::t('ghostwriter', 'Look at the site again and replace the current guide? Any edits you have made to it will be lost.'),
+                    'scanned' => Craft::t('ghostwriter', 'Last written from {count, plural, =1{# image} other{# images}}.'),
+                    'confirm' => Craft::t('ghostwriter', 'Look at the images again and replace the current guide? Any edits you have made to it will be lost.'),
                     'saved' => Craft::t('ghostwriter', 'Image style saved'),
+                    'headingNew' => Craft::t('ghostwriter', 'Generate from your images'),
+                    'headingAgain' => Craft::t('ghostwriter', 'Look at the images again'),
+                    'generate' => Craft::t('ghostwriter', 'Describe the images'),
+                    'rescan' => Craft::t('ghostwriter', 'Look again and rewrite'),
                 ],
             ],
         ]);

@@ -8,14 +8,13 @@ use craft\fields\Assets;
 use craft\helpers\Html;
 use craft\helpers\Json;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
-use nineteenninetyfour\ghostwriter\images\LogoCard;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 
 /**
  * The Ghostwriter button beside "Add an asset" and "Upload a file" on an
  * image field, in sections Ghostwriter writes for. It opens a modal to find
- * a photograph, have a picture made, or set a logo on a ground; the one
- * chosen is put into the field as if it had been uploaded.
+ * a photograph or have a picture made; the one chosen is put into the field
+ * as if it had been uploaded.
  */
 class ImageButton
 {
@@ -43,17 +42,25 @@ class ImageButton
         }
 
         $plugin = Plugin::getInstance();
+        $tools = [
+            'canFind' => $plugin->imagePicker->canFind(),
+            'canMake' => $plugin->imagePicker->canMake(),
+        ];
+
+        // No photo library and no image model: there is nothing the button
+        // could do, so there is no button.
+        if (!in_array(true, $tools, true)) {
+            return '';
+        }
+
         $view = Craft::$app->getView();
         $view->registerAssetBundle(GhostwriterAsset::class);
 
-        $config = [
+        $config = $tools + [
             'fieldId' => (int) $field->id,
             'elementId' => (int) $element->id,
             'siteId' => (int) $element->siteId,
             'label' => $slot->label(),
-            'canFind' => $plugin->imagePicker->canFind(),
-            'canMake' => $plugin->imagePicker->canMake(),
-            'canLogo' => LogoCard::available(),
             'icon' => (string) file_get_contents(__DIR__ . '/mark.svg'),
         ];
 

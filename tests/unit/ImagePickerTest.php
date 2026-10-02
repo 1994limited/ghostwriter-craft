@@ -15,13 +15,12 @@ use NineteenNinetyFour\Ghostwriter\Core\Ai\Shape;
 use nineteenninetyfour\ghostwriter\ImageButton;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
-use nineteenninetyfour\ghostwriter\images\LogoCard;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 
 /**
  * The Ghostwriter button on an image field: find a photograph that suits
- * the block and page, have one made, or set a logo on a ground.
+ * the block and page, or have one made.
  */
 class ImagePickerTest extends TestCase
 {
@@ -81,6 +80,22 @@ class ImagePickerTest extends TestCase
         // Not in a section Ghostwriter does not write for.
         $this->plugin->getSettings()->sections = ['elsewhere'];
         $this->assertSame('', ImageButton::htmlFor($this->cover, $draft, false));
+    }
+
+    public function testTheButtonIsNotOfferedWithNothingToMakeOrFindImagesWith(): void
+    {
+        $this->signIn();
+        $draft = $this->newDraft($this->stories);
+
+        // No photo library, and no OpenAI or Gemini key.
+        $this->unfake();
+        $this->plugin->getSettings()->openverse = false;
+
+        $this->assertSame('', ImageButton::htmlFor($this->cover, $draft, false));
+
+        // Either one is enough.
+        $this->plugin->getSettings()->openverse = true;
+        $this->assertStringContainsString('&quot;canFind&quot;:true,&quot;canMake&quot;:false', ImageButton::htmlFor($this->cover, $draft, false));
     }
 
     public function testTheButtonIsNotOfferedWithoutThePermission(): void
@@ -176,6 +191,25 @@ class ImagePickerTest extends TestCase
         $this->assertStringStartsWith('old-workshop-', $asset->filename);
     }
 
+    public function testPhotographsNotComparedWithAnythingAreNotCalledTheBestMatch(): void
+    {
+        $this->signIn();
+        $banner = $this->makeField(Assets::class, 'banner', ['sources' => ['volume:' . $this->volume->uid], 'defaultUploadLocationSource' => 'volume:' . $this->volume->uid, 'maxRelations' => 1]);
+        $notes = $this->makeSection('notes', [$this->makeEntryType('note', [$banner])]);
+        $slot = ImageSlot::for($banner, $this->newDraft($notes), Craft::$app->getUser()->getIdentity());
+
+        // No entry here has a banner yet, so there is nothing to compare with.
+        $this->assertSame([], $slot->references());
+
+        $this->http->append(new Response(200, [], json_encode(['results' => array_map(fn(int $i) => ['id' => "p{$i}", 'thumbnail' => "https://example.com/p{$i}.jpg", 'creator' => 'Ann', 'license' => 'cc0'], range(1, 5))])));
+
+        $options = $this->plugin->imagePicker->shortlist($slot, ['carved table']);
+
+        $this->assertCount(5, $options);
+        $this->assertSame([], array_filter(array_column($options, 'picked')));
+        $this->assertSame([], $this->fake->prompted('photo-picker'));
+    }
+
     public function testAPhotographFromElsewhereIsRefused(): void
     {
         $this->signIn();
@@ -249,26 +283,6 @@ class ImagePickerTest extends TestCase
         $this->assertFalse($docs['images']);
     }
 
-    public function testALogoIsSetOnAGround(): void
-    {
-        if (!LogoCard::available()) {
-            $this->markTestSkipped('Imagick is not installed.');
-        }
-
-        $logo = imagecreatetruecolor(200, 100);
-        imagesavealpha($logo, true);
-        imagefill($logo, 0, 0, imagecolorallocatealpha($logo, 0, 0, 0, 127));
-        imagefilledrectangle($logo, 50, 25, 150, 75, imagecolorallocate($logo, 0xff, 0x2d, 0x20));
-        ob_start();
-        imagepng($logo);
-
-        $card = (new LogoCard())->compose((string) ob_get_clean(), 800, 500);
-        $size = getimagesizefromstring($card['content']);
-
-        $this->assertSame([800, 500, 'image/jpeg'], [$size[0], $size[1], $size['mime']]);
-        $this->assertSame('#ff2d20', $card['colour']);
-    }
-
     public function testADownloadStaysSecureAndWithinItsSize(): void
     {
         $stock = $this->plugin->imagePicker->stock();
@@ -296,35 +310,6 @@ class ImagePickerTest extends TestCase
                 $this->assertSame('That photograph is too large to use.', $exception->getMessage());
             }
         }
-    }
-
-    public function testALogoIsOnlyReadAsAPngWebpOrCleanSvg(): void
-    {
-        if (!LogoCard::available()) {
-            $this->markTestSkipped('Imagick is not installed.');
-        }
-
-        $card = new LogoCard();
-
-        foreach ([
-            'GIF89a not allowed' => 'Use a PNG or SVG logo',
-            "push graphic-context\nviewbox 0 0 10 10\nimage over 0,0 0,0 'https://example.com/x.png'\npop graphic-context" => 'Use a PNG or SVG logo',
-            '<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/passwd"/></svg>' => 'refers to other files',
-            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="https://example.com/x.svg#a"/></svg>' => 'refers to other files',
-            '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg"><text>&x;</text></svg>' => 'refers to other files',
-        ] as $logo => $refusal) {
-            try {
-                $card->compose($logo, 400, 250);
-                $this->fail('A logo that should be refused was read.');
-            } catch (\InvalidArgumentException $exception) {
-                $this->assertStringContainsString($refusal, $exception->getMessage());
-            }
-        }
-
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100" onload="alert(1)"><rect x="50" y="25" width="100" height="50" fill="#2b3a64"/></svg>';
-        $made = $card->compose($svg, 400, 250);
-
-        $this->assertSame('#2b3a64', $made['colour']);
     }
 
     private function draftWithBlock(): Entry

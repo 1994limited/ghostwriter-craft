@@ -110,6 +110,39 @@ class Settings extends Model
     }
 
     /**
+     * A word of warning when the model named does not look like one of the
+     * chosen provider's: "gpt-…" with Claude, say. Not an error, since new
+     * models appear all the time.
+     */
+    public function modelWarning(): ?string
+    {
+        $model = strtolower(trim((string) $this->model));
+
+        if ($model === '') {
+            return null;
+        }
+
+        $families = [
+            'anthropic' => ['claude'],
+            'openai' => ['gpt', 'chatgpt', 'o1', 'o3', 'o4', 'o5'],
+            'gemini' => ['gemini', 'gemma'],
+        ];
+
+        foreach ($families[$this->provider] ?? [] as $prefix) {
+            if (str_starts_with($model, $prefix)) {
+                return null;
+            }
+        }
+
+        $names = ['anthropic' => 'Claude (Anthropic)', 'openai' => 'ChatGPT (OpenAI)', 'gemini' => 'Gemini (Google)'];
+
+        return \Craft::t('ghostwriter', '“{model}” does not look like a {provider} model. Check it matches the provider, or leave it blank for the default.', [
+            'model' => $this->model,
+            'provider' => $names[$this->provider] ?? $this->provider,
+        ]);
+    }
+
+    /**
      * Everything but showGetStarted, which is not project config.
      *
      * @return array<string|int, string|callable>

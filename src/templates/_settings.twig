@@ -4,9 +4,13 @@
 #}
 {% import '_includes/forms' as forms %}
 
-{# Craft shows a warning for any non-empty value, so a setting that is not overridden must get null. #}
+{#
+    Config wins over this screen: a setting in config/ghostwriter.php is
+    shown locked, with a note saying where it is set. Craft shows a warning
+    for any non-empty value, so a setting that is not overridden gets null.
+#}
 {% macro overridden(setting, overrides) -%}
-    {{- 'This is being overridden by the `{setting}` setting in config/ghostwriter.php.'|t('ghostwriter', {setting: setting})|md(inlineOnly=true) -}}
+    {{- 'Set by `{setting}` in config/ghostwriter.php, which wins over this screen.'|t('ghostwriter', {setting: setting})|md(inlineOnly=true) -}}
 {%- endmacro %}
 
 {% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
@@ -20,6 +24,7 @@
     options: sectionOptions,
     values: settings.sections,
     warning: 'sections' in overrides ? _self.overridden('sections', overrides) : null,
+    disabled: 'sections' in overrides,
 }) }}
 
 {{ forms.checkboxSelectField({
@@ -29,6 +34,7 @@
     options: sectionOptions,
     values: settings.voiceSections,
     warning: 'voiceSections' in overrides ? _self.overridden('voiceSections', overrides) : null,
+    disabled: 'voiceSections' in overrides,
 }) }}
 
 {{ forms.lightswitchField({
@@ -44,6 +50,7 @@
     name: 'suggestKindsAutomatically',
     on: settings.suggestKindsAutomatically,
     warning: 'suggestKindsAutomatically' in overrides ? _self.overridden('suggestKindsAutomatically', overrides) : null,
+    disabled: 'suggestKindsAutomatically' in overrides,
 }) }}
 
 <hr>
@@ -56,6 +63,7 @@
     options: {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
     value: settings.provider,
     warning: 'provider' in overrides ? _self.overridden('provider', overrides) : null,
+    disabled: 'provider' in overrides,
 }) }}
 
 {{ forms.textField({
@@ -63,8 +71,9 @@
     instructions: 'Leave blank to use the provider’s default model.'|t('ghostwriter'),
     name: 'model',
     value: settings.model,
-    placeholder: {anthropic: 'claude-opus-5-5', openai: 'gpt-6.1-sol', gemini: 'gemini-3.8-flash'}[settings.provider] ?? '',
-    warning: 'model' in overrides ? _self.overridden('model', overrides) : null,
+    placeholder: modelDefaults[settings.provider] ?? '',
+    warning: 'model' in overrides ? _self.overridden('model', overrides) : settings.modelWarning(),
+    disabled: 'model' in overrides,
 }) }}
 
 <hr>
@@ -79,6 +88,7 @@
     options: {'': 'Whichever has a key'|t('ghostwriter'), openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
     value: settings.imageProvider ?? '',
     warning: 'imageProvider' in overrides ? _self.overridden('imageProvider', overrides) : null,
+    disabled: 'imageProvider' in overrides,
 }) }}
 
 {{ forms.textField({
@@ -87,6 +97,7 @@
     name: 'imageModel',
     value: settings.imageModel,
     warning: 'imageModel' in overrides ? _self.overridden('imageModel', overrides) : null,
+    disabled: 'imageModel' in overrides,
 }) }}
 
 {{ forms.lightswitchField({
@@ -95,6 +106,7 @@
     name: 'placeholderImages',
     on: settings.placeholderImages,
     warning: 'placeholderImages' in overrides ? _self.overridden('placeholderImages', overrides) : null,
+    disabled: 'placeholderImages' in overrides,
 }) }}
 
 {{ forms.lightswitchField({
@@ -103,6 +115,7 @@
     name: 'openverse',
     on: settings.openverse,
     warning: 'openverse' in overrides ? _self.overridden('openverse', overrides) : null,
+    disabled: 'openverse' in overrides,
 }) }}
 
 <hr>

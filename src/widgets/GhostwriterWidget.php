@@ -81,6 +81,7 @@ class GhostwriterWidget extends Widget
             'moreInProgress' => max(0, count($inProgress) - $this->limit),
             'planOpen' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === IdeaRepository::OPEN)),
             'setup' => $plugin->onboarding->progress(),
+            'nextStep' => $plugin->onboarding->nextStep(),
             'configured' => $plugin->studio->configured(),
             'sections' => array_map(fn($section) => ['handle' => $section->handle, 'name' => Craft::t('site', $section->name)], $plugin->types->sections()),
         ]);

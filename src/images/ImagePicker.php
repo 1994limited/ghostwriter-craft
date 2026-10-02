@@ -16,9 +16,9 @@ use yii\base\Component;
 
 /**
  * What the Ghostwriter button beside an image field does: find photographs
- * that suit the block and page the field is on, have a new picture made in
- * the style of those already in that place, or set a logo on a ground. Each
- * ends as an asset in the field's own upload folder.
+ * that suit the block and page the field is on, or have a new picture made
+ * in the style of those already in that place. Each ends as an asset in the
+ * field's own upload folder.
  *
  * Nothing about a site's look is assumed. The pictures in the same place on
  * the section's other entries are the style, with the image style guide.
@@ -105,11 +105,14 @@ class ImagePicker extends Component
         }
 
         $candidates = array_values($candidates);
-        $best = $this->judged($slot, $candidates) ?? $this->oneOfEach($candidates);
+        $judged = $this->judged($slot, $candidates);
+        $best = $judged ?? $this->oneOfEach($candidates);
         $ids = array_map(fn(array $photo) => $photo['source'] . $photo['id'], $best);
 
+        // Only photos the model compared with the site's own are marked as
+        // the best match; otherwise they are simply first in search order.
         return [
-            ...array_map(fn(array $photo) => $photo + ['picked' => true], $best),
+            ...array_map(fn(array $photo) => $photo + ['picked' => $judged !== null], $best),
             ...array_values(array_filter($candidates, fn(array $photo) => !in_array($photo['source'] . $photo['id'], $ids, true))),
         ];
     }

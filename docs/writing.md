@@ -36,14 +36,14 @@ Once there is a draft, ask for changes in plain words:
 - "Add a section on cost, after the process."
 - "Less formal."
 
-Press **⌘↵** (or **Ctrl+↵**) to send. A draft usually takes a minute or two.
+Press **⌘↵** (or **Ctrl+↵**) to send. A draft usually takes a minute or two. Ghostwriter's replies show lists, bold and links as they are meant to read.
 
 ## The draft
 
 The draft sits on the right, laid out the way the entry is built: its fields, and its page-builder blocks in order.
 
 - **Blocks / Text** switches between the full layout and just the words. Ghostwriter remembers your choice.
-- **Click any text to change it.** Headings, lines and rich text are edited where they are shown, and saved as you leave each piece.
+- **Click any text to change it.** Headings, lines and rich text are edited where they are shown, and saved as you leave each piece. **Esc** puts a piece back as it was; **Enter** finishes a one-line piece, such as a heading.
 - **Edit YAML** opens the whole draft as text, to add, move or remove blocks. Most people never need it.
 
 The word count is shown at the top.
@@ -55,7 +55,7 @@ The word count is shown at the top.
 - It goes into the entry's own Craft draft. **Nothing is published.** Check it over, then save the entry as you normally would, or discard it.
 - Using it again replaces what is in the form.
 
-A notice above the form lists anything still for you to do. For example:
+Once the form has reloaded, one notification says the draft is in, and lists anything still for you to do. When there is something on the list, the notification stays until you close it. For example:
 
 - **Choices it couldn't make**: entries to relate, categories, dates.
 - **Links it couldn't settle**, which point to `https://example.com` for now. See [house style](fields.md#house-style).

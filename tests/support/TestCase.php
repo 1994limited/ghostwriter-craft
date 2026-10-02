@@ -349,7 +349,7 @@ abstract class TestCase extends CraftTestCase
      * @param array<string, mixed> $body
      * @return array{status: int, data: array<string, mixed>}
      */
-    protected function action(string $route, array $body = [], string $method = 'POST', bool $json = true): array
+    protected function action(string $route, array $body = [], string $method = 'POST', bool $json = true, array $params = []): array
     {
         $request = Craft::$app->getRequest();
         $request->setIsCpRequest(true);
@@ -368,7 +368,7 @@ abstract class TestCase extends CraftTestCase
         $this->plugin->controllerNamespace = 'nineteenninetyfour\\ghostwriter\\controllers';
 
         try {
-            $result = Craft::$app->runAction($route);
+            $result = Craft::$app->runAction($route, $params);
         } catch (\yii\web\HttpException $exception) {
             return ['status' => $exception->statusCode, 'data' => ['message' => $exception->getMessage()]];
         }

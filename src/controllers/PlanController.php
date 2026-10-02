@@ -195,7 +195,9 @@ class PlanController extends Controller
                 'sectionTitle' => $this->sectionTitle($idea['section']),
                 'typeTitle' => $idea['type'] ? $plugin->types->find($idea['type'])?->title : null,
             ], $state['pending']),
-            'ideas' => array_values(array_map(fn(array $idea) => $this->present($idea), $plugin->ideas->all())),
+            // Newest first, so ideas just kept from a suggestion are where
+            // the person is looking; the screen groups them by section.
+            'ideas' => array_values(array_map(fn(array $idea) => $this->present($idea), array_reverse($plugin->ideas->all()))),
         ];
     }
 

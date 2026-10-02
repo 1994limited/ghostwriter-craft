@@ -45,7 +45,7 @@
 
 {% block details %}
     <div class="meta gw-meta">
-        <h2 class="gw-meta-heading" data-label-new="{{ 'Generate the guide'|t('ghostwriter') }}" data-label-again="{{ 'Read the site again'|t('ghostwriter') }}">{{ state.exists ? 'Read the site again'|t('ghostwriter') : 'Generate the guide'|t('ghostwriter') }}</h2>
+        <h2 class="gw-meta-heading" id="gw-voice-heading">{{ state.exists ? guide.labels.headingAgain : guide.labels.headingNew }}</h2>
         <p class="light">{{ guide.labels.read }}</p>
         <fieldset id="gw-voice-sections" class="gw-checks">
             <legend class="visually-hidden">{{ 'Sections to read'|t('ghostwriter') }}</legend>
@@ -59,9 +59,9 @@
             {% endfor %}
         </fieldset>
         <button type="button" id="gw-voice-scan" class="btn {{ state.exists ? '' : 'submit' }} fullwidth{{ configured ? '' : ' disabled' }}" {{ configured ? '' : 'disabled' }}>
-            {{ state.exists ? 'Rescan and rewrite'|t('ghostwriter') : 'Generate the guide'|t('ghostwriter') }}
+            {{ state.exists ? guide.labels.rescan : guide.labels.generate }}
         </button>
-        <p id="gw-voice-scanned" class="light{{ state.scanned|length ? '' : ' hidden' }}">{{ guide.labels.scanned|replace({'{count}': state.scanned|length}) }}</p>
+        <p id="gw-voice-scanned" class="light{{ state.scanned|length ? '' : ' hidden' }}">{{ guide.labels.scanned|t('ghostwriter', {count: state.scanned|length}) }}</p>
     </div>
 
     {% if guide.actions.refine %}
@@ -86,7 +86,6 @@
         actions: guide.actions,
         labels: guide.labels|merge({
             updated: 'Updated {when}'|t('ghostwriter'),
-            rescan: 'Rescan and rewrite'|t('ghostwriter'),
             failed: 'Something went wrong.'|t('ghostwriter'),
         }),
     }|json_encode|raw }});

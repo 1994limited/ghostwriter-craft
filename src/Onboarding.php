@@ -149,6 +149,7 @@ class Onboarding extends Component
 
         return [
             'canChangeSettings' => $user->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
+            'canHide' => $this->canToggle(),
             'provider' => $this->providerName($plugin->studio->provider()),
             'keyName' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? null,
             'sections' => array_map(fn($section) => [
@@ -166,7 +167,7 @@ class Onboarding extends Component
                 'title' => Craft::t('site', $section->name),
                 'state' => $plugin->kinds->get($section->handle)['status'],
                 'error' => $plugin->kinds->get($section->handle)['error'],
-                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why'])), $plugin->kinds->get($section->handle)['suggestions']),
+                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why', 'exampleTitles'])), $plugin->kinds->presented($section->handle)),
                 'learning' => $plugin->typeState->get($section->handle),
                 'types' => array_values(array_map(fn($type) => ['title' => $type->title, 'url' => UrlHelper::cpUrl('ghostwriter/types/' . $type->handle)], $plugin->types->forSection($section->handle))),
             ], $plugin->types->sections()),
@@ -201,19 +202,56 @@ class Onboarding extends Component
     }
 
     /**
+     * How far setup has got, counting only the steps it needs: the optional
+     * ones are shown apart, so the bar reaches the end once setup is done.
+     *
      * @return array{done: int, total: int, complete: bool, hidden: bool}
      */
     public function progress(): array
     {
         $required = array_filter($this->steps(), fn(array $step) => !$step['optional']);
-        $done = count(array_filter($this->steps(), fn(array $step) => $step['done']));
+        $done = count(array_filter($required, fn(array $step) => $step['done']));
 
         return [
             'done' => $done,
-            'total' => count($this->steps()),
-            'complete' => !array_filter($required, fn(array $step) => !$step['done']),
+            'total' => count($required),
+            'complete' => $done === count($required),
             'hidden' => $this->hidden(),
         ];
+    }
+
+    /**
+     * Whether this person may hide or show Get started. It is hidden for
+     * the whole site, so it is for whoever manages Ghostwriter: an admin.
+     * It is Ghostwriter's own state, not project config, so it can be
+     * changed where admin changes are not allowed.
+     */
+    public function canToggle(): bool
+    {
+        return Craft::$app->getUser()->getIsAdmin();
+    }
+
+    /**
+     * The first step still to do, with its place in the list: a required
+     * one first, since those are what setting up needs.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function nextStep(): ?array
+    {
+        $steps = $this->steps();
+        $open = array_filter($steps, fn(array $step) => !$step['done']);
+        $required = array_filter($open, fn(array $step) => !$step['optional']);
+
+        foreach ([$required, $open] as $candidates) {
+            if ($candidates !== []) {
+                $i = array_key_first($candidates);
+
+                return $steps[$i] + ['number' => $i + 1];
+            }
+        }
+
+        return null;
     }
 
     public function hidden(): bool
