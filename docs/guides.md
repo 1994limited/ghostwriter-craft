@@ -1,51 +1,57 @@
-# The voice guide and image style guide
+# Voice guide and image style
 
-Both guides are plain markdown files in your project. Ghostwriter writes the first version from your site, and you correct it. Both are read every time Ghostwriter writes, or finds or makes an image.
+This page covers Ghostwriter's two written guides: the voice guide, which every draft follows, and the image style guide, which every image search follows. Both are markdown, kept in the database (see [Where things are kept](configuration.md#where-things-are-kept)), and yours to edit. Each environment has its own.
 
 ## The voice guide
 
-**Ghostwriter → Voice guide.** It describes how your site sounds, with real examples from your entries:
-
-- who is talking, and to whom
-- the attitude and the warmth
-- how pieces are shaped: openings, headings, endings, length
-- the words you use, and the ones you never do
+**Ghostwriter → Voice guide.** Everything Ghostwriter writes follows it.
 
 ### Writing it
 
-Tick the sections to read, then **Write the voice guide** (the first time) or **Rescan and rewrite**. At least one section must be ticked. Ghostwriter reads the newest published entries in those sections, and writes the guide in a minute or so. Rescanning replaces the guide, including any edits you've made.
+Under **Read the site again**, tick the sections to learn from, then click **Write the voice guide**. At least one section must be ticked. Ghostwriter reads the newest published entries from each, up to 24 entries, and writes the guide. This takes a minute or so, and you can leave the page meanwhile. The guide covers:
 
-If writing the guide fails, the reason stays on the screen until the next try.
+- who is talking, and to whom
+- how pieces are shaped and how they open
+- the words used, and the ones never used
+- real examples from your entries
 
-To control how much it reads, see `voiceSections` and the `voiceMax…` settings in [Configuration](configuration.md).
+Once there is a guide, the button becomes **Rescan and rewrite**. It reads the entries again and replaces the guide, including any edits you've made, so you're asked first.
+
+How much is read is set by `voiceMaxEntries`, `voiceMaxCharsPerEntry` and `voiceMaxChars` in [`config/ghostwriter.php`](configuration.md#configghostwriterphp).
+
+![The voice guide in its editor, with Read the site again and Rescan and rewrite, and Ask for a change below](images/voice-guide.png)
 
 ### Changing it
 
-- **Edit** it directly: the editor has **Edit** and **Preview** tabs and a small toolbar for headings, lists, quotes and links. **Save** (or **⌘S**) when done.
-- Or **Ask for a change** in plain words, for example "We never say solutions. Add that.", then **Update the guide**. Ghostwriter rewrites the guide with the change.
+- **Edit it by hand.** The editor has **Edit** and **Preview** tabs and a small toolbar for headings, lists, quotes and links. Click **Save** (or press **⌘S**) when done.
+- **Ask for a change** in plain words, such as "We never say *solutions*. Add that." Then click **Update the guide**. Ghostwriter rewrites the guide to include it. The last few changes asked for are shown, with what it said it did.
 
-The guide is kept in the database. Each environment has its own; to share one, copy it between environments or the database table (see [Configuration](configuration.md#where-things-are-kept)).
+Save your edits before you click **Update the guide** or **Rescan and rewrite**, since what Ghostwriter writes replaces the guide.
 
 ## The image style guide
 
-**Ghostwriter → Image style.** It describes what your pictures look like, section by section: photography or illustration, subjects, composition, light, colour, and what never appears.
+**Ghostwriter → Image style.** A description of what your pictures look like, with one `## heading` for each section: photography or illustration, subjects, composition, light, colour, and what never appears.
 
 ### Writing it
 
-Tick the sections to look at, then **Describe the images** (or **Look again and rewrite** once there is a guide). Ghostwriter looks at the images used by the newest published entries in each section, in every image field, including those inside page-builder blocks. It writes a `##` section for each. A section needs at least three images to describe.
+Under **Look at the images again**, tick the sections to look at, then click **Describe the images**. Ghostwriter looks at the images used by the newest published entries in each section, in every image field, including those inside Matrix and Neo blocks. It looks at up to ten per section (`imageGuideSamples`). A section needs at least three images to get a section in the guide.
 
-The number of images looked at per section is the `imageGuideSamples` setting (10 by default).
+Once there is a guide, the button becomes **Look again and rewrite**, which replaces it. You're asked first.
+
+![The image style guide in its editor, with a section for Journal and one for Pages, and Look again and rewrite](images/image-style.png)
 
 ### Changing it
 
-Edit it in the same editor as the voice guide. Keep a `## Section name` heading for each section: that is how Ghostwriter finds the part that applies to an image.
-
-It's kept in the database, like the voice guide.
+Edit it in the same editor as the voice guide, and click **Save**. Keep a `## Section name` heading for each section: that's how Ghostwriter finds the part that applies to an image.
 
 ### Where it is used
 
-- Choosing what to **search for** when finding a photo.
-- **Picking** the photos that best fit, from the search results.
-- **Making** an image.
+The image style guide is read whenever an image is found or made with the [image button](images.md):
 
-See [Images](images.md).
+- to choose what to search the photo libraries for
+- to rank the photos that come back
+- to describe the picture when an image is made
+
+## When something goes wrong
+
+If writing or changing a guide fails, **That didn’t work** and the reason stay shown on the page until the next run. Click the button again to retry. See [Troubleshooting](troubleshooting.md).

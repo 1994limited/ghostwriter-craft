@@ -1,31 +1,45 @@
-# Privacy and data
+# Privacy
+
+This page covers what Ghostwriter sends to the model and the photo libraries, what it never sends, and what it keeps in your database.
 
 ## What is sent, and where
 
-Ghostwriter only sends anything when someone in the control panel asks it to. It sends to the provider you chose, on your own account.
+Nothing is sent anywhere until someone in the control panel asks for it: by starting a piece, writing a guide, asking for kinds or ideas, or using the image button. Ghostwriter sends no analytics and doesn't phone home.
 
-| When | Sent to | What |
-| --- | --- | --- |
-| Writing or editing | Your writing provider | The voice guide, the brief, the conversation, the current draft, the field layout, and excerpts from the example entries |
-| Writing the voice guide | Your writing provider | Text from the newest published entries in the chosen sections |
-| Learning or suggesting kinds | Your writing provider | Excerpts from the section's entries |
-| Writing the image style guide | Your writing provider | Small copies of images from the section's entries |
-| Content plan | Your writing provider | Titles and excerpts from the chosen sections, and the plan |
-| Finding a photo | Your writing provider; the photo libraries | To the provider: words from the block and page, small copies of the images in the same place on other entries, and thumbnails of the search results. To the libraries: the search words only |
-| Making an image | Your image provider | A description, the image style guide, words from the block and page, and up to three images from the same place on other entries |
+**To the writing provider** (Anthropic, OpenAI or Google, whichever is chosen, on your own account, or the [gateway](api-keys.md#gateways-and-proxies) you set):
+
+| When | What is sent |
+| --- | --- |
+| Writing or editing a piece | The voice guide, the kind's brief, guidance and checklist, the answers to the brief, the conversation, the current draft, the field layout, and excerpts from the example entries |
+| Filling in a brief | The kind's questions, a working title and notes |
+| Writing the voice guide | Text from the newest published entries in the chosen sections |
+| Changing the voice guide | The guide and your request |
+| Suggesting or learning kinds | Excerpts from the section's entries; for learning, the chosen examples |
+| The content plan | Titles and excerpts from the chosen sections, the voice guide, the kinds and the plan |
+| The image style guide | Small copies of up to ten images per section |
+| Finding photos | Words from the block and page, small copies of the images in the same place on other entries, and thumbnails of the photos found |
+| Making an image | A description, the image style guide, words from the block and page, up to three images from the same place on other entries, and any image of your own you add (to the image provider) |
+
+**To the photo libraries:** search words go to Openverse, and to Unsplash, Pexels or Pixabay when their keys are set. Choosing a photo downloads it and, for Unsplash, tells Unsplash it was used. Only the search words are sent, never entry content.
 
 ## What is not sent
 
-- API keys, except to the service each belongs to.
-- User accounts, passwords or personal data from Craft.
-- Anything, until someone asks.
+- API keys, except each to its own service
+- entries beyond the samples listed above
+- user accounts, passwords or other personal data from Craft. A shared conversation's "Started by" names are shown in the control panel, not sent.
 
 ## Each provider's terms
 
-Each provider's own terms decide how they handle what you send. In particular, on **Gemini's free tier**, Google may use what you send to improve its products; the paid tier doesn't. For client sites, use a paid account. See [API keys](api-keys.md#google-gemini).
+How long a provider keeps what it's sent, and whether it may train on it, depends on its terms and your account. On paid API plans, Anthropic, OpenAI and Google don't train on API data by default. **Gemini's free tier is different**: Google may use what's sent to improve its products. For client sites, use a paid account. See [Google (Gemini, and images)](api-keys.md#google-gemini-and-images).
 
 ## What is kept, and where
 
-- Conversations and drafts are kept in the `ghostwriter_sessions` table. By default they are shared with everyone who has the **Use Ghostwriter** permission, who can open and carry them on; each message records who sent it. With `sharedConversations` off, each belongs to the person who started it and nobody else can see or open it. Remove a piece from the dashboard to delete its conversation.
-- Images made or uploaded but not yet used are kept in the `ghostwriter_files` table for a day.
-- Guides, kinds and the plan are kept in the `ghostwriter_documents` table.
+Everything is kept in your database, in Ghostwriter's own tables (see [Where things are kept](configuration.md#where-things-are-kept)):
+
+- **Conversations** in `ghostwriter_sessions`: the brief, every message with who sent it, the draft, and who started and last changed each piece. By default they're shared with everyone who has **Use Ghostwriter**; with `sharedConversations` off, each belongs to the person who started it. **Remove** on the Overview deletes a piece's conversation.
+- **Photo requests** in `ghostwriter_state`, each belonging to the person who made it, and pictures made or uploaded but not yet used in `ghostwriter_files`. Both are cleared after a day.
+- **The guides, kinds and plan** in `ghostwriter_documents`.
+
+Logs hold the provider, model, tokens and time of each call, and any retries and failures, never the words sent or the keys (see [Logging](configuration.md#logging)).
+
+API keys are read from the environment when they're needed. Ghostwriter never stores them, never shows them, and never sends them anywhere but the service they belong to.

@@ -1,26 +1,33 @@
-# Ghostwriter documentation
+# Ghostwriter for Craft CMS: documentation
 
-Ghostwriter learns how your site writes, then drafts and edits entries in that voice, beside the entry form in Craft's control panel.
+Ghostwriter learns how your site writes, then drafts new entries and edits existing ones in that voice, in a panel beside the entry form. It asks a short set of questions, follows up on anything it still needs, and puts the draft into the entry for you to check and save.
 
 ## Setting up
 
-1. [Installation](installation.md): requirements, installing the plugin, permissions and the queue.
-2. [API keys](api-keys.md): getting a key for Claude, ChatGPT or Gemini, and the free photo libraries.
-3. [Get started](getting-started.md): the setup steps in the control panel.
+1. [Installation](installation.md): install the plugin, add your key, the queue, updating and uninstalling.
+2. [Get started](getting-started.md): the seven steps from a fresh install to the first draft.
+3. [API keys](api-keys.md): getting a key for each service, including the free options; gateways; retries.
+4. [Permissions](permissions.md): who can use and manage Ghostwriter, shared conversations, deleting a piece.
+5. [Configuration](configuration.md): settings, `config/ghostwriter.php`, where things are kept, prompts, logging.
 
 ## Using Ghostwriter
 
-- [Writing a new entry](writing.md): the brief, the conversation, the draft and **Use this draft**.
-- [Editing an existing entry](editing.md): changing what is already published.
-- [Kinds of content](kinds.md): teaching Ghostwriter the things you write often.
-- [The voice guide and image style guide](guides.md): how your site sounds and what its pictures look like.
-- [Images](images.md): finding photos and making images from any image field.
-- [The content plan](content-plan.md): ideas for what to write next.
-- [The dashboard and widget](dashboard.md): what is in progress, at a glance.
+- [Writing a new entry](writing.md)
+- [Editing an existing entry](editing.md)
+- [Voice guide and image style](guides.md)
+- [Kinds of content](kinds.md)
+- [Images](images.md)
+- [Content plan](content-plan.md)
+- [The Overview and the widget](dashboard.md)
 
 ## Reference
 
-- [Configuration](configuration.md): settings, `config/ghostwriter.php`, where things are kept, updating from an early build, prompt overrides.
-- [How Ghostwriter reads your fields](fields.md): field types, page builders and house style.
-- [Privacy and data](privacy.md): what is sent where, and when.
-- [Troubleshooting](troubleshooting.md): common problems and fixes.
+- [How Ghostwriter reads your fields](fields.md): field types, Matrix and Neo, house style.
+- [Privacy](privacy.md): what is sent where, and what is kept.
+- [Troubleshooting](troubleshooting.md)
+
+## Requirements
+
+- PHP 8.2 or later, Craft CMS 5.6 or later
+- An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
+- Craft's queue (it runs from the control panel by default)
