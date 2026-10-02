@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the docs
+    url: https://ghostwriterplugins.com/docs/craft
+    about: Installing, setting up, writing and editing, and troubleshooting.
+  - name: Licences, billing or anything private
+    url: https://ghostwriterplugins.com/support
+    about: Write to us instead of posting in public.

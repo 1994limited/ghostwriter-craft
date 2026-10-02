@@ -1,0 +1,26 @@
+name: Ask a question
+description: How to do something with Ghostwriter for Craft CMS, or whether it can.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The [docs](https://ghostwriterplugins.com/docs/craft) may already answer it. Questions asked here help the next person too.
+        **Never paste API keys.**
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What you've tried
+      description: Anything you've already looked at or tried, and what your site or app is like if it matters.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Ghostwriter, Craft CMS and PHP, if you know them.
+      placeholder: e.g. Ghostwriter 1.0.1, e.g. 5.8.2, PHP 8.4

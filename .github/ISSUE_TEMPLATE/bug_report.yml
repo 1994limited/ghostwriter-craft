@@ -1,0 +1,71 @@
+name: Report a bug
+description: Something in Ghostwriter for Craft CMS isn't working as the docs describe.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Please check [Troubleshooting](https://ghostwriterplugins.com/docs/craft/troubleshooting) first.
+        **Never paste API keys.** Remove private content from anything you share.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: ghostwriter-version
+    attributes:
+      label: Ghostwriter version
+      placeholder: e.g. 1.0.1
+    validations:
+      required: true
+  - type: input
+    id: cms-version
+    attributes:
+      label: Craft CMS version
+      placeholder: e.g. 5.8.2
+    validations:
+      required: true
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      placeholder: e.g. 8.4
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Model provider
+      options:
+        - Anthropic (Claude)
+        - OpenAI (ChatGPT)
+        - Google (Gemini)
+        - Not related to a model call
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors or log lines
+      description: From the browser console or your Laravel log. This is shown as code, so no need for backticks.
+      render: shell
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before you submit
+      options:
+        - label: I've removed API keys and anything private from this report.
+          required: true
