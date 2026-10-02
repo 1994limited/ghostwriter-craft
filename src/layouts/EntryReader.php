@@ -9,16 +9,17 @@ use craft\fields\data\SingleOptionFieldData;
 use Illuminate\Support\Collection;
 
 /**
- * An entry's content as plain data, in one shape whatever builds it: the
- * title, then each field by handle. Page builders become a list of blocks,
- * each with its `id`, `type`, `enabled` and its own fields; a Neo block's
- * children sit under `children`. Rich text stays HTML, tables are rows
- * keyed by column handle, and references are their element IDs.
+ * Reads an entry's content as plain data, the values of core's EntryData,
+ * in one shape whatever builds it: the title, then each field by handle.
+ * Page builders become a list of blocks, each with its `id`, `type`,
+ * `enabled` and its own fields; a Neo block's children sit under
+ * `children`. Rich text stays HTML, tables are rows keyed by column
+ * handle, and references are their element IDs.
  *
- * It is the shape the pattern finder, the simplifier and the merger read,
- * so none of them need to know whether a site uses Matrix or Neo.
+ * It is the shape core's layout algorithms, the simplifier and the merger
+ * read, so none of them need to know whether a site uses Matrix or Neo.
  */
-class EntryData
+class EntryReader
 {
     /**
      * @param array<int, array<string, mixed>> $schema

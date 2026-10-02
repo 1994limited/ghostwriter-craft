@@ -3,7 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\drafts;
 
 /**
- * Turns entry data in EntryData's shape into the values Craft's fields take
+ * Turns entry data (core EntryData's shape) into the values Craft's fields take
  * when a form is posted: a Matrix as `entries` and `sortOrder`, a Neo field
  * as a flat list of `blocks` with levels, a Table as rows keyed by column ID.
  *

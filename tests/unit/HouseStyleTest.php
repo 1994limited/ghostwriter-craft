@@ -3,7 +3,11 @@
 namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use Codeception\Test\Unit;
-use nineteenninetyfour\ghostwriter\layouts\HouseStyle;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\HouseRules;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\Testing\LayoutLog;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\EntryData;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
+use nineteenninetyfour\ghostwriter\layouts\Layouts;
 
 /**
  * What model pages agree on, place by place, carried into a new one: the
@@ -13,24 +17,32 @@ class HouseStyleTest extends Unit
 {
     private const HERO = '<h1 style="text-align:center;"><span style="color:hsl(0,0%,100%);"><span class="style-uppercase">TITLE</span></span></h1>';
 
+    protected function _before(): void
+    {
+        LayoutLog::start(getenv('GHOSTWRITER_RECORD_LAYOUTS') ?: null, static::class . '::' . $this->name());
+    }
+
+    protected function _after(): void
+    {
+        LayoutLog::stop();
+    }
+
     public function testAPageIsFilledInFromWhatItsModelsAgreeOn(): void
     {
-        $style = (new HouseStyle())->learn([
+        $style = $this->learn([
             $this->page('Yacht Studio', 1504),
             $this->page('Architecture Studio', 9330),
             $this->page('Aviation Studio', 9294),
-        ], $this->schema());
-
-        $toFill = [];
+        ]);
 
         // What the writer hands over: words, and blocks in order.
-        $data = (new HouseStyle())->apply(['title' => 'Studio Winch', 'pageBuilder' => [
+        [$data, $toFill] = $this->apply(['title' => 'Studio Winch', 'pageBuilder' => [
             ['type' => 'hero', 'enabled' => true, 'children' => [['type' => 'text', 'enabled' => true, 'richText' => '<h1>Studio Winch</h1>']]],
             ['type' => 'breadcrumbs', 'enabled' => true],
             ['type' => 'spacer', 'enabled' => true],
             ['type' => 'body', 'enabled' => true, 'children' => [['type' => 'text', 'enabled' => true, 'richText' => '<p>Words.</p>']]],
             ['type' => 'spacer', 'enabled' => true],
-        ]], $this->schema(), $style, $toFill);
+        ]], $style);
 
         [$hero, $crumbs, $first, $body, $second] = $data['pageBuilder'];
 
@@ -58,10 +70,9 @@ class HouseStyleTest extends Unit
         $pages = [$this->page('Yacht Studio', 1504), $this->page('Architecture Studio', 9330), $this->page('Visualisation Studio', 3111)];
         unset($pages[2]['pageBuilder'][1]['crumbs'][2]['link']);
 
-        $style = (new HouseStyle())->learn($pages, $this->schema(), [1504, 9330, 3111]);
-        $toFill = [];
+        $style = $this->learn($pages, [1504, 9330, 3111]);
 
-        $data = (new HouseStyle())->apply(['title' => 'Studio Winch', 'pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $this->schema(), $style, $toFill, ['id' => 50724, 'title' => 'Studio Winch']);
+        [$data, $toFill] = $this->apply(['title' => 'Studio Winch', 'pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style, 50724, 'Studio Winch');
 
         // Two of three link the last crumb to themselves and the third leaves
         // it empty, so the new page links to itself, under its own title.
@@ -79,9 +90,8 @@ class HouseStyleTest extends Unit
         $pages[1]['pageBuilder'][1]['crumbs'][2]['link'][0]['linkText'] = 'Architecture';
         unset($pages[2]['pageBuilder'][1]['crumbs'][2]['link'], $pages[3]['pageBuilder'][1]['crumbs'][2]['link']);
 
-        $style = (new HouseStyle())->learn($pages, $this->schema(), [1504, 9330, 3111, 2642]);
-        $toFill = [];
-        $data = (new HouseStyle())->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $this->schema(), $style, $toFill, ['id' => 50724, 'title' => 'Studio Winch']);
+        $style = $this->learn($pages, [1504, 9330, 3111, 2642]);
+        [$data, $toFill] = $this->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style, 50724, 'Studio Winch');
 
         // Two of four link to themselves, each under its own words; none
         // links anywhere else, so the new page links to itself.
@@ -97,9 +107,8 @@ class HouseStyleTest extends Unit
             $pages[$i]['pageBuilder'][1]['crumbs'][1]['link'][0]['linkValue'] = [100 + $i];
         }
 
-        $style = (new HouseStyle())->learn($pages, $this->schema(), [1, 2, 3]);
-        $toFill = [];
-        $data = (new HouseStyle())->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $this->schema(), $style, $toFill, ['id' => 9, 'title' => 'New']);
+        $style = $this->learn($pages, [1, 2, 3]);
+        [$data, $toFill] = $this->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style, 9, 'New');
 
         $this->assertSame('https://example.com', $data['pageBuilder'][0]['crumbs'][1]['link'][0]['linkValue']);
         $this->assertSame(['Breadcrumbs: Crumb 2 (links to example.com for now)'], $toFill);
@@ -115,9 +124,8 @@ class HouseStyleTest extends Unit
             }
         }
 
-        $style = (new HouseStyle())->learn($pages, $this->schema(), [1, 2, 3]);
-        $toFill = [];
-        $data = (new HouseStyle())->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $this->schema(), $style, $toFill);
+        $style = $this->learn($pages, [1, 2, 3]);
+        [$data, $toFill] = $this->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style);
 
         $this->assertArrayNotHasKey('link', $data['pageBuilder'][0]['crumbs'][0]);
         $this->assertNotContains('Breadcrumbs: Crumb 1 (links to example.com for now)', $toFill);
@@ -129,16 +137,44 @@ class HouseStyleTest extends Unit
         $pages[1]['pageBuilder'][2]['mobile'] = 10;
         $pages[1]['pageBuilder'][0]['children'][0]['richText'] = '<h1>Plain</h1>';
 
-        $style = (new HouseStyle())->learn($pages, $this->schema());
-        $data = (new HouseStyle())->apply(['pageBuilder' => [
+        $style = $this->learn($pages);
+        [$data] = $this->apply(['pageBuilder' => [
             ['type' => 'hero', 'enabled' => true, 'children' => [['type' => 'text', 'richText' => '<h1>New</h1>']]],
             ['type' => 'breadcrumbs', 'enabled' => true],
             ['type' => 'spacer', 'enabled' => true],
-        ]], $this->schema(), $style);
+        ]], $style);
 
         $this->assertArrayNotHasKey('mobile', $data['pageBuilder'][2]);
         $this->assertSame(65, $data['pageBuilder'][2]['desktop']);
         $this->assertSame('<h1>New</h1>', $data['pageBuilder'][0]['children'][0]['richText']);
+    }
+
+    /**
+     * What the model pages agree on, learned as the pattern finder learns it.
+     *
+     * @param array<int, array<string, mixed>> $pages
+     * @param array<int, int> $ids The pages' IDs, where the test gives them.
+     */
+    private function learn(array $pages, array $ids = []): HouseRules
+    {
+        $pages = array_values($pages);
+        $entries = array_map(fn(int $i) => new EntryData($pages[$i], $ids[$i] ?? null), array_keys($pages));
+
+        return (new Layouts())->core->houseStyle()->learn($entries, Schema::fromSpecs($this->schema()));
+    }
+
+    /**
+     * The house style carried into a new page: its data, and the places
+     * still to fill.
+     *
+     * @param array<string, mixed> $data
+     * @return array{0: array<string, mixed>, 1: array<int, string>}
+     */
+    private function apply(array $data, HouseRules $style, ?int $id = null, string $title = ''): array
+    {
+        $result = (new Layouts())->houseStyle($data, Schema::fromSpecs($this->schema()), $style, $id, $title);
+
+        return [$result->data, $result->toFill];
     }
 
     private function page(string $title, int $id): array

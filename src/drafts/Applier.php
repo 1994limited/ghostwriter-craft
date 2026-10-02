@@ -10,14 +10,14 @@ use craft\elements\Entry;
 use craft\elements\User;
 use craft\fields\Assets;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
 use nineteenninetyfour\ghostwriter\images\Placeholders;
-use nineteenninetyfour\ghostwriter\layouts\EntryData;
-use nineteenninetyfour\ghostwriter\layouts\HouseStyle;
-use nineteenninetyfour\ghostwriter\layouts\PatternFinder;
-use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\layouts\EntryReader;
+use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
+use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\sessions\Session;
 use nineteenninetyfour\ghostwriter\types\ContentType;
 
@@ -34,10 +34,10 @@ class Applier
 {
     public function __construct(
         private SchemaReader $reader = new SchemaReader(),
-        private PatternFinder $patterns = new PatternFinder(),
-        private EntryBuilder $builder = new EntryBuilder(),
+        private ?Layouts $layouts = null,
         private FieldValues $values = new FieldValues(),
     ) {
+        $this->layouts ??= Plugin::getInstance()->layouts;
     }
 
     /**
@@ -54,42 +54,41 @@ class Applier
         $entry = $this->draftFor($target, $user);
         $entryType = $entry->getType();
         $schema = $this->reader->read($entryType);
+        $model = Schema::fromSpecs($schema);
 
         $editing = $session->source !== null;
         $existing = [];
+        $pattern = null;
 
         if ($editing) {
             // Editing an entry: only the writing changes. Its images, links,
             // settings and blocks come from the entry as it stands in this
             // draft, not from what this kind of entry usually has.
-            $pattern = [];
-            $built = $this->builder->build($draft->data, $schema);
-            $original = (new EntryData())->read($entry, $schema);
-            $built['data'] = (new EntryMerger())->merge($built['data'], $original, $schema);
-            $built['notes'] = [];
+            $original = (new EntryReader())->read($entry, $schema);
+            $data = (new EntryMerger())->merge($this->layouts->build($draft->data, $model)->data, $original, $schema);
+            $notes = [];
             $existing = $this->blockIds($original);
         } else {
-            $pattern = $this->patterns->find($type->section, $schema, $entryType->handle, $type->where, $type->examples);
-            $built = $this->builder->build($draft->data, $schema, $pattern, $type->defaults);
+            $pattern = $this->layouts->pattern($type->section, $model, $entryType->handle, $type->where, $type->examples);
+            $built = $this->layouts->build($draft->data, $model, $pattern, $type->defaults);
+            $data = $built->data;
+            $notes = $built->notes;
         }
 
         if ($entryType->hasTitleField) {
             $entry->title = $draft->title();
         }
 
-        $data = $built['data'];
-        $notes = $built['notes'];
-
         // What the model entries agree on place by place: settings and links
         // in the same position, nested items such as breadcrumbs, and the
         // markup around rich text. A new entry only; an existing one keeps
         // its own.
-        if ($session->source === null && !empty($pattern['house'])) {
-            $toFill = [];
-            $data = (new HouseStyle())->apply($data, $schema, $pattern['house'], $toFill, ['id' => (int) $entry->getCanonicalId(), 'title' => (string) ($data['title'] ?? $draft->title())]);
+        if ($pattern !== null) {
+            $house = $this->layouts->houseStyle($data, $model, $pattern->house, (int) $entry->getCanonicalId(), (string) ($data['title'] ?? $draft->title()));
+            $data = $house->data;
 
-            if ($toFill) {
-                $notes[] = 'Still to set by hand, as it differs from page to page: ' . implode('; ', array_unique($toFill)) . '.';
+            if ($note = $house->note()) {
+                $notes[] = $note;
             }
         }
 
@@ -104,7 +103,7 @@ class Applier
         // Where an image belongs but none is chosen yet, a placeholder shows
         // it. New entries only: an existing entry keeps its own images.
         if (Plugin::getInstance()->getSettings()->placeholderImages && $session->source === null) {
-            $placeholders = new Placeholders($pattern['filled'] ?? []);
+            $placeholders = new Placeholders($pattern?->filled ?? []);
             $data = $placeholders->fill($data, $schema);
 
             if ($placeholders->filled()) {

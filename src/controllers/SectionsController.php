@@ -6,10 +6,10 @@ use Craft;
 use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use craft\models\Section;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\FoundKind;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
 use nineteenninetyfour\ghostwriter\jobs\SuggestKinds;
-use nineteenninetyfour\ghostwriter\layouts\KindFinder;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\types\ContentType;
@@ -268,7 +268,7 @@ class SectionsController extends Controller
             )),
             // Kinds of entry found by how the existing ones are built,
             // offered as ready-made models for something new.
-            'kinds' => $craftType ? (new KindFinder())->find($section->handle, (new SchemaReader())->read($craftType), count($section->getEntryTypes()) > 1 ? $craftType->handle : null) : [],
+            'kinds' => $craftType ? array_map(fn(FoundKind $kind) => $kind->toArray(), $plugin->layouts->kinds($section->handle, (new SchemaReader())->schema($craftType), count($section->getEntryTypes()) > 1 ? $craftType->handle : null)) : [],
             'entries' => $this->entries($section),
             // Ideas from the content plan waiting to be written here.
             'ideas' => array_values(array_map(
