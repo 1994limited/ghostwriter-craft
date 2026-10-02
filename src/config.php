@@ -48,6 +48,11 @@ return [
         // Put a striped placeholder in image fields a draft leaves empty.
         // 'placeholderImages' => true,
 
+        // A new entry Ghostwriter writes starts unpublished (Enabled off), so
+        // it saves at once and is never published by accident. Existing
+        // entries are never changed.
+        // 'draftsUnpublished' => true,
+
         // Suggest kinds of content for each section when Get started's kinds
         // step opens. Elsewhere kinds are only suggested when someone asks.
         // 'suggestKindsAutomatically' => true,

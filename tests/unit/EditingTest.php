@@ -121,6 +121,12 @@ class EditingTest extends TestCase
         $this->assertStringNotContainsString('sharper', (string) $live->getFieldValue('pageBuilder')->status(null)->all()[1]->getFieldValue('content'));
 
         $this->assertSame('changed', (new Presenter())->summary($this->plugin->sessions->find($id))['stage']);
+
+        // A live entry stays live: only new entries start unpublished.
+        $this->assertTrue($this->plugin->getSettings()->draftsUnpublished);
+        $this->assertTrue($draft->enabled);
+        $this->assertSame(Entry::STATUS_LIVE, $live->getStatus());
+        $this->assertNotContains('Ghostwriter drafts start unpublished. Switch on Enabled when you’re ready.', $response['data']['notes']);
     }
 
     public function testSomeoneWhoMayNotSaveTheEntryCannotOpenIt(): void

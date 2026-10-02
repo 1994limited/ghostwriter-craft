@@ -54,6 +54,15 @@
 }) }}
 
 {{ forms.lightswitchField({
+    label: 'New entries start unpublished'|t('ghostwriter'),
+    instructions: 'When a draft goes into a new entry, its Enabled switch is turned off, so it can be saved straight away and isn’t published by accident. Switch on Enabled when it’s ready. Existing entries are never changed.'|t('ghostwriter'),
+    name: 'draftsUnpublished',
+    on: settings.draftsUnpublished,
+    warning: 'draftsUnpublished' in overrides ? _self.overridden('draftsUnpublished', overrides) : null,
+    disabled: 'draftsUnpublished' in overrides,
+}) }}
+
+{{ forms.lightswitchField({
     label: 'Share conversations'|t('ghostwriter'),
     instructions: 'Everyone who may use Ghostwriter sees every piece being written, and can carry it on, with each message showing who sent it. Off, each person sees only the pieces they started.'|t('ghostwriter'),
     name: 'sharedConversations',

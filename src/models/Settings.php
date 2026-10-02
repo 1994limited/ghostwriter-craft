@@ -76,6 +76,15 @@ class Settings extends Model
      */
     public bool $placeholderImages = true;
 
+    /**
+     * A new entry Ghostwriter puts a draft into starts unpublished: its
+     * Enabled switch is turned off in the form, so it can be saved at once
+     * (a stock photo preview never blocks a disabled entry) and an AI draft
+     * is never published by accident. The editor switches it on when ready.
+     * Existing entries are never changed.
+     */
+    public bool $draftsUnpublished = true;
+
     /** Images looked at per section when the image style guide is written. */
     public int $imageGuideSamples = 10;
 
@@ -136,7 +145,7 @@ class Settings extends Model
             [['timeout'], 'integer', 'min' => 30, 'max' => 1800],
             [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions'], 'integer', 'min' => 1],
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
-            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations'], 'boolean'],
+            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished'], 'boolean'],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
             [['baseUrls'], 'validateBaseUrls'],
             [['logReplies'], 'validateLogReplies'],

@@ -84,6 +84,7 @@ The word count is shown at the top. A block type the section doesn't allow is fl
 **Use this draft** puts the draft into the entry, then reloads the form so you can see it.
 
 - **Nothing is saved or published.** It goes into the entry's own Craft draft. Check it over, then save the entry as usual, or discard it.
+- **A new entry starts unpublished.** Its **Enabled** switch is turned off, so you can save it straight away, and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Switch it on when the entry is ready. An existing entry's status is never changed. Turn this off with **New entries start unpublished** in the [settings](configuration.md#settings) (`draftsUnpublished`).
 - Using it again replaces what is in the form.
 - Opening the panel again carries on with the same piece, with a line saying it's already in the entry.
 
