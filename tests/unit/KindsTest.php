@@ -110,13 +110,26 @@ class KindsTest extends TestCase
         $this->assertStringContainsString('did not come back with any kinds', $this->plugin->kinds->get('news')['error']);
     }
 
-    public function testTheDashboardChecksSectionsByItselfOnceAndAgainAfterNewEntries(): void
+    public function testOpeningTheDashboardAsksTheModelNothing(): void
     {
         $this->signIn();
 
-        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        // News has entries to read and has never been looked at, and the
+        // setting is on: still, opening the dashboard queues nothing.
+        $this->assertTrue($this->plugin->getSettings()->suggestKindsAutomatically);
+        $this->assertSame(200, $this->action('ghostwriter/dashboard/index', method: 'GET')['status']);
+        $this->assertSame([], $this->queued(SuggestKinds::class));
+        $this->assertSame(KindSuggestions::IDLE, $this->plugin->kinds->get('news')['status']);
+        $this->assertSame([], $this->fake->prompted('kind-finder'));
+    }
+
+    public function testGetStartedLooksByItselfOnceAndAgainAfterNewEntries(): void
+    {
+        $this->signIn();
+        $this->assertTrue($this->action('ghostwriter/setup/status', method: 'GET')['data']['details']['autoKinds']);
 
         // News has entries to read; Press has none yet.
+        $this->assertSame('working', $this->action('ghostwriter/sections/suggest-kinds', ['due' => 1])['data']['status']);
         $jobs = $this->queued(SuggestKinds::class);
         $this->assertCount(1, $jobs);
         $this->assertSame(['news'], $jobs[0]->sections);
@@ -124,27 +137,26 @@ class KindsTest extends TestCase
 
         // Looked at, it is left alone until enough has been published since.
         $this->plugin->kinds->store('news', [], 4);
-        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertSame('idle', $this->action('ghostwriter/sections/suggest-kinds', ['due' => 1])['data']['status']);
         $this->assertCount(1, $this->queued(SuggestKinds::class));
 
         $this->plugin->kinds->update('news', ['entries' => 4 - KindSuggestions::RECHECK_AFTER]);
-        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->action('ghostwriter/sections/suggest-kinds', ['due' => 1]);
         $this->assertCount(2, $this->queued(SuggestKinds::class));
     }
 
-    public function testTheAutomaticCheckCanBeSwitchedOffAndNeedsAKey(): void
+    public function testGetStartedLooksOnlyWithTheSettingOn(): void
     {
         $this->signIn();
 
         $this->plugin->getSettings()->suggestKindsAutomatically = false;
-        $this->action('ghostwriter/dashboard/index', method: 'GET');
+        $this->assertFalse($this->action('ghostwriter/setup/status', method: 'GET')['data']['details']['autoKinds']);
+        $this->assertSame('idle', $this->action('ghostwriter/sections/suggest-kinds', ['due' => 1])['data']['status']);
         $this->assertSame([], $this->queued(SuggestKinds::class));
 
-        $this->plugin->getSettings()->suggestKindsAutomatically = true;
-        $this->unfake();
-        $this->plugin->providers->keys['anthropic'] = null;
-        $this->action('ghostwriter/dashboard/index', method: 'GET');
-        $this->assertSame([], $this->queued(SuggestKinds::class));
+        // Asked for with a click, it still looks.
+        $this->assertSame('working', $this->action('ghostwriter/sections/suggest-kinds')['data']['status']);
+        $this->assertCount(1, $this->queued(SuggestKinds::class));
     }
 
     public function testSuggestionsCanBeAskedForLearnedOrTurnedDown(): void

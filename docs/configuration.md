@@ -9,7 +9,7 @@
 | **Write for these sections** | Sections that get **Write with Ghostwriter**. None ticked means all. |
 | **Learn the voice from these sections** | Sections read for the voice guide. None ticked means all. |
 | **Show Get started** | The setup steps on the dashboard and in the menu. |
-| **Suggest kinds of content automatically** | Look at each section for kinds without being asked. |
+| **Suggest kinds of content automatically** | Look at each section for kinds without being asked, when Get started's kinds step opens. Nowhere else looks without a click. |
 | **Share conversations** | On (the default), everyone with **Use Ghostwriter** sees and can carry on every piece. Off, each person sees only the pieces they started. See [Sharing conversations](writing.md#sharing-conversations). |
 | **Provider** | Anthropic, OpenAI or Gemini, for writing. |
 | **Model** | Leave blank for the provider's default, shown as the placeholder. A model name that doesn't look like the chosen provider's (a `gpt-…` model with Claude, say) gets a warning; it is still saved. |
@@ -49,7 +49,7 @@ return [
 | `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
-| `suggestKindsAutomatically` | `true` | Look for kinds without being asked |
+| `suggestKindsAutomatically` | `true` | Look for kinds without being asked, in Get started only |
 | `sharedConversations` | `true` | Share conversations with everyone who may use Ghostwriter; `false` keeps each to the person who started it |
 | `voiceMaxEntries` | `24` | Entries read for the voice guide |
 | `voiceMaxCharsPerEntry` | `6000` | Characters read from each |

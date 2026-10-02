@@ -3,6 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\sessions;
 
 use craft\db\Query;
+use craft\elements\User;
 use craft\helpers\Db;
 use craft\helpers\Json;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -70,6 +71,21 @@ class SessionRepository extends Component
         }
 
         return $this->shared() || ($session->userId !== null && $session->userId === $userId);
+    }
+
+    /**
+     * Whether someone may remove a session. With conversations shared, only
+     * the person who started it or someone who manages Ghostwriter; others
+     * may carry it on but not delete it. Unshared, it is only ever the
+     * starter's to see.
+     */
+    public function canDelete(Session $session, ?User $user): bool
+    {
+        if ($user === null || !$this->canSee($session, (int) $user->id)) {
+            return false;
+        }
+
+        return $session->userId === (int) $user->id || Plugin::canManage($user);
     }
 
     public function find(string $id): ?Session

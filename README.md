@@ -113,7 +113,7 @@ Settings are on **Settings → Plugins → Ghostwriter**. To set them in code, o
 | `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse for free photos |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
-| `suggestKindsAutomatically` | `true` | Look for kinds of content without being asked |
+| `suggestKindsAutomatically` | `true` | Look for kinds of content without being asked, in Get started only |
 | `guidesPath` | `@config/ghostwriter` | Where prompt overrides are read from, under `prompts/` |
 
 ### Where things are kept

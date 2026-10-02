@@ -35,7 +35,9 @@
         <td class="light">{{ s.updatedAt }}</td>
         <td class="thin">
             {% if s.entryUrl %}<a class="btn small" href="{{ s.entryUrl }}">{{ 'Open entry'|t('ghostwriter') }}</a>{% endif %}
-            <button type="button" class="btn small" data-remove-session="{{ s.id }}" data-title="{{ s.title }}">{{ 'Remove'|t('ghostwriter') }}</button>
+            {% if s.canDelete %}
+                <button type="button" class="btn small" data-remove-session="{{ s.id }}" data-title="{{ s.title }}">{{ 'Remove'|t('ghostwriter') }}</button>
+            {% endif %}
         </td>
     </tr>
 {% endmacro %}
@@ -239,7 +241,6 @@
 
 {% js %}
     new Ghostwriter.Dashboard({{ {
-        checking: checking,
         looking: 'Looking at the entries for kinds of content worth teaching…'|t('ghostwriter'),
         learning: 'Learning a kind of content. This takes a minute or so.'|t('ghostwriter'),
         learningAll: 'Learning {count} kinds of content, one after another. This takes about a minute each.'|t('ghostwriter'),
