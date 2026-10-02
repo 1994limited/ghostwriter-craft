@@ -6,7 +6,7 @@ A model call (writing a guide, looking at a section) runs in the background. You
 
 ## 1. Connect a model
 
-Shows which provider Ghostwriter writes with, and whether its API key is set. If it isn't, add the key to `.env` and click **Check again**. See [API keys](api-keys.md).
+Shows which provider Ghostwriter writes with, and whether its API key is set. If it isn't, add the key to `.env` and click **Check again**. If there is already a key for another provider, it says so: choosing that provider in the settings is quicker than getting a new key. See [API keys](api-keys.md).
 
 ## 2. Choose where it writes
 
@@ -32,7 +32,7 @@ Ghostwriter looks at the pictures your entries use and writes an [image style gu
 
 ## 6. Plan what to write (optional)
 
-Ghostwriter reads the whole site and suggests entries it is missing. Keep the good ones on the [content plan](content-plan.md).
+Ghostwriter reads the whole site and suggests entries it is missing. Optionally, steer it first ("More for owners." "Events."), as on the plan itself. Keep the good ones on the [content plan](content-plan.md).
 
 ## 7. Write something
 

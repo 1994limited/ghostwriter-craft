@@ -152,6 +152,7 @@ class Onboarding extends Component
             'canHide' => $this->canToggle(),
             'provider' => $this->providerName($plugin->studio->provider()),
             'keyName' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? null,
+            'otherKey' => $this->otherKey(),
             'sections' => array_map(fn($section) => [
                 'handle' => $section->handle,
                 'title' => Craft::t('site', $section->name),
@@ -262,6 +263,28 @@ class Onboarding extends Component
     public function hide(bool $hidden = true): void
     {
         Plugin::getInstance()->store->putState('onboarding', ['hidden' => $hidden]);
+    }
+
+    /**
+     * Another writing provider whose key is already set, when the chosen
+     * one has none: choosing it is quicker than getting a new key.
+     */
+    private function otherKey(): ?string
+    {
+        $plugin = Plugin::getInstance();
+        $chosen = $plugin->studio->provider();
+
+        if ($plugin->providers->configured()) {
+            return null;
+        }
+
+        foreach (['anthropic', 'openai', 'gemini'] as $provider) {
+            if ($provider !== $chosen && $plugin->providers->key($provider) !== null) {
+                return $this->providerName($provider);
+            }
+        }
+
+        return null;
     }
 
     private function providerName(string $provider): string

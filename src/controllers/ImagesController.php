@@ -82,6 +82,23 @@ class ImagesController extends Controller
         return $this->refuse('Choose to find a photograph or make a picture.');
     }
 
+    /**
+     * What the dialog says before anything is asked for: whether there are
+     * images in the same place on other entries to match.
+     */
+    public function actionSlot(): Response
+    {
+        $request = $this->request;
+        $slot = ImageSlot::find(
+            (int) $request->getRequiredParam('fieldId'),
+            (int) $request->getRequiredParam('elementId'),
+            (int) $request->getRequiredParam('siteId'),
+            Craft::$app->getUser()->getIdentity(),
+        ) ?? throw new NotFoundHttpException('That image field could not be found, or Ghostwriter is not used for this entry.');
+
+        return $this->asJson(['references' => count($slot->references()), 'shape' => $slot->shape()]);
+    }
+
     public function actionStatus(): Response
     {
         return $this->asJson($this->payload($this->mine((string) $this->request->getRequiredParam('id'))));

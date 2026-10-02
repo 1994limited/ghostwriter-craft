@@ -272,6 +272,41 @@
         return Craft.cp.displaySuccess(message, { details: $list, persist: true });
     };
 
+    /**
+     * "Write with Ghostwriter" beside "New entry" on the entry index, while
+     * a section Ghostwriter writes for is chosen and the person may make
+     * entries in it. It starts a new entry with the panel open, as the
+     * dashboard does.
+     */
+    Ghostwriter.IndexButton = Garnish.Base.extend({
+        init(config) {
+            this.config = config;
+
+            $(() => {
+                const index = Craft.elementIndex;
+
+                if (!index || !index.on) return;
+
+                // After Craft has drawn its own button for the source.
+                index.on('selectSource selectSite', () => setTimeout(() => this.update(index)));
+                this.update(index);
+            });
+        },
+
+        update(index) {
+            $('#gw-index-write').remove();
+
+            const handle = index.$source?.data('handle');
+            const url = handle ? this.config.sections[handle] : null;
+            const allowed = (index.publishableSections ?? []).some((section) => section.handle === handle);
+            const $new = index.$newEntryBtnGroup;
+
+            if (!url || !allowed || !$new?.length || !$new.closest('body').length) return;
+
+            $(`<a id="gw-index-write" class="btn gw-index-write" href="${esc(url)}"><span class="gw-mark" aria-hidden="true"></span>${esc(this.config.label)}</a>`).insertBefore($new);
+        },
+    });
+
     Ghostwriter.Launcher = Garnish.Base.extend({
         init(config) {
             this.config = config;
@@ -671,6 +706,7 @@
                 case 'resume': return this.openSession($target.data('id'));
                 case 'toggle-brief': this.showBrief = !this.showBrief; return this.renderConversation();
                 case 'send': return this.send();
+                case 'retry': return this.retry();
                 case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); return this.send();
                 case 'reload-entry': return this.reloadEntry();
                 case 'edit': this.editing = true; return this.renderDraft();
@@ -742,6 +778,17 @@
                 this.message = message;
                 this.renderComposer();
             }
+        },
+
+        /**
+         * Run the turn that failed again, with the same message.
+         */
+        async retry() {
+            if (this.working()) return;
+
+            try {
+                this.receive(await Ghostwriter.request('POST', 'sessions/retry', { id: this.session.id }));
+            } catch (error) {}
         },
 
         // Writing edited where it is shown: remembered on the way in, saved
@@ -1104,7 +1151,12 @@
             }
 
             if (session.status === 'failed') {
-                html += `<p class="error with-icon"><strong>${esc(t('That did not work.'))}</strong> ${esc(session.error)}</p>`;
+                const retry = session.messages[session.messages.length - 1]?.role === 'user';
+
+                html += `<div class="gw-failed" role="alert">
+                    <p class="error with-icon"><strong>${esc(t('That didn’t work'))}</strong> ${esc(session.error)}</p>
+                    ${retry ? `<button type="button" class="btn small" data-action="retry">${esc(t('Try again'))}</button>` : ''}
+                </div>`;
             }
 
             this.$container.find('.gw-chat-log').html(html);
@@ -1632,7 +1684,7 @@
             }
 
             if (this.plan.status === 'failed') {
-                html += `<p class="error with-icon gw-alert"><strong>${esc(t('That did not work.'))}</strong> ${esc(this.plan.error)}</p>`;
+                html += `<p class="error with-icon gw-alert"><strong>${esc(t('That didn’t work'))}</strong> ${esc(this.plan.error)}</p>`;
             }
 
             if (started.length) {
@@ -1851,7 +1903,7 @@
                     return this.post('sections/learn-all-kinds', { section: $target.data('section') }, $target);
                 case 'dismiss-kind': return this.post('sections/dismiss-kind', { section: $target.data('section'), id: $target.data('id') }, $target);
                 case 'imagery': return this.post('imagery/scan', { sections: d.sections.filter((s) => s.writeFor).map((s) => s.handle) }, $target);
-                case 'plan': return this.post('plan/suggest', {}, $target);
+                case 'plan': return this.post('plan/suggest', { steer: this.$root.find('[data-wizard-steer]').val() ?? '' }, $target);
                 case 'hide': return this.post('setup/hide', { hidden: 1 }, $target).then(() => (window.location.href = Craft.getCpUrl('ghostwriter')));
             }
         },
@@ -1931,6 +1983,7 @@
                        <li>${t('Add it to your project’s <code>.env</code> file as <code>{key}=…</code>', { key: esc(d.keyName ?? 'the API key') })}</li>
                        <li>${esc(t('Come back here and check again.'))}</li>
                    </ol>
+                   ${d.otherKey ? `<p class="gw-wizard__hint">${esc(t('There is already a key for {other}. To write with it instead, choose {other} in the settings.', { other: d.otherKey }))}${d.canChangeSettings ? ` <a href="${esc(Craft.getCpUrl('settings/plugins/ghostwriter'))}">${esc(t('Open the settings'))}</a>` : ''}</p>` : ''}
                    <p class="light">${esc(t('The key is read from .env each time it is needed and is never stored by Ghostwriter.'))}</p>
                    <button type="button" class="btn submit" data-wizard="check">${esc(t('Check again'))}</button>`;
         },
@@ -2029,7 +2082,9 @@
                 ${p.pending ? `<p class="gw-wizard__ok">${esc(t('{count, plural, =1{# suggestion is} other{# suggestions are}} waiting for you to look over.', { count: p.pending }))} <a class="btn small submit" href="${esc(Craft.getUrl(p.url, { review: 1 }))}">${esc(t('Look over them'))}</a></p>` : ''}
                 ${p.ideas ? `<p class="gw-wizard__ok">✓ ${esc(t('{count, plural, =1{# idea} other{# ideas}} on the plan.', { count: p.ideas }))} <a href="${esc(p.url)}">${esc(t('Open the content plan'))}</a></p>` : ''}
                 ${this.keyless()}
-                ${p.pending ? '' : `<button type="button" class="btn ${p.ideas ? '' : 'submit'}" data-wizard="plan" ${this.state.configured ? '' : 'disabled'}>${esc(t('Suggest ideas'))}</button>`}`;
+                ${p.pending ? '' : `
+                    <textarea class="text fullwidth gw-wizard__steer" rows="2" data-wizard-steer aria-label="${esc(t('Anything to steer it'))}" placeholder="${esc(t('Optional: anything to steer it. “More for owners.” “Events.”'))}" ${this.state.configured ? '' : 'disabled'}></textarea>
+                    <button type="button" class="btn ${p.ideas ? '' : 'submit'}" data-wizard="plan" ${this.state.configured ? '' : 'disabled'}>${esc(t('Suggest ideas'))}</button>`}`;
         },
 
         step_write(step) {
@@ -2176,6 +2231,22 @@
             this.addListener($modal.find('.gw-image-make'), 'click', 'make');
 
             this.show(this.mode);
+            this.describe();
+        },
+
+        /**
+         * Say so up front when no other entry has an image in this place,
+         * since there is then no style to match.
+         */
+        async describe() {
+            try {
+                const data = await Craft.sendActionRequest('GET', 'ghostwriter/images/slot', { params: this.target() });
+
+                if (!data.data.references) {
+                    this.$modal.find('.gw-image-pane').prepend(`<p class="light gw-image-unmatched">${Ghostwriter.escape(this.t('No other entry has an image here yet, so there is no style to match.'))}</p>`);
+                    this.fit();
+                }
+            } catch (error) {}
         },
 
         show(mode) {
@@ -2269,7 +2340,7 @@
             const $pane = this.pane(data.mode);
 
             if (data.status === 'failed' || data.error) {
-                this.status($pane, `<p class="error">${Ghostwriter.escape(data.error ?? this.t('That did not work.'))}</p>`);
+                this.status($pane, `<p class="error">${Ghostwriter.escape(data.error ?? this.t('That didn’t work'))}</p>`);
             } else {
                 this.status($pane, '');
             }

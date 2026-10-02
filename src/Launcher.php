@@ -69,6 +69,39 @@ class Launcher
     }
 
     /**
+     * A "Write with Ghostwriter" button beside "New entry" on the entry
+     * index, for the sections Ghostwriter writes for. Craft has no slot for
+     * a button there, so the script adds it once the index has drawn its
+     * own, and again whenever another section is chosen.
+     */
+    public static function registerIndexButton(): void
+    {
+        $plugin = Plugin::getInstance();
+        $user = Craft::$app->getUser()->getIdentity();
+
+        if (!Craft::$app->getRequest()->getIsCpRequest() || !$user || !$user->can(Plugin::PERMISSION)) {
+            return;
+        }
+
+        $sections = [];
+
+        foreach ($plugin->types->sections() as $section) {
+            $sections[$section->handle] = UrlHelper::cpUrl("ghostwriter/write/{$section->handle}");
+        }
+
+        if ($sections === []) {
+            return;
+        }
+
+        $view = Craft::$app->getView();
+        $view->registerAssetBundle(GhostwriterAsset::class);
+        $view->registerJs('new Ghostwriter.IndexButton(' . Json::encode([
+            'sections' => $sections,
+            'label' => Craft::t('ghostwriter', 'Write with Ghostwriter'),
+        ]) . ');');
+    }
+
+    /**
      * The newest conversation for this entry that is not finished with.
      */
     private static function currentSession(int $elementId): ?string

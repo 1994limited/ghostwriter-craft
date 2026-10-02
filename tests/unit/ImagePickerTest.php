@@ -104,6 +104,20 @@ class ImagePickerTest extends TestCase
         $this->assertSame('', ImageButton::htmlFor($this->cover, $this->newDraft($this->stories), false));
     }
 
+    public function testTheDialogIsToldWhetherThereAreImagesToMatch(): void
+    {
+        $this->signIn();
+        $draft = $this->newDraft($this->stories);
+
+        $this->assertSame(['references' => 2, 'shape' => 'landscape'], $this->action('ghostwriter/images/slot', ['fieldId' => $this->cover->id, 'elementId' => $draft->id, 'siteId' => $draft->siteId], 'GET')['data']);
+
+        $banner = $this->makeField(Assets::class, 'banner', ['sources' => ['volume:' . $this->volume->uid], 'defaultUploadLocationSource' => 'volume:' . $this->volume->uid, 'maxRelations' => 1]);
+        $note = $this->newDraft($this->makeSection('notes', [$this->makeEntryType('note', [$banner])]));
+
+        $this->assertSame(0, $this->action('ghostwriter/images/slot', ['fieldId' => $banner->id, 'elementId' => $note->id, 'siteId' => $note->siteId], 'GET')['data']['references']);
+        $this->assertSame(404, $this->action('ghostwriter/images/slot', ['fieldId' => $this->docs->id, 'elementId' => $draft->id, 'siteId' => $draft->siteId], 'GET')['status']);
+    }
+
     public function testAFieldInABlockIsReadWithTheBlockFirst(): void
     {
         $this->signIn();

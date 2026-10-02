@@ -296,6 +296,30 @@ class WritingTest extends TestCase
         $this->assertSame(self::DRAFT, $session->draft);
     }
 
+    public function testAFailedTurnCanBeTriedAgainWithTheSameMessage(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->startedSession();
+
+        // Nothing has failed yet.
+        $this->assertSame(409, $this->action('ghostwriter/sessions/retry', ['id' => $session->id])['status']);
+
+        $this->fake->respond('writer', fn() => throw new \RuntimeException('The provider is overloaded.'));
+        $this->runTurn($session);
+
+        $messages = $this->plugin->sessions->find($session->id)->messages;
+        $retried = $this->action('ghostwriter/sessions/retry', ['id' => $session->id]);
+
+        $this->assertSame(200, $retried['status']);
+        $this->assertSame(Session::WORKING, $retried['data']['status']);
+        $this->assertNull($retried['data']['error']);
+        $this->assertCount(1, $this->queued(RunSessionTurn::class));
+
+        // The same conversation goes again; nothing is added to it.
+        $this->assertSame($messages, $this->plugin->sessions->find($session->id)->messages);
+    }
+
     public function testAMessageCannotBeSentWhileTheLastOneIsBeingAnswered(): void
     {
         $this->signIn();
@@ -497,6 +521,30 @@ class WritingTest extends TestCase
         $draft = $this->newDraft($this->articles);
         $this->signIn(permitted: false, admin: false);
         $this->assertSame('', Launcher::buttonFor($draft));
+    }
+
+    public function testTheEntryIndexOffersWritingInSectionsItWritesFor(): void
+    {
+        Craft::$app->getRequest()->setIsCpRequest(true);
+        $view = Craft::$app->getView();
+        $script = function() use ($view): string {
+            $js = implode("\n", array_merge(...array_values($view->js ?: [[]])));
+            $view->js = [];
+
+            return $js;
+        };
+
+        $this->signIn(admin: true);
+        Launcher::registerIndexButton();
+        $js = $script();
+
+        $this->assertStringContainsString('new Ghostwriter.IndexButton(', $js);
+        $this->assertStringContainsString('ghostwriter\\/write\\/articles', $js);
+
+        // Not for someone without the permission.
+        $this->signIn(permitted: false, admin: false);
+        Launcher::registerIndexButton();
+        $this->assertStringNotContainsString('IndexButton', $script());
     }
 
     public function testTheButtonCarriesOnWithTheEntrysOwnConversation(): void

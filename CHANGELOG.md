@@ -21,6 +21,11 @@
 - Requests to providers that are rate limited, overloaded or briefly down are tried again, up to three times.
 - An answer cut off at its length limit is asked for again with more room, and never used half-finished.
 - Work whose job was stopped by a server time limit is shown as failed, so it can be tried again.
+- **Try again** on a turn that failed in the writing panel sends the same message again. Failures everywhere read **That didn’t work**.
+- **Write with Ghostwriter** beside **New entry** on the entry index, for sections Ghostwriter writes for.
+- Get started's **Plan what to write** step has the plan's optional steer box.
+- Get started's **Connect a model** step points out a key already set for another provider.
+- The image dialog says when no other entry has an image in that place, so there is no style to match.
 
 ### Changed
 - The AI providers, the prompts and draft text handling now come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), the package shared with the Statamic and Filament versions. No change is expected in how Ghostwriter writes or behaves. Prompts to copy for an override are now in `vendor/1994/ghostwriter-core/resources/prompts/`; overrides in `config/ghostwriter/prompts/` keep working.

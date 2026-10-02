@@ -22,7 +22,7 @@ The job doing the work was stopped before it could report back: usually a time l
 
 ## Busy, overloaded or rate limited
 
-When a provider is rate limited, overloaded or briefly down, Ghostwriter tries the request again, up to three times, waiting as long as the provider asks or a little longer each time. Only if every try fails is the error shown. Wait a minute and try again, or raise your plan's rate limits with the provider.
+When a provider is rate limited, overloaded or briefly down, Ghostwriter tries the request again, up to three times, waiting as long as the provider asks or a little longer each time. Only if every try fails is the error shown. Wait a minute and click **Try again** (in the writing panel, it sends the same message again), or raise your plan's rate limits with the provider.
 
 ## "The answer ran past its length limit and was cut off"
 
