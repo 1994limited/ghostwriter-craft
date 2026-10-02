@@ -160,6 +160,7 @@
             if (state.exists) {
                 Ghostwriter.prepareButtons(this.$scan);
                 this.$scan.removeClass('submit').find('.label').text(this.config.labels.rescan);
+                $('#gw-voice-heading').text(this.config.labels.headingAgain);
             }
 
             $('#gw-voice-messages').html(state.messages.map((message) => `<div class="gw-message gw-message--${message.role === 'user' ? 'user' : 'assistant'}">${Ghostwriter.escape(message.content)}</div>`).join(''));
@@ -611,6 +612,28 @@
 
         onKeydown(event) {
             const model = $(event.target).data('model');
+            const $field = $(event.target).closest('[data-edit-path]');
+
+            // Writing edited in place: Escape puts it back as it was (and
+            // leaves the panel open), Enter finishes a one-line piece.
+            if ($field.length && event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if ($field.data('format') === 'html') $field.html($field.data('was') ?? '');
+                else $field[0].innerText = $field.data('was') ?? '';
+
+                $field[0].blur();
+
+                return;
+            }
+
+            if ($field.length && event.key === 'Enter' && !$field.data('multiline')) {
+                event.preventDefault();
+                $field[0].blur();
+
+                return;
+            }
 
             if (model === 'message' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -774,10 +797,10 @@
             const path = esc(JSON.stringify(node.path));
 
             if (node.kind === 'html') {
-                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} data-edit-path="${path}" data-format="html" aria-label="${esc(node.label)}">${node.html}</div>`;
+                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} data-edit-path="${path}" data-format="html" data-multiline="1" aria-label="${esc(node.label)}">${node.html}</div>`;
             }
 
-            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-path="${path}" data-format="text" aria-label="${esc(node.label)}">${esc(node.text)}</div>`;
+            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-path="${path}" data-format="text" data-multiline="${node.multiline ? 1 : 0}" aria-label="${esc(node.label)}">${esc(node.text)}</div>`;
         },
 
         // The draft as a page to read: only its words, in order, each
@@ -923,7 +946,7 @@
                 <div class="gw-wide">
                     <div class="flex flex-justify gw-row">
                         <h2>${esc(t('What are you writing?'))}</h2>
-                        <button type="button" class="btn small" data-action="teach">${esc(t('Teach it a kind'))}</button>
+                        <button type="button" class="btn small" data-action="teach">${esc(t('Teach a kind'))}</button>
                     </div>
                     ${this.info.ideas.length ? `
                         <h3 class="gw-subheading">${esc(t('From the content plan'))}</h3>
@@ -1071,7 +1094,7 @@
                 html += `
                     <div class="gw-bubble gw-bubble--${mine ? 'me' : 'them'} ${waiting ? 'gw-bubble--asking' : ''}">
                         <div class="gw-bubble__who">${esc(mine ? t('You') : t('Ghostwriter'))}${waiting ? ` · <span class="gw-bubble__flag">${esc(t('needs your answer'))}</span>` : ''}</div>
-                        <div class="gw-bubble__text gw-pre">${esc(entry.content)}</div>
+                        ${!mine && entry.html ? `<div class="gw-bubble__text gw-prose">${entry.html}</div>` : `<div class="gw-bubble__text gw-pre">${esc(entry.content)}</div>`}
                         ${entry.draft ? `<div class="gw-bubble__draft">✓ ${esc(this.draftNote(entry.draft))}</div>` : ''}
                     </div>`;
             });
@@ -1279,6 +1302,11 @@
             const $button = $(event.currentTarget);
             const section = $button.data('learn-all');
 
+            // A model call per kind, about a minute each, and no undoing it.
+            if (!confirm(Craft.t('ghostwriter', this.labels.confirmLearnAll, { count: $button.data('count') }))) {
+                return;
+            }
+
             $button.addClass('loading').prop('disabled', true);
 
             try {
@@ -1484,6 +1512,12 @@
             this.addListener(this.$root, 'click', 'onClick');
 
             this.apply(this.plan);
+
+            // Sent here to look them over (from Get started): open them.
+            if (new URLSearchParams(window.location.search).get('review')) {
+                Ghostwriter.address({ review: null });
+                this.review();
+            }
         },
 
         working() {
@@ -1492,16 +1526,19 @@
 
         apply(data) {
             const finished = this.working() && data.status === 'idle';
+            const batch = JSON.stringify(data.pending.map((idea) => idea.title));
 
             this.plan = data;
 
-            // Fresh suggestions: everything ticked to start with.
-            if (data.pending.length && !this.chosen.length) this.chosen = data.pending.map((idea, i) => i);
-            if (!data.pending.length) this.chosen = [];
+            // A fresh batch of suggestions: everything ticked to start with.
+            if (batch !== this.batch) this.chosen = data.pending.map((idea, i) => i);
+            this.batch = batch;
 
             this.render();
 
-            if (data.pending.length) this.review();
+            // Suggestions that have just arrived open by themselves. Closing
+            // them leaves them waiting, with a card at the top to reopen them.
+            if (finished && data.pending.length) this.review();
             if (data.status === 'working') this.poll();
             if (finished && !data.pending.length && data.status !== 'failed') Craft.cp.displayNotice(t('Nothing new to suggest this time.'));
         },
@@ -1567,6 +1604,7 @@
                 case 'reopen': return this.send('plan/update', { id, status: 'open' });
                 case 'delete': return this.send('plan/delete', { id });
                 case 'clear-dismissed': return this.clear('dismissed');
+                case 'review': return this.review();
                 case 'toggle-done': this.showDone = !this.showDone; return this.render();
             }
         },
@@ -1583,6 +1621,15 @@
             $('#gw-plan-suggest').toggleClass('loading', this.working()).prop('disabled', this.working() || !this.config.configured).find('.label').text(this.working() ? t('Looking…') : t('Suggest ideas'));
 
             let html = '';
+
+            // Suggestions not yet looked over wait here until they are.
+            if (this.plan.pending.length) {
+                html += `<section class="gw-waiting" aria-label="${esc(t('Suggestions waiting'))}">
+                    <div><strong>${esc(t('{count, plural, =1{# suggestion waiting} other{# suggestions waiting}}', { count: this.plan.pending.length }))}</strong>
+                    <span class="light">${esc(t('Ghostwriter’s ideas, to keep or dismiss.'))}</span></div>
+                    <button type="button" class="btn submit" data-plan="review">${esc(t('Review'))}</button>
+                </section>`;
+            }
 
             if (this.plan.status === 'failed') {
                 html += `<p class="error with-icon gw-alert"><strong>${esc(t('That did not work.'))}</strong> ${esc(this.plan.error)}</p>`;
@@ -1629,7 +1676,7 @@
                             <div class="gw-plan-item__text"><span class="${idea.status === 'dismissed' ? 'gw-struck' : ''}">${esc(idea.title)}</span> <span class="light">${esc(idea.sectionTitle)} · ${esc(idea.status === 'drafted' ? t(STAGES[idea.stage] ?? 'Started') : t('Dismissed'))}</span></div>
                             <div class="gw-plan-item__actions">
                                 ${idea.entryUrl ? `<a class="btn small" href="${esc(idea.entryUrl)}">${esc(t('Open entry'))}</a>` : ''}
-                                <button type="button" class="btn small" data-plan="reopen" data-id="${esc(idea.id)}">${esc(t('Put back'))}</button>
+                                ${idea.status === 'dismissed' ? `<button type="button" class="btn small" data-plan="reopen" data-id="${esc(idea.id)}">${esc(t('Put back'))}</button>` : ''}
                                 <button type="button" class="btn small" data-plan="delete" data-id="${esc(idea.id)}">${esc(t('Delete'))}</button>
                             </div>
                         </div>`).join('')}
@@ -1644,8 +1691,11 @@
 
         // Ticked suggestions join the plan; unticked ones are kept as
         // dismissed so they are not suggested again. Closing the box
-        // without deciding drops them all.
+        // decides nothing: they wait, for the card at the top to reopen.
+        // Only "Drop them all" throws the batch away.
         review() {
+            if (!this.plan.pending.length) return;
+
             const pending = this.plan.pending;
             const $body = $(`
                 <div class="gw-review">
@@ -1663,7 +1713,7 @@
                     </div>
                     <div class="footer"><div class="buttons right">
                         <button type="button" class="btn" data-review="drop">${esc(t('Drop them all'))}</button>
-                        <button type="button" class="btn submit" data-review="keep">${esc(t('Add the ticked ones'))}</button>
+                        <button type="button" class="btn submit" data-review="keep">${esc(this.keepLabel())}</button>
                     </div></div>
                 </div>`);
 
@@ -1674,15 +1724,21 @@
                 this.modal.show();
             } else {
                 const $container = $('<div class="modal gw-review-modal"/>').append($body).appendTo(Garnish.$bod);
-                this.modal = new Garnish.Modal($container, { hideOnShadeClick: false, onHide: () => this.decided || this.decide(true) });
+                this.modal = new Garnish.Modal($container, { hideOnShadeClick: false });
             }
 
             this.decided = false;
             this.modal.$container.find('input[type=checkbox]').on('change', (event) => {
                 const i = Number(event.target.value);
                 this.chosen = event.target.checked ? [...this.chosen, i] : this.chosen.filter((n) => n !== i);
+                this.modal.$container.find('[data-review="keep"] .label').text(this.keepLabel());
             });
             this.modal.$container.find('[data-review]').on('click', (event) => this.decide(event.currentTarget.dataset.review === 'drop'));
+        },
+
+        // "Add 3 to the plan", or with none ticked, "Add none, dismiss the rest".
+        keepLabel() {
+            return this.chosen.length ? t('Add {count} to the plan', { count: this.chosen.length }) : t('Add none, dismiss the rest');
         },
 
         async decide(discard) {
@@ -1691,11 +1747,18 @@
             this.decided = true;
 
             const chosen = discard ? [] : this.chosen;
+            const total = this.plan.pending.length;
             this.modal.hide();
 
-            if (await this.send('plan/accept', { chosen, discard: discard ? 1 : 0 }) && !discard) {
-                Craft.cp.displaySuccess(t('{count, plural, =1{# idea} other{# ideas}} added to the plan.', { count: chosen.length }));
+            if (!await this.send('plan/accept', { chosen, discard: discard ? 1 : 0 }) || discard) {
+                this.decided = false;
+
+                return;
             }
+
+            Craft.cp.displaySuccess(chosen.length
+                ? t('{count, plural, =1{# idea} other{# ideas}} added to the plan.', { count: chosen.length })
+                : t('{count, plural, =1{Dismissed the suggestion.} other{Dismissed # suggestions.}}', { count: total }));
         },
     });
 })();
@@ -1782,7 +1845,10 @@
                 case 'voice': return this.post('voice/scan', { sections: ticked('voiceRead') }, $target);
                 case 'suggest-kinds': return this.post('sections/suggest-kinds', $target.data('section') ? { section: $target.data('section') } : {}, $target);
                 case 'learn-kind': return this.post('sections/learn-kind', { section: $target.data('section'), id: $target.data('id') }, $target);
-                case 'learn-all': return this.post('sections/learn-all-kinds', { section: $target.data('section') }, $target);
+                case 'learn-all':
+                    if (!confirm(t('Learn all {count} suggested kinds, one after another? This takes about a minute each.', { count: $target.data('count') }))) return;
+
+                    return this.post('sections/learn-all-kinds', { section: $target.data('section') }, $target);
                 case 'dismiss-kind': return this.post('sections/dismiss-kind', { section: $target.data('section'), id: $target.data('id') }, $target);
                 case 'imagery': return this.post('imagery/scan', { sections: d.sections.filter((s) => s.writeFor).map((s) => s.handle) }, $target);
                 case 'plan': return this.post('plan/suggest', {}, $target);
@@ -1796,7 +1862,9 @@
             const last = this.current === steps.length - 1;
             const working = steps.some((candidate) => candidate.working);
 
-            const done = steps.filter((candidate) => candidate.done).length;
+            // Only the steps setup needs are counted; the optional ones say so.
+            const required = steps.filter((candidate) => !candidate.optional);
+            const done = required.filter((candidate) => candidate.done).length;
             const status = (candidate) => candidate.working ? t('Working…') : candidate.done ? t('Done') : candidate.optional ? t('Optional') : t('To do');
 
             const bar = steps.map((candidate, i) => `
@@ -1812,8 +1880,8 @@
 
             this.$root.html(`
                 <aside class="gw-wizard__rail">
-                    <p class="gw-wizard__progress">${esc(t('{done} of {total} done', { done, total: steps.length }))}</p>
-                    <div class="gw-wizard__meter" role="progressbar" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${done}"><span style="width: ${Math.round((done / steps.length) * 100)}%"></span></div>
+                    <p class="gw-wizard__progress">${esc(t('{done} of {total} done', { done, total: required.length }))}</p>
+                    <div class="gw-wizard__meter" role="progressbar" aria-valuemin="0" aria-valuemax="${required.length}" aria-valuenow="${done}"><span style="width: ${Math.round((done / Math.max(1, required.length)) * 100)}%"></span></div>
                     <ol class="gw-wizard__bar">${bar}</ol>
                 </aside>
                 <div class="gw-wizard__main">
@@ -1827,7 +1895,9 @@
                     <button type="button" class="btn" data-wizard="back" ${this.current === 0 ? 'disabled' : ''}>${esc(t('Back'))}</button>
                     <div class="flex">
                         ${last
-                            ? `<button type="button" class="btn" data-wizard="hide">${esc(t('Finish and hide this'))}</button>`
+                            ? (this.state.details.canHide
+                                ? `<button type="button" class="btn" data-wizard="hide">${esc(t('Finish and hide this'))}</button>`
+                                : `<a class="btn" href="${esc(Craft.getCpUrl('ghostwriter'))}">${esc(t('Finish'))}</a>`)
                             : `<button type="button" class="btn ${step.done || step.optional ? 'submit' : ''}" data-wizard="next">${esc(step.done ? t('Next') : step.optional ? t('Skip') : t('Next'))}</button>`}
                     </div>
                 </footer>
@@ -1916,7 +1986,7 @@
                         <div class="flex flex-justify">
                             <h3>${esc(k.title)}</h3>
                             <div class="flex">
-                                ${k.suggestions.length > 1 ? `<button type="button" class="btn small" data-wizard="learn-all" data-section="${esc(k.handle)}" ${k.learning.status === 'working' ? 'disabled' : ''}>${esc(t('Learn all {count}', { count: k.suggestions.length }))}</button>` : ''}
+                                ${k.suggestions.length > 1 ? `<button type="button" class="btn small" data-wizard="learn-all" data-section="${esc(k.handle)}" data-count="${k.suggestions.length}" ${k.learning.status === 'working' ? 'disabled' : ''}>${esc(t('Learn all {count}', { count: k.suggestions.length }))}</button>` : ''}
                                 <button type="button" class="btn small" data-wizard="suggest-kinds" data-section="${esc(k.handle)}" ${k.state === 'working' || !this.state.configured ? 'disabled' : ''}>${esc(t('Suggest kinds'))}</button>
                             </div>
                         </div>
@@ -1956,7 +2026,7 @@
 
             return `
                 ${this.failed(p.status === 'failed' ? p.error : null)}
-                ${p.pending ? `<p class="gw-wizard__ok">${esc(t('{count, plural, =1{# suggestion is} other{# suggestions are}} waiting for you to look over.', { count: p.pending }))} <a class="btn small submit" href="${esc(p.url)}">${esc(t('Look over them'))}</a></p>` : ''}
+                ${p.pending ? `<p class="gw-wizard__ok">${esc(t('{count, plural, =1{# suggestion is} other{# suggestions are}} waiting for you to look over.', { count: p.pending }))} <a class="btn small submit" href="${esc(Craft.getUrl(p.url, { review: 1 }))}">${esc(t('Look over them'))}</a></p>` : ''}
                 ${p.ideas ? `<p class="gw-wizard__ok">✓ ${esc(t('{count, plural, =1{# idea} other{# ideas}} on the plan.', { count: p.ideas }))} <a href="${esc(p.url)}">${esc(t('Open the content plan'))}</a></p>` : ''}
                 ${this.keyless()}
                 ${p.pending ? '' : `<button type="button" class="btn ${p.ideas ? '' : 'submit'}" data-wizard="plan" ${this.state.configured ? '' : 'disabled'}>${esc(t('Suggest ideas'))}</button>`}`;
@@ -2123,6 +2193,12 @@
             this.mode = mode;
             this.$modal.find('.gw-image-tabs .btn').each((i, button) => $(button).toggleClass('active', $(button).data('mode') === mode).attr('aria-pressed', $(button).data('mode') === mode));
             this.$modal.find('.gw-image-pane').each((i, pane) => $(pane).toggleClass('hidden', $(pane).data('pane') !== mode));
+            this.fit();
+        },
+
+        // The dialog is as tall as what it holds, up to the window.
+        fit() {
+            this.modal?.updateSizeAndPosition?.();
         },
 
         pane(mode) {
@@ -2131,6 +2207,7 @@
 
         status($pane, html) {
             $pane.find('.gw-image-status').html(html);
+            this.fit();
         },
 
         target() {
@@ -2245,14 +2322,23 @@
             const t = this.t;
             const $pane = this.pane('find');
             const $grid = $pane.find('.gw-image-grid').empty();
+            const SHOWN = 3;
+
+            $pane.find('.gw-image-note, .gw-image-more').remove();
 
             if (data.terms?.length) {
                 $pane.find('.gw-image-words').val(data.terms.join('; '));
             }
 
-            data.options.forEach((photo) => {
+            // Nothing was judged (no images here yet to compare with, or no
+            // writing model): say so, rather than calling any one the best.
+            if (data.options.length && !data.options.some((photo) => photo.picked)) {
+                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(t('These were not compared with images already used here, so they are in search order.'))}</p>`);
+            }
+
+            data.options.forEach((photo, i) => {
                 const $card = $(`
-                    <figure class="gw-photo${photo.picked ? ' gw-photo--picked' : ''}">
+                    <figure class="gw-photo${photo.picked ? ' gw-photo--picked' : ''}${i >= SHOWN ? ' hidden' : ''}">
                         <img src="${Ghostwriter.escape(photo.thumb)}" alt="" loading="lazy">
                         <figcaption>
                             ${photo.picked ? `<span class="gw-photo__badge">${t('Best match')}</span>` : ''}
@@ -2266,8 +2352,31 @@
 
                 $grid.append($card);
                 Ghostwriter.prepareButtons($card);
-                this.addListener($card.find('.btn'), 'click', (event) => this.use($(event.currentTarget), { source: photo.source, photo: photo.id, term: photo.term }));
+
+                const choose = () => this.use($card.find('.btn'), { source: photo.source, photo: photo.id, term: photo.term });
+
+                // The picture itself can be clicked, as well as "Use this".
+                this.addListener($card.find('.btn'), 'click', choose);
+                this.addListener($card.find('img'), 'click', choose);
             });
+
+            // The best three first; the rest on request.
+            const more = data.options.length - SHOWN;
+
+            if (more > 0) {
+                const $more = $(`<button type="button" class="btn small gw-image-more" aria-expanded="false">${Ghostwriter.escape(t('View {count} more', { count: more }))}</button>`);
+
+                $grid.after($more);
+                this.addListener($more, 'click', () => {
+                    const open = $more.attr('aria-expanded') !== 'true';
+
+                    $grid.children('.gw-photo').slice(SHOWN).toggleClass('hidden', !open);
+                    $more.attr('aria-expanded', open ? 'true' : 'false').text(open ? t('Show the best three') : t('View {count} more', { count: more }));
+                    this.fit();
+                });
+            }
+
+            this.fit();
         },
 
         made(data) {
@@ -2282,11 +2391,15 @@
                 </figure>`);
 
             Ghostwriter.prepareButtons($made);
+            $made.find('img').on('load', () => this.fit());
             this.addListener($made.find('.gw-made-use'), 'click', (event) => this.use($(event.currentTarget), {}));
             this.addListener($made.find('.gw-made-again'), 'click', 'make');
         },
 
         async use($button, extra) {
+            if (this.using) return;
+
+            this.using = true;
             $button.addClass('loading');
             this.$modal.find('.gw-photo .btn').addClass('disabled');
 
@@ -2294,6 +2407,7 @@
                 await this.place(await Ghostwriter.request('POST', 'images/use', { id: this.request.id, ...extra }));
             } catch (error) {
             } finally {
+                this.using = false;
                 $button.removeClass('loading');
                 this.$modal.find('.gw-photo .btn').removeClass('disabled');
             }

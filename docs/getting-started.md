@@ -1,6 +1,6 @@
 # Get started
 
-**Ghostwriter → Get started** walks you through setup, one step at a time. The list down the left shows each step as **Done**, **To do**, **Optional** or **Working…**, with a progress bar above. Click any step to go straight to it. Every step can be skipped and redone later.
+**Ghostwriter → Get started** walks you through setup, one step at a time. The list down the left shows each step as **Done**, **To do**, **Optional** or **Working…**, with a progress bar above. The bar counts the five steps setup needs; the two optional ones are marked **Optional** and aren't counted. Click any step to go straight to it. Every step can be skipped and redone later.
 
 A model call (writing a guide, looking at a section) runs in the background. You can leave the page while it works; it carries on.
 
@@ -40,9 +40,11 @@ Pick a section and start a new entry with Ghostwriter beside it. See [Writing a 
 
 ## Hiding Get started
 
-Once you're set up, put it away:
+Once the five steps setup needs are done, the dashboard card becomes a smaller **You're set up** card, which stays until Get started is hidden.
 
-- **Hide** on the dashboard card, or **Hide Get started** on the Get started page, removes it from the dashboard and the Ghostwriter menu.
+Get started is hidden for everyone on the site, so only admins can hide it or bring it back:
+
+- **Hide** on the dashboard card, or **Hide Get started** on the Get started page, removes it from the dashboard and the Ghostwriter menu. The last step's **Finish and hide this** does the same.
 - To bring it back, use **Show Get started** at the foot of the dashboard, or turn on **Show Get started** in the plugin settings.
 
-The last step's **Finish and hide this** does the same.
+Other people see the same steps, without the buttons to hide it; the last step's **Finish** goes back to the dashboard.

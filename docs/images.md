@@ -17,8 +17,9 @@ Click it to choose an image for that one field.
 Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries).
 
 1. Type what the picture should show, or leave it empty and Ghostwriter chooses three searches from the block and page. Separate your own searches with semicolons.
-2. **Search.** The model looks at the results beside the images already used there, and marks the best ones **Best match**. The rest follow.
-3. **Use this** on the one you want.
+2. **Search.** The model looks at the results beside the images already used there, and marks the best ones **Best match**. When there is nothing to compare with (no image there on other entries yet, or no writing model), nothing is marked, and a line says the results are in search order.
+3. The best three show first; **View N more** shows the rest.
+4. Click the photo, or **Use this**, on the one you want.
 
 ## Make one
 

@@ -74,6 +74,14 @@ class Presenter
         };
     }
 
+    private function markdown(string $text): string
+    {
+        static $converter = null;
+        $converter ??= new \League\CommonMark\GithubFlavoredMarkdownConverter(['html_input' => 'escape', 'allow_unsafe_links' => false]);
+
+        return trim((string) $converter->convert($text));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -111,7 +119,11 @@ class Presenter
             'title' => $session->title(),
             'status' => $session->status,
             'error' => $session->error,
-            'messages' => $session->messages,
+            // Replies use lists and bold, so they are shown as markdown, with
+            // any HTML in them escaped. What the person typed stays as typed.
+            'messages' => array_map(fn(array $message) => $message['role'] === 'assistant'
+                ? $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
+                : $message, $session->messages),
             'draft' => $session->draft,
             'draftProblem' => $problem,
             'preview' => $preview,

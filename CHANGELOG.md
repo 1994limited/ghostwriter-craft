@@ -26,6 +26,21 @@
 - The AI providers, the prompts and draft text handling now come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), the package shared with the Statamic and Filament versions. No change is expected in how Ghostwriter writes or behaves. Prompts to copy for an override are now in `vendor/1994/ghostwriter-core/resources/prompts/`; overrides in `config/ghostwriter/prompts/` keep working.
 - Each queue job is allowed three times the configured timeout plus a minute, to cover a busy provider being tried three times.
 - Model calls (never their prompts, replies or keys) are logged to Craft's log under the `ghostwriter` category.
+- Get started counts only the five steps setup needs, so its bar reaches the end; once they are done, a smaller **You're set up** card stays on the dashboard until Get started is hidden.
+- Only admins can hide Get started or bring it back, since it is hidden for the whole site.
+- The settings warn when the model named doesn't look like the chosen provider's, and show the provider's default model as the placeholder.
+- Settings set in `config/ghostwriter.php` are shown locked on the settings page, with a note saying where they are set.
+- The guide buttons say what they do: **Write the voice guide** and **Rescan and rewrite**; **Describe the images** and **Look again and rewrite**.
+- A failed guide stays explained on its screen until the next try, rather than for one visit.
+- **Teach it a kind** is now **Teach a kind**.
+- **Learn all** asks first, saying it takes about a minute a kind.
+- The kind editor no longer shows each question's handle; it is kept as the question is renamed.
+- Ghostwriter's replies in the writing panel show markdown (lists, bold, links), with any HTML escaped.
+- Text edited in place in the draft: **Esc** puts it back as it was, and **Enter** finishes a one-line piece.
+- The image dialog is about 48rem wide and as tall as it needs, with photos in three columns. It shows the best three first, with **View N more**, and a photo can be chosen by clicking it.
+- Photos are only marked **Best match** when the model compared them with the images already there; otherwise a line says they are in search order.
+- Content plan: closing the suggestions box no longer throws the batch away. It waits, with a **N suggestions waiting** card at the top of the plan to reopen it; only **Drop them all** discards it. The add button counts what is ticked (**Add N to the plan**, or **Add none, dismiss the rest**).
+- Content plan ideas are shown newest first within each section, and **Put back** is only offered on dismissed ideas, not finished ones.
 
 ### Fixed
 - **Generate the guide** on the voice guide (and on Get started) with no section ticked no longer reads every section on the site: the button is off until a section is ticked, and the server refuses an empty choice.
@@ -36,4 +51,4 @@
 - The notes after **Use this draft** (choices left, links to settle, placeholders) are one notification listing them all, which stays until it is closed, instead of a toast per note.
 - Suggested kinds show why each is worth teaching and up to three example titles, on the dashboard and on Get started, as the docs said.
 - The image button no longer appears when there is no image tool at all (no photo library, no image key, no Imagick).
-- Counts read "1 suggestion", "1 idea", "1 entry" rather than "1 ideas".
+- Counts read "1 suggestion", "1 idea", "1 entry" rather than "1 ideas", and keeping no suggestions says how many were dismissed rather than "0 ideas added".

@@ -18,11 +18,11 @@ Suggestions appear under the section as **N suggested kinds to review**. Open it
 
 - **Learn this** writes the brief for that kind from the entries it was suggested from. It takes about a minute.
 - **Not this** dismisses it. Dismissed kinds aren't suggested again.
-- **Learn all N** learns every suggestion in the section, one after another.
+- **Learn all N** learns every suggestion in the section, one after another. It asks first, since each takes about a minute.
 
 ## Teaching a kind yourself
 
-**Teach it a kind** (in a section's **Kinds** menu) teaches one by hand:
+**Teach a kind** (in a section's **Kinds** menu, or on **What are you writing?** in the writing panel) teaches one by hand:
 
 1. **What is this kind of content called?** For example "Case study". Leave it blank and Ghostwriter names it.
 2. **Model it on**: choose up to six entries that are good examples, or leave it empty to use the newest published entries.
@@ -34,7 +34,7 @@ Ghostwriter writes the questions, guidance and checklist from those entries.
 Click a kind on the dashboard to open it. You can change:
 
 - **Name** and **Description** (shown when choosing what to write).
-- **The brief**: the questions, each with a hint, and whether it must be answered. Ask only for what can't be invented: what happened, who for, what resulted, what must be left out.
+- **The brief**: the questions, each with a hint, whether the answer is **One line** or a **Paragraph**, and whether it must be answered. Ask only for what can't be invented: what happened, who for, what resulted, what must be left out. A kind needs at least one question.
 - **Guidance for the writer**, in markdown. The fields themselves are read from the entry type, so the guidance doesn't need to list them.
 - **Check before handing over**: one statement per line.
 - **Modelled on**: the example entries.

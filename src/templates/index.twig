@@ -48,7 +48,24 @@
 {% block content %}
     {% include 'ghostwriter/_includes/setup-alert' %}
 
-    {% if not setup.complete and not setup.hidden %}
+    {% if setup.complete and not setup.hidden %}
+        {# Set up: a quiet card until it is put away, so it and the menu item go together. #}
+        <section class="gw-start gw-start--done" aria-labelledby="gw-start-title">
+            <div class="gw-start__intro">
+                <span class="gw-start__mark" aria-hidden="true">{{ svg('@nineteenninetyfour/ghostwriter/mark.svg') }}</span>
+                <div>
+                    <h2 id="gw-start-title" class="gw-start__eyebrow">{{ 'You’re set up'|t('ghostwriter') }}</h2>
+                    <p class="light">{{ canHideSetup ? 'Every step setup needs is done. Hide Get started whenever you like.'|t('ghostwriter') : 'Every step setup needs is done.'|t('ghostwriter') }}</p>
+                </div>
+            </div>
+            <div class="gw-start__actions">
+                <a class="btn" href="{{ cpUrl('ghostwriter/setup') }}">{{ 'Open Get started'|t('ghostwriter') }}</a>
+                {% if canHideSetup %}
+                    <button type="button" class="btn" data-hide-setup title="{{ 'Hide Get started. Bring it back from the foot of this page.'|t('ghostwriter') }}">{{ 'Hide'|t('ghostwriter') }}</button>
+                {% endif %}
+            </div>
+        </section>
+    {% elseif not setup.complete and not setup.hidden %}
         <section class="gw-start" aria-labelledby="gw-start-title">
             <div class="gw-start__intro">
                 <span class="gw-start__mark" aria-hidden="true">{{ svg('@nineteenninetyfour/ghostwriter/mark.svg') }}</span>
@@ -65,7 +82,9 @@
             {% endif %}
             <div class="gw-start__actions">
                 <a class="btn submit" href="{{ cpUrl('ghostwriter/setup') }}{{ nextStep ? '#step-' ~ nextStep.number }}">{{ setup.done ? 'Continue'|t('ghostwriter') : 'Start'|t('ghostwriter') }}</a>
-                <button type="button" class="btn" data-hide-setup title="{{ 'Hide Get started. Bring it back from the foot of this page.'|t('ghostwriter') }}">{{ 'Hide'|t('ghostwriter') }}</button>
+                {% if canHideSetup %}
+                    <button type="button" class="btn" data-hide-setup title="{{ 'Hide Get started. Bring it back from the foot of this page.'|t('ghostwriter') }}">{{ 'Hide'|t('ghostwriter') }}</button>
+                {% endif %}
             </div>
         </section>
     {% endif %}
@@ -130,7 +149,7 @@
                         <button type="button" class="btn small menubtn" aria-label="{{ 'More for {section}'|t('ghostwriter', {section: section.name}) }}">{{ 'Kinds'|t('ghostwriter') }}</button>
                         <div class="menu">
                             <ul>
-                                <li><a href="{{ cpUrl('ghostwriter/teach/' ~ section.handle) }}">{{ 'Teach it a kind'|t('ghostwriter') }}</a></li>
+                                <li><a href="{{ cpUrl('ghostwriter/teach/' ~ section.handle) }}">{{ 'Teach a kind'|t('ghostwriter') }}</a></li>
                                 <li><a data-suggest-kinds="{{ section.handle }}" class="{{ configured and section.kinds.status != 'working' ? '' : 'disabled' }}">{{ 'Suggest kinds'|t('ghostwriter') }}</a></li>
                             </ul>
                         </div>
@@ -212,7 +231,7 @@
         </details>
     {% endif %}
 
-    {% if setup.hidden %}
+    {% if setup.hidden and canHideSetup %}
         <p class="gw-foot light"><button type="button" class="gw-link" data-show-setup>{{ 'Show Get started'|t('ghostwriter') }}</button></p>
     {% endif %}
 {% endblock %}
@@ -223,6 +242,7 @@
         looking: 'Looking at the entries for kinds of content worth teaching…'|t('ghostwriter'),
         learning: 'Learning a kind of content. This takes a minute or so.'|t('ghostwriter'),
         learningAll: 'Learning {count} kinds of content, one after another. This takes about a minute each.'|t('ghostwriter'),
+        confirmLearnAll: 'Learn all {count} suggested kinds, one after another? This takes about a minute each.'|t('ghostwriter'),
         confirm: 'Remove “{title}” from Ghostwriter? The conversation and its draft are deleted. Any entry already saved is not touched.'|t('ghostwriter'),
     }|json_encode|raw }});
 {% endjs %}

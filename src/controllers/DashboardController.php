@@ -51,6 +51,7 @@ class DashboardController extends Controller
             'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()), 0, 30)),
             'checking' => $checking,
             'setup' => $plugin->onboarding->progress(),
+            'canHideSetup' => $plugin->onboarding->canToggle(),
             'nextStep' => $plugin->onboarding->nextStep(),
             'imagery' => ['exists' => $plugin->imageryGuide->exists(), 'updatedAt' => $plugin->imageryGuide->updatedAt()],
             'planOpen' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === \nineteenninetyfour\ghostwriter\planning\IdeaRepository::OPEN)),

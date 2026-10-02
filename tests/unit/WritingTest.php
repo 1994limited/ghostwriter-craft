@@ -219,6 +219,16 @@ class WritingTest extends TestCase
 
         // The panel is told the writer is waiting for an answer.
         $this->assertTrue((new Presenter())->detail($session)['waitingOnYou']);
+
+        // Replies are shown as markdown, with any HTML in them escaped; what
+        // the person typed is left as typed.
+        $session->addMessage('assistant', "**Two** things:\n\n- the client\n- <script>alert(1)</script>");
+        $messages = (new Presenter())->detail($session)['messages'];
+        $this->assertStringContainsString('<strong>Two</strong>', end($messages)['html']);
+        $this->assertStringContainsString('<li>the client</li>', end($messages)['html']);
+        $this->assertStringContainsString('&lt;script&gt;', end($messages)['html']);
+        $this->assertArrayNotHasKey('html', $messages[0]);
+        array_pop($session->messages);
         $this->assertSame('interview', (new Presenter())->summary($session)['stage']);
 
         $session->addMessage('user', 'The pub and the fitness app.');

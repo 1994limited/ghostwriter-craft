@@ -29,12 +29,14 @@ class TypesController extends Controller
             'sectionName' => Craft::t('site', (string) $type->craftSection()?->name),
             'sectionUid' => $type->craftSection()?->uid,
             'examples' => $type->examples ? Entry::find()->id($type->examples)->status(null)->fixedOrder()->all() : [],
+            // Each question's handle travels with its row, out of sight: it
+            // names the answer, and nobody needs to see or change it.
             'questions' => array_map(fn(array $question) => [
                 'label' => $question['label'],
-                'handle' => $question['handle'],
                 'instructions' => $question['instructions'] ?? '',
                 'type' => $question['type'] ?? 'textarea',
                 'required' => (bool) ($question['required'] ?? false),
+                'hiddenInputs' => ['handle' => $question['handle']],
             ], $type->questions),
         ]);
     }

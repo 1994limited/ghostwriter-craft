@@ -20,9 +20,9 @@ class VoiceController extends Controller
     public function actionShow(): Response
     {
         $plugin = Plugin::getInstance();
+        // A failure stays on screen until the next run, so a job that
+        // failed while the person was away still explains itself.
         $payload = $this->payload();
-
-        $plugin->voiceState->forgetFailure();
 
         $this->view->registerAssetBundle(GhostwriterAsset::class);
 
@@ -44,6 +44,10 @@ class VoiceController extends Controller
                     'scanned' => Craft::t('ghostwriter', 'Last written from {count, plural, =1{# entry} other{# entries}}.'),
                     'confirm' => Craft::t('ghostwriter', 'Read the site again and replace the current guide? Any edits you have made to it will be lost.'),
                     'saved' => Craft::t('ghostwriter', 'Voice guide saved'),
+                    'headingNew' => Craft::t('ghostwriter', 'Generate from your content'),
+                    'headingAgain' => Craft::t('ghostwriter', 'Read the site again'),
+                    'generate' => Craft::t('ghostwriter', 'Write the voice guide'),
+                    'rescan' => Craft::t('ghostwriter', 'Rescan and rewrite'),
                 ],
             ],
         ]);

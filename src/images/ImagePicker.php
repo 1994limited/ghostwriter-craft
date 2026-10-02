@@ -105,11 +105,14 @@ class ImagePicker extends Component
         }
 
         $candidates = array_values($candidates);
-        $best = $this->judged($slot, $candidates) ?? $this->oneOfEach($candidates);
+        $judged = $this->judged($slot, $candidates);
+        $best = $judged ?? $this->oneOfEach($candidates);
         $ids = array_map(fn(array $photo) => $photo['source'] . $photo['id'], $best);
 
+        // Only photos the model compared with the site's own are marked as
+        // the best match; otherwise they are simply first in search order.
         return [
-            ...array_map(fn(array $photo) => $photo + ['picked' => true], $best),
+            ...array_map(fn(array $photo) => $photo + ['picked' => $judged !== null], $best),
             ...array_values(array_filter($candidates, fn(array $photo) => !in_array($photo['source'] . $photo['id'], $ids, true))),
         ];
     }

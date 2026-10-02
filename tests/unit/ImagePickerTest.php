@@ -197,6 +197,25 @@ class ImagePickerTest extends TestCase
         $this->assertStringStartsWith('old-workshop-', $asset->filename);
     }
 
+    public function testPhotographsNotComparedWithAnythingAreNotCalledTheBestMatch(): void
+    {
+        $this->signIn();
+        $banner = $this->makeField(Assets::class, 'banner', ['sources' => ['volume:' . $this->volume->uid], 'defaultUploadLocationSource' => 'volume:' . $this->volume->uid, 'maxRelations' => 1]);
+        $notes = $this->makeSection('notes', [$this->makeEntryType('note', [$banner])]);
+        $slot = ImageSlot::for($banner, $this->newDraft($notes), Craft::$app->getUser()->getIdentity());
+
+        // No entry here has a banner yet, so there is nothing to compare with.
+        $this->assertSame([], $slot->references());
+
+        $this->http->append(new Response(200, [], json_encode(['results' => array_map(fn(int $i) => ['id' => "p{$i}", 'thumbnail' => "https://example.com/p{$i}.jpg", 'creator' => 'Ann', 'license' => 'cc0'], range(1, 5))])));
+
+        $options = $this->plugin->imagePicker->shortlist($slot, ['carved table']);
+
+        $this->assertCount(5, $options);
+        $this->assertSame([], array_filter(array_column($options, 'picked')));
+        $this->assertSame([], $this->fake->prompted('photo-picker'));
+    }
+
     public function testAPhotographFromElsewhereIsRefused(): void
     {
         $this->signIn();

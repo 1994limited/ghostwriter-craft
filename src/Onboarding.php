@@ -149,6 +149,7 @@ class Onboarding extends Component
 
         return [
             'canChangeSettings' => $user->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
+            'canHide' => $this->canToggle(),
             'provider' => $this->providerName($plugin->studio->provider()),
             'keyName' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? null,
             'sections' => array_map(fn($section) => [
@@ -201,19 +202,33 @@ class Onboarding extends Component
     }
 
     /**
+     * How far setup has got, counting only the steps it needs: the optional
+     * ones are shown apart, so the bar reaches the end once setup is done.
+     *
      * @return array{done: int, total: int, complete: bool, hidden: bool}
      */
     public function progress(): array
     {
         $required = array_filter($this->steps(), fn(array $step) => !$step['optional']);
-        $done = count(array_filter($this->steps(), fn(array $step) => $step['done']));
+        $done = count(array_filter($required, fn(array $step) => $step['done']));
 
         return [
             'done' => $done,
-            'total' => count($this->steps()),
-            'complete' => !array_filter($required, fn(array $step) => !$step['done']),
+            'total' => count($required),
+            'complete' => $done === count($required),
             'hidden' => $this->hidden(),
         ];
+    }
+
+    /**
+     * Whether this person may hide or show Get started. It is hidden for
+     * the whole site, so it is for whoever manages Ghostwriter: an admin.
+     * It is Ghostwriter's own state, not project config, so it can be
+     * changed where admin changes are not allowed.
+     */
+    public function canToggle(): bool
+    {
+        return Craft::$app->getUser()->getIsAdmin();
     }
 
     /**

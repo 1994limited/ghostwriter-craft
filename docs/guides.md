@@ -13,7 +13,9 @@ Both guides are plain markdown files in your project. Ghostwriter writes the fir
 
 ### Writing it
 
-Tick the sections to read under **Read the site again**, then **Rescan and rewrite** (or **Create the voice guide** the first time). Ghostwriter reads the newest published entries in those sections, and writes the guide in a minute or so. Rescanning replaces the guide, including any edits you've made.
+Tick the sections to read, then **Write the voice guide** (the first time) or **Rescan and rewrite**. At least one section must be ticked. Ghostwriter reads the newest published entries in those sections, and writes the guide in a minute or so. Rescanning replaces the guide, including any edits you've made.
+
+If writing the guide fails, the reason stays on the screen until the next try.
 
 To control how much it reads, see `voiceSections` and the `voiceMax…` settings in [Configuration](configuration.md).
 
@@ -30,7 +32,7 @@ The guide is kept in the database. Each environment has its own; to share one, c
 
 ### Writing it
 
-Tick the sections to look at, then **Describe the images**. Ghostwriter looks at the images used by the newest published entries in each section, in every image field, including those inside page-builder blocks. It writes a `##` section for each. A section needs at least three images to describe.
+Tick the sections to look at, then **Describe the images** (or **Look again and rewrite** once there is a guide). Ghostwriter looks at the images used by the newest published entries in each section, in every image field, including those inside page-builder blocks. It writes a `##` section for each. A section needs at least three images to describe.
 
 The number of images looked at per section is the `imageGuideSamples` setting (10 by default).
 
