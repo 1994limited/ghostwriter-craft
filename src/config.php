@@ -67,6 +67,11 @@ return [
         // Ideas asked for each time the content plan looks for gaps.
         // 'planSuggestions' => 8,
 
+        // Put the model's whole reply in Craft's log when it can't be read,
+        // for troubleshooting. Off, only what was wrong is logged. Replies
+        // hold your content. An environment variable works too.
+        // 'logReplies' => '$GHOSTWRITER_LOG_REPLIES',
+
         // Where prompt overrides are read from (under prompts/). Guides,
         // kinds, the plan and conversations are kept in the database.
         // 'guidesPath' => '@config/ghostwriter',

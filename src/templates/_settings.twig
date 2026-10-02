@@ -147,6 +147,21 @@
 
 <hr>
 
+<h2>{{ 'Troubleshooting'|t('ghostwriter') }}</h2>
+
+{{ forms.booleanMenuField({
+    label: 'Log replies that can’t be read'|t('ghostwriter'),
+    instructions: 'When a model’s reply can’t be read, put the whole reply in Craft’s log, under the ghostwriter category. Off, only what was wrong with it is logged. Replies hold your content, so turn this on only while looking into a problem. Prompts and API keys are never logged.'|t('ghostwriter'),
+    id: 'logReplies',
+    name: 'logReplies',
+    value: settings.logReplies is same as(true) ? '1' : (settings.logReplies is same as(false) ? '0' : settings.logReplies),
+    includeEnvVars: true,
+    warning: 'logReplies' in overrides ? _self.overridden('logReplies', overrides) : null,
+    disabled: 'logReplies' in overrides,
+}) }}
+
+<hr>
+
 <h2>{{ 'API keys'|t('ghostwriter') }}</h2>
 <p class="light">{{ 'Keys are read from your .env file each time they are needed and are never stored by Ghostwriter.'|t('ghostwriter') }}</p>
 

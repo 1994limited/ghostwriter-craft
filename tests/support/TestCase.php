@@ -23,6 +23,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\RecordingSleeper;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Testing\RequestLog;
 use nineteenninetyfour\ghostwriter\Plugin;
 use RuntimeException;
 
@@ -84,6 +85,12 @@ abstract class TestCase extends CraftTestCase
 
     protected function _after(): void
     {
+        // For a parity check: every request a test sent, written down to
+        // compare with another run (core's bin/compare-requests).
+        if ($path = getenv('GHOSTWRITER_RECORD_REQUESTS')) {
+            RequestLog::append($path, static::class . '::' . $this->name(), $this->fake->requests());
+        }
+
         FileHelper::removeDirectory($this->workspace);
 
         parent::_after();
