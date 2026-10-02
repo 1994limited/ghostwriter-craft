@@ -21,7 +21,7 @@ Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels an
    - With no image there on other entries yet, the photos are still judged against the words, and a line says there were no other images to match.
    - If none fit, Ghostwriter searches once more with better words. If those don't fit either, you see the plain results, with a line saying none quite fit.
    - With no writing model, nothing is judged or marked, and a line says the results are in search order.
-3. The best three show first; **View N more** shows the rest. Hover a judged photo to see why it was chosen.
+3. The best three show first; **View N more** shows the rest. Hover a judged photo to see why it was chosen. The credit under each photo links to its page on the library, to check its licence and context.
 4. Click the photo, or **Use this**, on the one you want.
 
 ## Make one

@@ -2318,7 +2318,7 @@
                         <img src="${Ghostwriter.escape(photo.thumb)}" alt="${Ghostwriter.escape(photo.alt ?? '')}" loading="lazy"${photo.reason ? ` title="${Ghostwriter.escape(photo.reason)}"` : ''}>
                         <figcaption>
                             ${photo.picked && data.judged ? `<span class="gw-photo__badge">${t('Best match')}</span>` : ''}
-                            <span class="light">${Ghostwriter.escape(photo.credit)} · ${Ghostwriter.escape(photo.licence)}</span>
+                            <span class="light">${/^https:\/\//.test(photo.credit_url ?? '') ? `<a href="${Ghostwriter.escape(photo.credit_url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${Ghostwriter.escape(photo.credit)}</a>` : Ghostwriter.escape(photo.credit)} · ${Ghostwriter.escape(photo.licence)}</span>
                             <button type="button" class="btn small submit">${t('Use this')}</button>
                         </figcaption>
                     </figure>`);

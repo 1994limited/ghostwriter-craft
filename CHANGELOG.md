@@ -39,7 +39,7 @@
 - Text edited in place in the draft: **Esc** puts it back as it was, and **Enter** finishes a one-line piece.
 - The image dialog is about 48rem wide and as tall as it needs, with photos in three columns. It shows the best three first, with **View N more**, and a photo can be chosen by clicking it.
 - Photo search now comes from ghostwriter-core 0.2.0 (decisions D2 and D4). Photos are judged against the block's and page's words even when there are no images there to match, clear misses are left out, and when nothing fits a second round of searches runs. **Best match** is only shown on photos a model judged. **Searched for: …** above the results lists every search run.
-- A found photo is saved with a file name, title and alt text from what the library says it shows, rather than the search words.
+- A found photo is saved with a file name, title and alt text from what the library says it shows, rather than the search words. Its credit links to the photo's page on the library, in a new tab.
 - Photo downloads check every redirect is https themselves, with Craft's Guzzle clients set not to follow redirects.
 - Content plan: closing the suggestions box no longer throws the batch away. It waits, with a **N suggestions waiting** card at the top of the plan to reopen it; only **Drop them all** discards it. The add button counts what is ticked (**Add N to the plan**, or **Add none, dismiss the rest**).
 - Content plan ideas are shown newest first within each section, and **Put back** is only offered on dismissed ideas, not finished ones.
