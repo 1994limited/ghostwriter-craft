@@ -13,6 +13,8 @@
     {{- 'Set by `{setting}` in config/ghostwriter.php, which wins over this screen.'|t('ghostwriter', {setting: setting})|md(inlineOnly=true) -}}
 {%- endmacro %}
 
+{% set stock = stock ?? {free: [], paid: [], sources: [{label: 'Free libraries'|t('ghostwriter'), value: 'free'}]} %}
+
 {% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
 
 <h2>{{ 'Sections'|t('ghostwriter') }}</h2>
@@ -145,6 +147,32 @@
     disabled: 'placeholderImages' in overrides,
 }) }}
 
+<hr>
+
+<h2 id="stock-photos">{{ 'Stock photos'|t('ghostwriter') }}</h2>
+<p class="light">{{ 'Photos from libraries, found with the Ghostwriter button on an image field. Keys are read from your .env file each time they are needed and are never stored or shown.'|t('ghostwriter') }}</p>
+
+<h3>{{ 'Free libraries'|t('ghostwriter') }}</h3>
+<table class="data fullwidth gw-stock-libraries">
+    <tbody>
+        {% for library in stock.free %}
+            <tr>
+                <th scope="row">{{ library.label }}</th>
+                <td>
+                    {% for name, set in library.keys %}
+                        <code>{{ name }}</code>
+                        {% if set %}
+                            <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
+                        {% else %}
+                            <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 {{ forms.lightswitchField({
     label: 'Search Openverse'|t('ghostwriter'),
     instructions: 'Public-domain and CC0 photographs, with no key needed.'|t('ghostwriter'),
@@ -153,6 +181,122 @@
     warning: 'openverse' in overrides ? _self.overridden('openverse', overrides) : null,
     disabled: 'openverse' in overrides,
 }) }}
+
+<h3>{{ 'Paid libraries'|t('ghostwriter') }}</h3>
+<p class="light">{{ 'You license from your own account, with your own key and secret. A paid photo goes in as a preview: only signed-in editors see the photo, and someone with the License stock images permission licenses it before the page is published.'|t('ghostwriter') }}</p>
+<table class="data fullwidth gw-stock-libraries">
+    <thead>
+        <tr>
+            <th scope="col">{{ 'Library'|t('ghostwriter') }}</th>
+            <th scope="col">{{ 'Keys'|t('ghostwriter') }}</th>
+            <th scope="col">{{ 'Connection'|t('ghostwriter') }}</th>
+            <th scope="col">{{ 'Enabled'|t('ghostwriter') }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for library in stock.paid %}
+            <tr data-library="{{ library.id }}">
+                <th scope="row">
+                    {{ library.label }}
+                    {% if library.coming %}<span class="badge">{{ 'Coming'|t('ghostwriter') }}</span>{% endif %}
+                    {% if library.note %}<div class="light smalltext" style="font-weight: normal">{{ library.note }}</div>{% endif %}
+                </th>
+                <td>
+                    {% for name, set in library.keys %}
+                        <div><code>{{ name }}</code>
+                        {% if set %}
+                            <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
+                        {% else %}
+                            <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
+                        {% endif %}</div>
+                    {% else %}
+                        <span class="light">{{ 'No key needed'|t('ghostwriter') }}</span>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% if library.coming %}
+                        <span class="light">{{ 'Ghostwriter can’t search or license here yet. Your keys are ready for when it can.'|t('ghostwriter') }}</span>
+                    {% else %}
+                        <button type="button" class="btn small gw-stock-check" data-library="{{ library.id }}">{{ 'Check connection'|t('ghostwriter') }}</button>
+                        <div class="gw-stock-check-result light smalltext" aria-live="polite"></div>
+                    {% endif %}
+                    {% if library.oauth %}
+                        {#
+                            Connect account (OAuth): for libraries that license with a
+                            person's own sign-in (Shutterstock, Adobe user auth). It
+                            comes with core's ConnectsAccount port and LibraryTokens
+                            (kept encrypted with Craft's security service); not built
+                            yet. "Connect account" / "Disconnect" go here.
+                        #}
+                        <div class="gw-stock-connect"><button type="button" class="btn small disabled" disabled>{{ 'Connect account'|t('ghostwriter') }}</button> <span class="light smalltext">{{ 'Coming'|t('ghostwriter') }}</span></div>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ forms.lightswitch({
+                        name: 'stockLibraries[' ~ library.id ~ ']',
+                        on: library.enabled,
+                        disabled: 'stockLibraries' in overrides,
+                        labelledBy: null,
+                    }) }}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if 'stockLibraries' in overrides %}<p class="warning">{{ _self.overridden('stockLibraries', overrides) }}</p>{% endif %}
+
+{{ forms.selectField({
+    label: 'Search in, by default'|t('ghostwriter'),
+    instructions: 'Where the image dialog searches for someone who hasn’t chosen yet. After that, each person’s last choice is remembered.'|t('ghostwriter'),
+    name: 'stockDefaultSource',
+    options: stock.sources|filter(o => not (o.disabled ?? false))|map(o => {label: o.label, value: o.value}),
+    value: settings.stockDefaultSource,
+    warning: 'stockDefaultSource' in overrides ? _self.overridden('stockDefaultSource', overrides) : null,
+    disabled: 'stockDefaultSource' in overrides,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Include editorial images by default'|t('ghostwriter'),
+    instructions: 'Editorial-only images (news, events, public figures) can’t be used for commercial, promotional or advertising pages. Off, the dialog leaves them out unless someone ticks Include editorial images.'|t('ghostwriter'),
+    name: 'stockIncludeEditorial',
+    on: settings.stockIncludeEditorial,
+    warning: 'stockIncludeEditorial' in overrides ? _self.overridden('stockIncludeEditorial', overrides) : null,
+    disabled: 'stockIncludeEditorial' in overrides,
+}) }}
+
+{{ forms.selectField({
+    label: 'When a page with an unlicensed preview is published'|t('ghostwriter'),
+    instructions: 'Block refuses to save the live entry until the preview is licensed or replaced, with a message on the image field. Warn saves it and says so. Drafts always save.'|t('ghostwriter'),
+    name: 'stockOnPublish',
+    options: {block: 'Block'|t('ghostwriter'), warn: 'Warn'|t('ghostwriter')},
+    value: settings.stockOnPublish,
+    warning: 'stockOnPublish' in overrides ? _self.overridden('stockOnPublish', overrides) : null,
+    disabled: 'stockOnPublish' in overrides,
+}) }}
+
+{% js %}
+(function () {
+    document.querySelectorAll('.gw-stock-check').forEach(function (button) {
+        button.addEventListener('click', async function () {
+            const result = button.parentNode.querySelector('.gw-stock-check-result');
+            button.classList.add('loading');
+            result.textContent = '';
+
+            try {
+                const response = await Craft.sendActionRequest('POST', 'ghostwriter/stock/check', { data: { library: button.dataset.library } });
+                const data = response.data;
+                result.textContent = [data.account, ...(data.products || [])].filter(Boolean).join(' · ');
+                result.classList.remove('error');
+            } catch (error) {
+                result.textContent = error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.');
+                result.classList.add('error');
+            } finally {
+                button.classList.remove('loading');
+            }
+        });
+    });
+})();
+{% endjs %}
 
 <hr>
 

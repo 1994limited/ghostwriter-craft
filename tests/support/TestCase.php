@@ -71,6 +71,11 @@ abstract class TestCase extends CraftTestCase
         $settings->voiceSections = [];
         $settings->imageProvider = null;
         $settings->sharedConversations = true;
+        // The demo stock library is offered in dev mode, as tests run; off
+        // unless a test is about stock photos.
+        $settings->stockLibraries = ['demo' => false];
+        $settings->stockDemo = false;
+        $this->plugin->stockLibraries->reset();
 
         // Retries don't wait in tests; what they would have waited is kept.
         $this->sleeper = new RecordingSleeper();

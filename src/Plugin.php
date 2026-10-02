@@ -37,6 +37,7 @@ use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use nineteenninetyfour\ghostwriter\stock\StockLibraries;
 use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
@@ -64,6 +65,7 @@ use yii\base\Event;
  * @property-read DbWaitingStore $waitingStore
  * @property-read DbStockImageStore $stockImages
  * @property-read StockUsages $stockUsages
+ * @property-read StockLibraries $stockLibraries
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -108,6 +110,7 @@ class Plugin extends BasePlugin
                 // The stock image ledger, and where its images are used.
                 'stockImages' => DbStockImageStore::class,
                 'stockUsages' => StockUsages::class,
+                'stockLibraries' => StockLibraries::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -243,6 +246,66 @@ class Plugin extends BasePlugin
             'keys' => $this->providers->keyStatus(),
             'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('ghostwriter')),
             'modelDefaults' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::TEXT_DEFAULTS,
+            'stock' => $this->stockSettings(),
         ]);
+    }
+
+    /**
+     * What the settings' Stock photos section lists: each free library and
+     * whether its key is set, each paid library with its keys' status (from
+     * .env; never stored or shown), and the "Search in" choices.
+     *
+     * @return array<string, mixed>
+     */
+    private function stockSettings(): array
+    {
+        $libraries = $this->stockLibraries;
+        $libraries->reset();
+        $credentials = \NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\Credentials::ENV;
+        $free = [];
+
+        foreach (['unsplash', 'pexels', 'pixabay'] as $id) {
+            $free[] = ['id' => $id, 'label' => $libraries->label($id), 'keys' => StockLibraries::keyStatus([$credentials[$id]])];
+        }
+
+        $paid = [];
+
+        foreach ($libraries->all() as $id => $library) {
+            $paid[] = [
+                'id' => $id,
+                'label' => $library->label(),
+                'keys' => [],
+                'available' => $library->available(),
+                'enabled' => $libraries->enabled($id),
+                'licensable' => $library instanceof \NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\LicensableLibrary,
+                'oauth' => $library->capabilities()->needsOAuth,
+                'demo' => $id === StockLibraries::DEMO,
+                'coming' => false,
+                'note' => $id === StockLibraries::DEMO ? \Craft::t('ghostwriter', 'Offered in dev mode, or with stockDemo in config/ghostwriter.php. Never in production. It calls nobody and charges nothing.') : null,
+            ];
+        }
+
+        foreach (StockLibraries::COMING as $id => $coming) {
+            if (!isset($libraries->all()[$id])) {
+                $paid[] = [
+                    'id' => $id,
+                    'label' => $coming['label'],
+                    'keys' => StockLibraries::keyStatus($coming['env']),
+                    'available' => false,
+                    'enabled' => $libraries->enabled($id),
+                    'licensable' => true,
+                    'oauth' => $coming['oauth'],
+                    'demo' => false,
+                    'coming' => true,
+                    'note' => \Craft::t('ghostwriter', $coming['note']),
+                ];
+            }
+        }
+
+        return [
+            'free' => $free,
+            'paid' => $paid,
+            'sources' => $libraries->sourceOptions(true),
+        ];
     }
 }

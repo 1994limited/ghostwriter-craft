@@ -66,9 +66,13 @@ class ImagePicker extends Component
         return $this->finder ??= new PhotoFinder($this->stock(), $plugin->providers->registry(), $plugin->paths->prompts(), new CraftLogger(), guard: $plugin->domain->guard());
     }
 
+    /**
+     * Whether any photo library can be searched: a free one, or a paid one
+     * that is set up and switched on.
+     */
     public function canFind(): bool
     {
-        return $this->finder()->canFind();
+        return $this->finder()->canFind() || Plugin::getInstance()->stockLibraries->paid() !== [];
     }
 
     public function canMake(): bool
