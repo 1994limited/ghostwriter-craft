@@ -18,11 +18,13 @@ class ImageryTest extends TestCase
 {
     private Section $stories;
 
+    private \craft\models\Volume $volume;
+
     protected function _before(): void
     {
         parent::_before();
 
-        $volume = $this->makeVolume();
+        $volume = $this->volume = $this->makeVolume();
         $cover = $this->makeField(Assets::class, 'cover', ['sources' => ['volume:' . $volume->uid], 'maxRelations' => 1]);
         $picture = $this->makeField(Assets::class, 'picture', ['sources' => ['volume:' . $volume->uid], 'maxRelations' => 1]);
 
@@ -134,6 +136,40 @@ class ImageryTest extends TestCase
         }
 
         $this->assertStringNotContainsString('MediaItem', implode(' ', $notes));
+    }
+
+    public function testAnImageChosenWhileWritingIsKeptWhenTheDraftIsUsed(): void
+    {
+        $this->signIn(admin: true);
+
+        $target = $this->newDraft($this->stories);
+        $session = \nineteenninetyfour\ghostwriter\sessions\Session::start(\nineteenninetyfour\ghostwriter\types\ContentType::GENERIC . 'stories', [], \Craft::$app->getUser()->getId());
+        $session->elementId = $target->id;
+        $session->draft = "title: A New Story";
+        $session->addMessage('user', 'Make it warmer.');
+        $session->run(\Craft::$app->getUser()->getId());
+        $this->plugin->sessions->save($session);
+
+        // While the turn runs, a cover is chosen with the image button, and
+        // the form saves it to the entry's draft.
+        $chosen = $this->makeAsset($this->volume, 'chosen.png');
+        $target->setFieldValue('cover', [$chosen->id]);
+        $target->setScenario(\craft\base\Element::SCENARIO_ESSENTIALS);
+        $this->assertTrue(\Craft::$app->getElements()->saveElement($target));
+
+        // The turn saves only the conversation and its draft, never the entry.
+        $this->fake->respond('writer', '<reply>Warmer.</reply><draft>title: A Warmer Story</draft>');
+        (new \nineteenninetyfour\ghostwriter\jobs\RunSessionTurn(['sessionId' => $session->id]))->execute(null);
+        $this->assertSame('title: A Warmer Story', $this->plugin->sessions->find($session->id)->draft);
+
+        $cover = fn() => \craft\elements\Entry::find()->id($target->id)->drafts(null)->status(null)->one()->getFieldValue('cover')->status(null)->ids();
+        $this->assertSame([(int) $chosen->id], array_map('intval', $cover()));
+
+        // Using the draft keeps the chosen cover: no placeholder over it.
+        $notes = $this->action('ghostwriter/sessions/apply', ['id' => $session->id, 'elementId' => $target->id])['data']['notes'];
+
+        $this->assertSame([(int) $chosen->id], array_map('intval', $cover()));
+        $this->assertStringNotContainsString('Cover', implode(' ', $notes));
     }
 
     public function testPlaceholdersCanBeSwitchedOff(): void

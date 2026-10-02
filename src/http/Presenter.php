@@ -65,6 +65,8 @@ class Presenter
             // Sessions are resumed where they were started: on the entry
             // they are being written into.
             'url' => $entry ? UrlHelper::urlWithParams((string) $entry->getCpEditUrl(), ['ghostwriter' => $session->id]) : null,
+            // Shared, a piece is removed only by whoever started it or a manager.
+            'canDelete' => Plugin::getInstance()->sessions->canDelete($session, Craft::$app->getUser()->getIdentity()),
         ] + $this->people($session);
     }
 

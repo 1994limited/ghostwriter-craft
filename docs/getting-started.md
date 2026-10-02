@@ -22,7 +22,7 @@ Without a voice guide, Ghostwriter still writes, but in a plain voice rather tha
 
 ## 4. Teach it your kinds of content
 
-Ghostwriter looks at each section and suggests the kinds of content in it, such as "Press release" or "Case study". **Learn this** on the ones you write often; each gets its own brief. **Learn all** learns every suggestion in a section, one after another. See [Kinds of content](kinds.md).
+When this step opens, Ghostwriter looks at each section and suggests the kinds of content in it, such as "Press release" or "Case study". This is the only place it looks without being asked (turn it off with **Suggest kinds of content automatically**); elsewhere, use **Suggest kinds**. **Learn this** on the ones you write often; each gets its own brief. **Learn all** learns every suggestion in a section, one after another. See [Kinds of content](kinds.md).
 
 Every section can be written for without this; it then uses a general brief.
 

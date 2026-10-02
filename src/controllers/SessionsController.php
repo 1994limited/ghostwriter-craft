@@ -235,7 +235,8 @@ class SessionsController extends Controller
     }
 
     /**
-     * The draft edited by hand.
+     * The draft edited by hand. Saved under the session's lock, like a new
+     * message, so it can't race a running turn or someone else's edit.
      */
     public function actionDraft(): Response
     {
@@ -248,12 +249,7 @@ class SessionsController extends Controller
             return $this->refuse('The draft cannot be empty.');
         }
 
-        $session->draft = $draft;
-        $session->touch($this->me());
-
-        Plugin::getInstance()->sessions->save($session);
-
-        return $this->asJson((new Presenter())->detail($session));
+        return $this->handEdit($session, fn() => $draft);
     }
 
     /**
@@ -265,19 +261,7 @@ class SessionsController extends Controller
     {
         $this->requirePostRequest();
 
-        $plugin = Plugin::getInstance();
         $session = $this->session();
-
-        if ($session->status === Session::WORKING) {
-            return $this->busy($session, 'Ghostwriter is still working on the draft. Try again when it has finished.');
-        }
-
-        try {
-            $draft = Draft::parse((string) $session->draft);
-        } catch (InvalidArgumentException $exception) {
-            return $this->refuse($exception->getMessage());
-        }
-
         $path = json_decode((string) $this->request->getBodyParam('path'), true);
         $value = (string) $this->request->getBodyParam('value');
 
@@ -291,31 +275,29 @@ class SessionsController extends Controller
             $value = trim(str_replace("\r", '', $value));
         }
 
-        $data = $draft->data;
-        $node = &$data;
+        // Read from the draft as it is under the lock, not as it was before.
+        return $this->handEdit($session, function(Session $session) use ($path, $value): string {
+            $data = Draft::parse((string) $session->draft)->data;
+            $node = &$data;
 
-        foreach ($path as $step) {
-            if (!is_array($node) || !array_key_exists($step, $node)) {
-                return $this->refuse('That part of the draft could not be found.');
+            foreach ($path as $step) {
+                if (!is_array($node) || !array_key_exists($step, $node)) {
+                    throw new InvalidArgumentException('That part of the draft could not be found.');
+                }
+
+                $node = &$node[$step];
             }
 
-            $node = &$node[$step];
-        }
+            // Only writing is edited here; a block or a list is changed in YAML.
+            if (!is_scalar($node) && $node !== null) {
+                throw new InvalidArgumentException('Only text can be edited here.');
+            }
 
-        // Only writing is edited here; a block or a list is changed in YAML.
-        if (!is_scalar($node) && $node !== null) {
-            return $this->refuse('Only text can be edited here.');
-        }
+            $node = $value;
+            unset($node);
 
-        $node = $value;
-        unset($node);
-
-        $session->draft = trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
-        $session->touch($this->me());
-
-        $plugin->sessions->save($session);
-
-        return $this->asJson((new Presenter())->detail($session));
+            return trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+        });
     }
 
     /**
@@ -342,13 +324,14 @@ class SessionsController extends Controller
             return $this->refuse($exception->getMessage());
         }
 
-        // Noted so the session can be shown as handed over, not still in progress.
-        $session->appliedAt = Session::now();
-        $session->elementId = (int) $result['draft']->getCanonicalId();
-        $session->siteId = (int) $result['draft']->siteId;
-        $session->touch($this->me());
-
-        $plugin->sessions->save($session);
+        // Noted so the session can be shown as handed over, not still in
+        // progress; under the lock, so a turn finishing meanwhile is kept.
+        $plugin->sessions->change($session->id, function(Session $session) use ($result): void {
+            $session->appliedAt = Session::now();
+            $session->elementId = (int) $result['draft']->getCanonicalId();
+            $session->siteId = (int) $result['draft']->siteId;
+            $session->touch($this->me());
+        });
 
         // A provisional draft ("edited, not saved") opens with the entry
         // itself; only a draft in its own right needs naming in the address.
@@ -359,7 +342,14 @@ class SessionsController extends Controller
     {
         $this->requirePostRequest();
 
-        Plugin::getInstance()->sessions->delete($this->session());
+        $sessions = Plugin::getInstance()->sessions;
+        $session = $this->session();
+
+        if (!$sessions->canDelete($session, Craft::$app->getUser()->getIdentity())) {
+            throw new ForbiddenHttpException(Craft::t('ghostwriter', 'Only the person who started this piece, or an admin, can remove it.'));
+        }
+
+        $sessions->delete($session);
 
         return $this->asJson(['deleted' => true]);
     }
@@ -498,6 +488,41 @@ class SessionsController extends Controller
         $id = Craft::$app->getUser()->getId();
 
         return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * A change made to the draft by hand, under the session's lock: refused
+     * while a turn is running, since the turn would write over it, and
+     * worked out from the draft as it is once the lock is held, so two
+     * people's edits can't undo each other.
+     *
+     * @param callable(Session): string $edit The new draft.
+     */
+    private function handEdit(Session $session, callable $edit): Response
+    {
+        $refusal = null;
+
+        $session = Plugin::getInstance()->sessions->change($session->id, function(Session $session) use ($edit, &$refusal): bool {
+            if ($session->status === Session::WORKING) {
+                $refusal = $this->busy($session, 'Ghostwriter is still working on the draft. Try again when it has finished.');
+
+                return false;
+            }
+
+            try {
+                $session->draft = $edit($session);
+            } catch (InvalidArgumentException $exception) {
+                $refusal = $this->refuse($exception->getMessage());
+
+                return false;
+            }
+
+            $session->touch($this->me());
+
+            return true;
+        }) ?? throw new NotFoundHttpException('No such piece of writing.');
+
+        return $refusal ?? $this->asJson((new Presenter())->detail($session));
     }
 
     /**

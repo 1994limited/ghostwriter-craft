@@ -4,8 +4,11 @@ namespace nineteenninetyfour\ghostwriter\drafts;
 
 use Craft;
 use craft\base\Element;
+use craft\elements\Asset;
+use craft\elements\db\AssetQuery;
 use craft\elements\Entry;
 use craft\elements\User;
+use craft\fields\Assets;
 use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
@@ -90,6 +93,14 @@ class Applier
             }
         }
 
+        // An image already in the entry's own image fields, chosen with the
+        // image button or uploaded while the piece was being written, is
+        // kept where the draft has none, rather than taken out or covered
+        // by a placeholder.
+        if ($session->source === null) {
+            $data = $this->keepImages($data, $schema, $entry);
+        }
+
         // Where an image belongs but none is chosen yet, a placeholder shows
         // it. New entries only: an existing entry keeps its own images.
         if (Plugin::getInstance()->getSettings()->placeholderImages && $session->source === null) {
@@ -112,6 +123,34 @@ class Applier
         }
 
         return ['draft' => $entry, 'notes' => $notes];
+    }
+
+    /**
+     * The entry's own image fields that already hold something other than a
+     * placeholder, carried into the data where the draft leaves them empty.
+     *
+     * @param array<string, mixed> $data
+     * @param array<int, array<string, mixed>> $schema
+     * @return array<string, mixed>
+     */
+    private function keepImages(array $data, array $schema, Entry $entry): array
+    {
+        foreach ($schema as $spec) {
+            $handle = $spec['handle'];
+
+            if ($spec['type'] !== Assets::class || !empty($data[$handle])) {
+                continue;
+            }
+
+            $value = $entry->getFieldValue($handle);
+            $assets = $value instanceof AssetQuery ? (clone $value)->status(null)->all() : [];
+
+            if (array_filter($assets, fn(Asset $asset) => $asset->filename !== Placeholders::FILENAME) !== []) {
+                $data[$handle] = array_map(fn(Asset $asset) => (int) $asset->id, $assets);
+            }
+        }
+
+        return $data;
     }
 
     /**

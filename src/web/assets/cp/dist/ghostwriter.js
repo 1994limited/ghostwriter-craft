@@ -1317,11 +1317,11 @@
             this.addListener($('[data-dismiss-kind]'), 'click', 'dismiss');
             this.addListener($('[data-learn-all]'), 'click', 'learnAll');
 
-            // Sections queued by the automatic check: start the queue now
+            // Sections still being looked at or learned: start the queue now
             // rather than waiting for another page to.
             // Craft.cp is only there once the page is ready.
             $(() => {
-                if (config.checking?.length || $('[data-busy="1"]').length) {
+                if ($('[data-busy="1"]').length) {
                     Craft.cp.runQueue?.();
                 }
 
@@ -1936,6 +1936,8 @@
             const last = this.current === steps.length - 1;
             const working = steps.some((candidate) => candidate.working);
 
+            if (step.key === 'kinds') this.lookForKinds();
+
             // Only the steps setup needs are counted; the optional ones say so.
             const required = steps.filter((candidate) => !candidate.optional);
             const done = required.filter((candidate) => candidate.done).length;
@@ -1980,6 +1982,19 @@
             Ghostwriter.prepareButtons(this.$root);
 
             if (working) this.poll();
+        },
+
+        // Get started is the one place kinds are suggested without a click:
+        // once per page load, when the step is shown, for the sections due a look,
+        // when the setting is on. The server decides which are due.
+        lookForKinds() {
+            if (this.lookedForKinds || !this.state.configured || !this.state.details.autoKinds) return;
+
+            this.lookedForKinds = true;
+
+            Ghostwriter.request('POST', 'sections/suggest-kinds', { due: 1 })
+                .then((data) => { if (data.status === 'working') this.refresh(); })
+                .catch(() => {});
         },
 
         working(text) {
@@ -2219,7 +2234,7 @@
                     </div>
                     <div class="gw-panel__body">
                         <div class="gw-image-pane" data-pane="find">
-                            <p class="light">${t('Ghostwriter reads the block this field is in, and the rest of the page, then searches free photo libraries and picks the photos that best suit the images already used here.')}</p>
+                            <p class="light">${t('Ghostwriter reads the block this field is in, and the rest of the page, then searches free photo libraries and picks the photos that best suit the page’s words and the images already used here.')}</p>
                             <div class="flex gw-image-form">
                                 <input type="text" class="text fullwidth gw-image-words" placeholder="${Ghostwriter.escape(t('What should it show? Leave empty and Ghostwriter will choose'))}">
                                 <button type="button" class="btn submit gw-image-search">${t('Search')}</button>

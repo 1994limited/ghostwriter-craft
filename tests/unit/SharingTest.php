@@ -7,6 +7,7 @@ use craft\elements\User;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Launcher;
 use nineteenninetyfour\ghostwriter\sessions\Session;
+use nineteenninetyfour\ghostwriter\tests\support\RecordingMutex;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 use nineteenninetyfour\ghostwriter\types\ContentType;
@@ -152,6 +153,113 @@ class SharingTest extends TestCase
         $this->assertSame(['Ann Archer', 'Ann Archer'], [$idea['startedBy'], $idea['waitingOn']]);
     }
 
+    public function testOnlyWhoeverStartedASharedPieceOrAnAdminCanRemoveIt(): void
+    {
+        $session = $this->annsPiece();
+
+        // Bo can carry Ann's piece on, but not remove it: no button, and
+        // the request is refused.
+        $this->as($this->bo);
+        $this->assertFalse($this->summary($session->id)['canDelete']);
+        $this->assertStringNotContainsString('data-remove-session="' . $session->id . '"', $this->dashboard());
+        $this->assertSame(403, $this->action('ghostwriter/sessions/delete', ['id' => $session->id])['status']);
+        $this->assertNotNull($this->plugin->sessions->find($session->id));
+        $this->assertSame(200, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Make it shorter.'])['status']);
+
+        // Ann started it, so she can.
+        $this->as($this->ann);
+        $this->assertTrue($this->summary($session->id)['canDelete']);
+        $this->assertStringContainsString('data-remove-session="' . $session->id . '"', $this->dashboard());
+        $this->assertSame(200, $this->action('ghostwriter/sessions/delete', ['id' => $session->id])['status']);
+        $this->assertNull($this->plugin->sessions->find($session->id));
+
+        // An admin manages Ghostwriter, so can remove anyone's.
+        $another = $this->annsPiece();
+        $this->as($this->bo, admin: true);
+        $this->assertTrue($this->summary($another->id)['canDelete']);
+        $this->assertStringContainsString('data-remove-session="' . $another->id . '"', $this->dashboard());
+        $this->assertSame(200, $this->action('ghostwriter/sessions/delete', ['id' => $another->id])['status']);
+        $this->assertNull($this->plugin->sessions->find($another->id));
+    }
+
+    public function testHandEditsAreSavedUnderTheSessionsLock(): void
+    {
+        $session = $this->annsPiece();
+        $session->draft = "title: Faceted search\nintro: The old intro.";
+        $this->plugin->sessions->save($session);
+        $lock = 'ghostwriter:session:' . $session->id;
+
+        $mutex = new RecordingMutex();
+        $original = Craft::$app->getMutex();
+        Craft::$app->set('mutex', $mutex);
+
+        try {
+            // Ann's change to the title lands just before Bo's edit takes the
+            // lock: his edit is made to the draft as it is then, so hers stays.
+            $mutex->onAcquire = function(string $name) use ($session, $lock, $mutex): void {
+                if ($name === $lock) {
+                    $mutex->onAcquire = null;
+                    $theirs = $this->plugin->sessions->find($session->id);
+                    $theirs->draft = "title: Faceted search for shops\nintro: The old intro.";
+                    $this->plugin->sessions->save($theirs);
+                }
+            };
+
+            $this->as($this->bo);
+            $edited = $this->action('ghostwriter/sessions/edit-field', ['id' => $session->id, 'path' => '["intro"]', 'value' => 'A new intro.']);
+            $this->assertSame(200, $edited['status']);
+            $this->assertContains($lock, $mutex->taken);
+            $this->assertSame("title: 'Faceted search for shops'\nintro: 'A new intro.'", $this->plugin->sessions->find($session->id)->draft);
+
+            // Edit YAML takes the same lock.
+            $mutex->taken = [];
+            $this->assertSame(200, $this->action('ghostwriter/sessions/draft', ['id' => $session->id, 'draft' => "title: Faceted search\nintro: Mine."])['status']);
+            $this->assertContains($lock, $mutex->taken);
+
+            // While someone else holds it, neither edit is saved.
+            $mutex->held = [$lock];
+
+            foreach (['edit-field' => ['path' => '["intro"]', 'value' => 'Not saved.'], 'draft' => ['draft' => 'title: Not saved']] as $action => $body) {
+                try {
+                    $this->action("ghostwriter/sessions/{$action}", ['id' => $session->id] + $body);
+                    $this->fail("The {$action} edit was saved without the lock.");
+                } catch (\RuntimeException $exception) {
+                    $this->assertStringContainsString('busy', $exception->getMessage());
+                }
+            }
+
+            $this->assertSame("title: Faceted search\nintro: Mine.", $this->plugin->sessions->find($session->id)->draft);
+        } finally {
+            Craft::$app->set('mutex', $original);
+        }
+    }
+
+    public function testHandEditsWaitForARunningTurn(): void
+    {
+        $session = $this->annsPiece();
+        $session->draft = "title: Faceted search\nintro: The old intro.";
+        $session->addMessage('user', 'Make it shorter.', $this->ann->id);
+        $session->run($this->ann->id);
+        $this->plugin->sessions->save($session);
+
+        // The turn would write over them when it saves, so both are refused
+        // while it runs, saying whose it is.
+        $this->as($this->bo);
+
+        foreach (['edit-field' => ['path' => '["intro"]', 'value' => 'Lost.'], 'draft' => ['draft' => 'title: Lost']] as $action => $body) {
+            $refused = $this->action("ghostwriter/sessions/{$action}", ['id' => $session->id] + $body);
+            $this->assertSame(409, $refused['status'], $action);
+            $this->assertSame('Ann Archer is waiting on Ghostwriter.', $refused['data']['message']);
+        }
+
+        // Once it has answered, the edits are made to what it wrote.
+        $this->fake->respond('writer', '<reply>Shorter.</reply><draft>' . "title: Faceted search\nintro: Short." . '</draft>');
+        (new RunSessionTurn(['sessionId' => $session->id]))->execute(null);
+
+        $this->assertSame(200, $this->action('ghostwriter/sessions/edit-field', ['id' => $session->id, 'path' => '["title"]', 'value' => 'Search'])['status']);
+        $this->assertSame("title: Search\nintro: Short.", $this->plugin->sessions->find($session->id)->draft);
+    }
+
     public function testSomeoneWithoutGhostwriterSeesNothing(): void
     {
         $session = $this->annsPiece();
@@ -197,6 +305,16 @@ class SharingTest extends TestCase
     private function dashboardSessions(): array
     {
         return $this->plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId());
+    }
+
+    /**
+     * @return array<string, mixed> The dashboard's line for one piece.
+     */
+    private function summary(string $id): array
+    {
+        $sessions = $this->action('ghostwriter/dashboard/index', method: 'GET')['data']['variables']['sessions'];
+
+        return array_values(array_filter($sessions, fn(array $s) => $s['id'] === $id))[0];
     }
 
     private function dashboard(): string

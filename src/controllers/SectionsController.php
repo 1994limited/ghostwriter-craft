@@ -73,12 +73,22 @@ class SectionsController extends Controller
     /**
      * Look for kinds of content: in one section, or in every section
      * Ghostwriter writes for when none is given.
+     *
+     * With `due`, it is Get started looking by itself as its kinds step
+     * opens: only when suggestKindsAutomatically is on, and only the
+     * sections never looked at or with enough published since the last
+     * look. Nowhere else looks without being asked.
      */
     public function actionSuggestKinds(): Response
     {
         $this->requirePostRequest();
 
         $plugin = Plugin::getInstance();
+        $due = (bool) $this->request->getBodyParam('due');
+
+        if ($due && !$plugin->getSettings()->suggestKindsAutomatically) {
+            return $this->asJson(['status' => 'idle', 'sections' => $this->kindStates()]);
+        }
 
         if ($refusal = $this->notConfigured()) {
             return $refusal;
@@ -88,7 +98,7 @@ class SectionsController extends Controller
         $handles = [];
 
         foreach ($sections as $section) {
-            if ($plugin->kinds->get($section->handle)['status'] !== KindSuggestions::WORKING) {
+            if ($due ? $plugin->kinds->due($section) : $plugin->kinds->get($section->handle)['status'] !== KindSuggestions::WORKING) {
                 $plugin->kinds->update($section->handle, ['status' => KindSuggestions::WORKING, 'error' => null]);
                 $handles[] = $section->handle;
             }
@@ -98,7 +108,7 @@ class SectionsController extends Controller
             SuggestKinds::start(['sections' => $handles]);
         }
 
-        return $this->asJson(['status' => 'working', 'sections' => $this->kindStates()]);
+        return $this->asJson(['status' => $due && $handles === [] ? 'idle' : 'working', 'sections' => $this->kindStates()]);
     }
 
     public function actionKinds(): Response

@@ -80,5 +80,7 @@ Conversations are shared with everyone who has the **Use Ghostwriter** permissio
 - Each message says who sent it: **You**, or the person's name.
 - Pieces show who started them and who last changed them ("Started by Ann · last changed by you").
 - Ghostwriter answers one request at a time. While it works on someone else's message, the panel says "Ann is waiting on Ghostwriter", and sending is switched off until the reply arrives.
+- Changes made to the draft by hand (clicking text, or **Edit YAML**) are saved one at a time too, and not while Ghostwriter is answering, since its reply would write over them. Two people editing different parts at once both keep their changes.
+- Anyone can carry a piece on, but only the person who started it, or an admin, can **Remove** it.
 
 To keep each conversation to the person who started it, turn off **Share conversations** in the settings, or set `'sharedConversations' => false` in [`config/ghostwriter.php`](configuration.md).

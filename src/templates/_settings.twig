@@ -46,7 +46,7 @@
 
 {{ forms.lightswitchField({
     label: 'Suggest kinds of content automatically'|t('ghostwriter'),
-    instructions: 'Ghostwriter looks at each section the first time it is shown on the dashboard, and again once ten or more entries have been published there since, and suggests the kinds of content worth teaching it. Each look is one model call.'|t('ghostwriter'),
+    instructions: 'When Get started’s kinds step opens, Ghostwriter looks at each section never looked at, or with ten or more entries published since the last look, and suggests the kinds of content worth teaching it. Each look is one model call. Elsewhere it only looks when you click Suggest kinds.'|t('ghostwriter'),
     name: 'suggestKindsAutomatically',
     on: settings.suggestKindsAutomatically,
     warning: 'suggestKindsAutomatically' in overrides ? _self.overridden('suggestKindsAutomatically', overrides) : null,

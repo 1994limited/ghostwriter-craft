@@ -191,6 +191,16 @@ class Plugin extends BasePlugin
         });
     }
 
+    /**
+     * Whether someone manages Ghostwriter for the whole site: hiding Get
+     * started, removing anyone's piece when conversations are shared. Like
+     * the plugin's settings, that is an admin's call.
+     */
+    public static function canManage(?\craft\elements\User $user): bool
+    {
+        return (bool) $user?->admin;
+    }
+
     protected function createSettingsModel(): ?Model
     {
         return new Settings();

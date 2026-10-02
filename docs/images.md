@@ -16,7 +16,7 @@ If no other entry has an image in that place yet, the dialog says so at the top:
 
 ## Find a photo
 
-Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries).
+Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries). As the tab's intro says, the photos that best suit the page's words and the images already used here come first.
 
 1. Type what the picture should show, or leave it empty and Ghostwriter chooses three searches from the block and page. Separate your own searches with semicolons.
 2. **Search.** **Searched for: …** above the results lists every search that ran. The model checks each result against the block's and page's words (and what the library says the photo shows), and against the images already used there when there are any. Clear misses are left out, and the best are marked **Best match**.
@@ -54,6 +54,7 @@ Openverse photos are public domain or CC0. Unsplash, Pexels and Pixabay photos a
 
 When a draft is put into a **new** entry, image fields it leaves empty get a striped "image to choose" placeholder, but only where the section's entries usually have an image there (or the field is required). Optional images, such as a background most entries leave empty, are left alone.
 
+- A field that already holds an image in the entry, chosen with the image button or uploaded while the piece was being written, keeps it. Using the draft again doesn't take it out or cover it with a placeholder.
 - The placeholder is one shared asset, `ghostwriter-image-placeholder.png`, in the field's volume.
 - The notes above the form list every field that has one.
 - Replace them with the image button before publishing.

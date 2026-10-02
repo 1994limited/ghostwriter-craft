@@ -163,6 +163,8 @@ class Onboarding extends Component
             ], Craft::$app->getEntries()->getAllSections()),
             'voice' => $this->guide($plugin->voiceGuide->get(), $plugin->voiceState->get()),
             'imagery' => $this->guide($plugin->imageryGuide->get(), $plugin->imageryState->get()),
+            // Kinds are looked for by themselves only here, as the step opens.
+            'autoKinds' => $settings->suggestKindsAutomatically,
             'kinds' => array_map(fn($section) => [
                 'handle' => $section->handle,
                 'title' => Craft::t('site', $section->name),
@@ -229,7 +231,7 @@ class Onboarding extends Component
      */
     public function canToggle(): bool
     {
-        return Craft::$app->getUser()->getIsAdmin();
+        return Plugin::canManage(Craft::$app->getUser()->getIdentity());
     }
 
     /**

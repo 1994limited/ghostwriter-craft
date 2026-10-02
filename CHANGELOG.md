@@ -48,11 +48,16 @@
 - Photo downloads check every redirect is https themselves, with Craft's Guzzle clients set not to follow redirects.
 - Content plan: closing the suggestions box no longer throws the batch away. It waits, with a **N suggestions waiting** card at the top of the plan to reopen it; only **Drop them all** discards it. The add button counts what is ticked (**Add N to the plan**, or **Add none, dismiss the rest**).
 - Content plan ideas are shown newest first within each section, and **Put back** is only offered on dismissed ideas, not finished ones.
+- Kinds are suggested without being asked only in Get started, as its kinds step opens (decision Q3). Opening the dashboard no longer calls the model; elsewhere, suggestions wait for **Suggest kinds** or **Suggest kinds everywhere**.
+- With conversations shared, a piece can be removed only by the person who started it or an admin (decision Q1). Others can still carry it on; **Remove** is hidden from them and the request is refused.
+- The image dialog's intro says photos are picked to suit the page's words as well as the images already used there (F4).
 
 ### Removed
 - Logo cards (a logo set on a flat or gradient ground) are gone from the image button, which now offers **Find a photo** and **Make one**, with no tabs when only one is available. To put a logo or product in a picture, add it as an image of your own under **Make one**.
 
 ### Fixed
+- Hand edits to the draft (clicking text, **Edit YAML**) are saved under the piece's lock, and refused while a turn is running, so they can't race Ghostwriter's reply or someone else's edit (F3). **Use this draft** records itself under the lock too.
+- **Use this draft** on a new entry keeps an image already chosen or uploaded in one of the entry's image fields, instead of covering it with a placeholder (F2).
 - **Generate the guide** on the voice guide (and on Get started) with no section ticked no longer reads every section on the site: the button is off until a section is ticked, and the server refuses an empty choice.
 - A kind of content that fails to save (no name, or no question) comes back with what was typed, rather than the stored version.
 - Deleting a kind of content says so on the dashboard, and an error deleting it is shown.
