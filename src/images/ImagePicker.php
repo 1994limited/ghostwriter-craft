@@ -369,7 +369,7 @@ class ImagePicker extends Component
         $asset->setScenario(Asset::SCENARIO_CREATE);
 
         // A credit goes in a field made for it, where the volume has one.
-        if ($credit !== '' && ($handle = $this->creditField($asset))) {
+        if ($credit !== '' && ($handle = self::creditFieldOf($asset))) {
             $asset->setFieldValue($handle, $credit . (!empty($meta['credit_url']) ? " ({$meta['credit_url']})" : ''));
         }
 
@@ -380,7 +380,11 @@ class ImagePicker extends Component
         return $asset;
     }
 
-    private function creditField(Asset $asset): ?string
+    /**
+     * The plain-text field on an asset made for a credit, where its volume
+     * has one: "credit", "attribution", "copyright", "caption", "source".
+     */
+    public static function creditFieldOf(Asset $asset): ?string
     {
         foreach ($asset->getFieldLayout()?->getCustomFields() ?? [] as $field) {
             if ($field instanceof \craft\fields\PlainText && preg_match('/credit|attribution|copyright|caption|source/i', $field->handle)) {

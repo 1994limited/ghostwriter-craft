@@ -386,3 +386,24 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 
 /* Get started: what to steer the plan's first ideas towards. */
 .gw-wizard__steer { margin: 0 0 10px; }
+
+/* Stock photos: the badge on an image field, the asset panel, License & replace.
+   Craft 5's control panel is light only, so these follow its light palette. */
+.gw-stock-badges:empty { display: none; }
+.gw-stock-badges { display: grid; gap: 6px; margin-top: 8px; }
+.gw-stock-badge { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-radius: var(--small-border-radius, 4px); border: 1px solid #f2c97d; background: #fff8e6; font-size: 12px; }
+.gw-stock-badge--failed, .gw-stock-badge--licensed { border-color: #f0b8b8; background: #fff1f1; }
+.gw-stock-badge__status { font-weight: 600; color: #7a4b00; }
+.gw-stock-badge--failed .gw-stock-badge__status, .gw-stock-badge--licensed .gw-stock-badge__status { color: var(--error-color, #cf1124); }
+.gw-stock-badge__actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-inline-start: auto; }
+.gw-stock-badge__error { flex-basis: 100%; }
+.gw-stock-panel .gw-stock-badges, .gw-stock-panel__badge { padding: 8px var(--padding, 12px); }
+.gw-stock-panel__badge .gw-stock-badge { margin: 0; }
+.modal.gw-license-modal { width: 34rem; max-width: calc(100vw - 32px); height: auto; min-height: 0; max-height: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.gw-license { display: grid; gap: 12px; }
+.gw-license p { margin: 0; }
+.gw-license__photo { display: flex; gap: 12px; align-items: center; }
+.gw-license__photo img { width: 120px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--small-border-radius, 4px); background: var(--gray-050, #f3f7fc); }
+.gw-license__cost { font-weight: 600; }
+.gw-license__ack { display: flex; gap: 8px; align-items: flex-start; }
+.gw-panel__footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .1)); }

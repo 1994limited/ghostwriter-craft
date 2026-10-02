@@ -15,7 +15,11 @@ use craft\events\RegisterCpNavItemsEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\events\RegisterComponentTypesEvent;
+use craft\elements\Asset;
+use craft\events\DefineAssetUrlEvent;
+use craft\events\DefineAttributeHtmlEvent;
 use craft\events\ElementEvent;
+use craft\events\RegisterElementTableAttributesEvent;
 use craft\services\Dashboard;
 use craft\services\Elements;
 use craft\services\UserPermissions;
@@ -37,7 +41,9 @@ use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use nineteenninetyfour\ghostwriter\stock\StockComps;
 use nineteenninetyfour\ghostwriter\stock\StockLibraries;
+use nineteenninetyfour\ghostwriter\stock\StockMarkers;
 use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
@@ -66,6 +72,7 @@ use yii\base\Event;
  * @property-read DbStockImageStore $stockImages
  * @property-read StockUsages $stockUsages
  * @property-read StockLibraries $stockLibraries
+ * @property-read StockComps $stockComps
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -76,6 +83,9 @@ class Plugin extends BasePlugin
 {
     /** The one permission Ghostwriter adds. Editing an entry still needs Craft's own. */
     public const PERMISSION = 'ghostwriter:use';
+
+    /** Licensing stock images spends money: a permission of its own, given to nobody by default (admins have it). */
+    public const LICENSE_PERMISSION = 'ghostwriter:license';
 
     public string $schemaVersion = '1.2.0';
 
@@ -111,6 +121,7 @@ class Plugin extends BasePlugin
                 'stockImages' => DbStockImageStore::class,
                 'stockUsages' => StockUsages::class,
                 'stockLibraries' => StockLibraries::class,
+                'stockComps' => StockComps::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -128,6 +139,10 @@ class Plugin extends BasePlugin
                 'heading' => 'Ghostwriter',
                 'permissions' => [
                     self::PERMISSION => ['label' => Craft::t('ghostwriter', 'Use Ghostwriter')],
+                    self::LICENSE_PERMISSION => [
+                        'label' => Craft::t('ghostwriter', 'License stock images'),
+                        'info' => Craft::t('ghostwriter', 'Buys licences from the site’s paid photo libraries, which spends money or allowance.'),
+                    ],
                 ],
             ];
         });
@@ -141,6 +156,8 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/types/<handle:[a-z0-9_-]+>'] = 'ghostwriter/types/edit';
             $event->rules['ghostwriter/teach/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/types/teach';
             $event->rules['ghostwriter/write/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/sections/new';
+            // A paid photo's comp, for signed-in editors only (§7.0).
+            $event->rules['ghostwriter/stock/<id:[0-9a-f]{26}>/comp'] = 'ghostwriter/stock/comp';
         });
 
         // The launcher sits beside the entry's own buttons.
@@ -166,6 +183,31 @@ class Plugin extends BasePlugin
 
         Event::on(Elements::class, Elements::EVENT_AFTER_DELETE_ELEMENT, function(ElementEvent $event): void {
             $this->stockUsages->afterDelete($event->element);
+        });
+
+        // Editors see a paid photo's comp where the stand-in is (§7.0).
+        Event::on(Asset::class, Asset::EVENT_DEFINE_URL, function(DefineAssetUrlEvent $event): void {
+            $this->stockComps->defineUrl($event);
+        });
+
+        // The asset's stock licence: in its sidebar, and as an index column (§7.2).
+        Event::on(Asset::class, Element::EVENT_DEFINE_SIDEBAR_HTML, function(DefineHtmlEvent $event): void {
+            /** @var Asset $asset */
+            $asset = $event->sender;
+            $event->html .= StockMarkers::sidebarHtml($asset);
+        });
+
+        Event::on(Asset::class, Element::EVENT_REGISTER_TABLE_ATTRIBUTES, function(RegisterElementTableAttributesEvent $event): void {
+            $event->tableAttributes[StockMarkers::COLUMN] = ['label' => Craft::t('ghostwriter', 'Stock licence')];
+        });
+
+        Event::on(Asset::class, Element::EVENT_DEFINE_ATTRIBUTE_HTML, function(DefineAttributeHtmlEvent $event): void {
+            if ($event->attribute === StockMarkers::COLUMN) {
+                /** @var Asset $asset */
+                $asset = $event->sender;
+                $event->html = StockMarkers::columnHtml($asset);
+                $event->handled = true;
+            }
         });
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event): void {

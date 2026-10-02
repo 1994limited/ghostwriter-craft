@@ -8,6 +8,7 @@ use craft\fields\Assets;
 use craft\helpers\Html;
 use craft\helpers\Json;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
+use nineteenninetyfour\ghostwriter\stock\StockView;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 
 /**
@@ -62,6 +63,8 @@ class ImageButton
             'sources' => $plugin->stockLibraries->sourceOptions(Plugin::canManage($user)),
             'source' => \nineteenninetyfour\ghostwriter\controllers\ImagesController::rememberedSource(),
             'editorial' => (bool) $plugin->getSettings()->stockIncludeEditorial,
+            // Previews in the field now: "Preview · not licensed", with License or Request licence.
+            'stock' => StockView::badges(self::assetIds($element, $field), $user),
             'fieldId' => (int) $field->id,
             'elementId' => (int) $element->id,
             'siteId' => (int) $element->siteId,
@@ -73,5 +76,25 @@ class ImageButton
             'class' => 'gw-image-button hidden',
             'data' => ['ghostwriter-image' => Json::encode($config)],
         ]);
+    }
+
+    /**
+     * The assets the field holds on the element now.
+     *
+     * @return array<int, int>
+     */
+    private static function assetIds(ElementInterface $element, Assets $field): array
+    {
+        try {
+            $value = $element->getFieldValue($field->handle);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if ($value instanceof \craft\elements\db\AssetQuery) {
+            return array_map('intval', (clone $value)->status(null)->ids());
+        }
+
+        return $value instanceof \Illuminate\Support\Collection ? array_map(fn($asset) => (int) $asset->id, $value->all()) : [];
     }
 }
