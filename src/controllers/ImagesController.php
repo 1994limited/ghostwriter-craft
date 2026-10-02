@@ -6,7 +6,7 @@ use Craft;
 use craft\elements\Asset;
 use craft\web\UploadedFile;
 use InvalidArgumentException;
-use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
 use nineteenninetyfour\ghostwriter\images\ImageRequests;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
 use nineteenninetyfour\ghostwriter\images\Placeholders;
@@ -43,7 +43,7 @@ class ImagesController extends Controller
                 return $this->refuse('No photo library is switched on. Turn on Openverse in the settings, or add an Unsplash, Pexels or Pixabay key.');
             }
 
-            $terms = ImagePicker::terms((string) $request->getBodyParam('words', ''));
+            $terms = PhotoFinder::terms((string) $request->getBodyParam('words', ''));
 
             if ($terms === [] && !$plugin->studio->configured() && $slot->title() === '') {
                 return $this->refuse('Type what the picture should show.');
@@ -119,15 +119,7 @@ class ImagesController extends Controller
 
         try {
             if ($data['mode'] === 'find') {
-                $photo = $plugin->imagePicker->stock()->fetch((string) $this->request->getRequiredBodyParam('source'), (string) $this->request->getRequiredBodyParam('photo'));
-                $term = (string) ($this->request->getBodyParam('term') ?: ($data['terms'][0] ?? ''));
-
-                $asset = $plugin->imagePicker->keep($slot, $photo['content'], $photo['extension'], [
-                    'title' => ucfirst($term) ?: $slot->title(),
-                    'credit' => $photo['credit'],
-                    'credit_url' => $photo['credit_url'],
-                    'licence' => $photo['licence'],
-                ]);
+                $asset = $plugin->imagePicker->keepPhoto($slot, (string) $this->request->getRequiredBodyParam('source'), (string) $this->request->getRequiredBodyParam('photo'));
             } else {
                 $file = $data['file'] ? $plugin->imageRequests->file($data['id'], 'made') : null;
 
@@ -222,7 +214,10 @@ class ImagesController extends Controller
             'error' => $data['error'],
             'terms' => $data['terms'] ?? [],
             'direction' => $data['direction'] ?? null,
-            'options' => array_map(fn(array $photo) => array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked'])), $data['options'] ?? []),
+            'options' => array_map(fn(array $photo) => array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked', 'reason', 'alt'])), $data['options'] ?? []),
+            'judged' => (bool) ($data['judged'] ?? false),
+            'noneFit' => (bool) ($data['noneFit'] ?? false),
+            'withReferences' => (bool) ($data['withReferences'] ?? false),
             'preview' => $data['status'] === ImageRequests::READY && !empty($data['file'])
                 ? \craft\helpers\UrlHelper::actionUrl('ghostwriter/images/preview', ['id' => $data['id'], 'v' => $data['file']])
                 : null,

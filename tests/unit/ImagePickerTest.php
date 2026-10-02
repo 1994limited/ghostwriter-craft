@@ -13,7 +13,6 @@ use GuzzleHttp\Psr7\Response;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Shape;
 use nineteenninetyfour\ghostwriter\ImageButton;
-use nineteenninetyfour\ghostwriter\images\ImagePicker;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
@@ -124,12 +123,6 @@ class ImagePickerTest extends TestCase
         $this->assertSame('portrait', $slot->shape());
     }
 
-    public function testSearchesAreCleanedUp(): void
-    {
-        $this->assertSame(['mended bowls', 'gold repair', 'kintsugi'], ImagePicker::terms("Mended  bowls; gold, repair!\n kintsugi; a fourth"));
-        $this->assertSame([], ImagePicker::terms(' ; '));
-    }
-
     public function testPhotographsAreFoundForTheBlockAndTheChosenOneIsKept(): void
     {
         $this->signIn();
@@ -137,18 +130,15 @@ class ImagePickerTest extends TestCase
         $block = $draft->getFieldValue('blocks')->status(null)->one();
 
         $this->fake->respond('photo-researcher', 'mended bowls; gold repair; old workshop');
-        $this->fake->respond('photo-picker', '5, 2');
+        $this->fake->respond('photo-picker', "5: a bench of mended pots\n2: gold seams on a bowl");
 
-        // Two results for each search, then a thumbnail of each.
+        // Two results for each search, each with its thumbnail.
         foreach (['a', 'b', 'c'] as $term) {
             $this->http->append(new Response(200, [], json_encode(['results' => [
                 ['id' => "{$term}1", 'thumbnail' => "https://example.com/{$term}1.jpg", 'creator' => 'Ann', 'license' => 'cc0', 'foreign_landing_url' => 'https://example.com'],
                 ['id' => "{$term}2", 'thumbnail' => "https://example.com/{$term}2.jpg", 'creator' => 'Bo', 'license' => 'pdm'],
             ]])));
-        }
-
-        foreach (range(1, 6) as $i) {
-            $this->http->append(new Response(200, ['Content-Type' => 'image/png'], $this->png()));
+            $this->http->append(new Response(200, ['Content-Type' => 'image/png'], $this->png()), new Response(200, ['Content-Type' => 'image/png'], $this->png()));
         }
 
         $started = $this->action('ghostwriter/images/start', ['fieldId' => $this->picture->id, 'elementId' => $block->id, 'siteId' => $block->siteId, 'mode' => 'find', 'words' => '']);
@@ -163,9 +153,13 @@ class ImagePickerTest extends TestCase
         $this->assertSame('ready', $found['status']);
         $this->assertSame(['mended bowls', 'gold repair', 'old workshop'], $found['terms']);
 
-        // The two the picker chose come first; the rest follow.
-        $this->assertSame(['c1', 'a2', 'a1', 'b1', 'b2', 'c2'], array_column($found['options'], 'id'));
-        $this->assertSame([true, true], array_column(array_slice($found['options'], 0, 2), 'picked'));
+        // Only the two the picker said fit, best first, both the best match.
+        $this->assertSame(['c1', 'a2'], array_column($found['options'], 'id'));
+        $this->assertSame([true, true], array_column($found['options'], 'picked'));
+        $this->assertSame('a bench of mended pots', $found['options'][0]['reason']);
+        $this->assertTrue($found['judged']);
+        $this->assertTrue($found['withReferences']);
+        $this->assertFalse($found['noneFit']);
 
         // Searched for tall pictures, as the feature pictures are, Openverse
         // for free work only. The researcher read the block and the page.
@@ -174,9 +168,10 @@ class ImagePickerTest extends TestCase
         $this->assertStringContainsString("Words in that part of the page:\n\nMended bowls", $this->fake->prompted('photo-researcher')[0]->prompt);
         $this->assertCount(2 + 6, $this->fake->prompted('photo-picker')[0]->images);
 
-        // The photograph is looked up again by its ID and downloaded.
+        // The photograph is looked up again by its ID and downloaded, and
+        // named, titled and described from what the library says it shows.
         $this->http->append(
-            new Response(200, [], json_encode(['id' => 'c1', 'url' => 'https://example.com/full.png', 'creator' => 'Ann', 'license' => 'cc0', 'foreign_landing_url' => 'https://example.com/c1'])),
+            new Response(200, [], json_encode(['id' => 'c1', 'url' => 'https://example.com/full.png', 'thumbnail' => 'https://example.com/c1.jpg', 'title' => 'Potter mending a bowl', 'creator' => 'Ann', 'license' => 'cc0', 'foreign_landing_url' => 'https://example.com/c1'])),
             new Response(200, ['Content-Type' => 'image/png'], $this->png()),
         );
 
@@ -186,28 +181,63 @@ class ImagePickerTest extends TestCase
 
         $asset = Asset::find()->id($used['data']['assetId'])->one();
 
-        $this->assertSame('Old workshop', $asset->title);
+        $this->assertSame('Potter mending a bowl', $asset->title);
+        $this->assertSame('Potter mending a bowl', $asset->alt);
         $this->assertSame($this->volume->id, $asset->volumeId);
-        $this->assertStringStartsWith('old-workshop-', $asset->filename);
+        $this->assertStringStartsWith('potter-mending-a-bowl-', $asset->filename);
     }
 
-    public function testPhotographsNotComparedWithAnythingAreNotCalledTheBestMatch(): void
+    public function testWithNoImagesToMatchPhotographsAreStillJudgedAgainstThePage(): void
     {
         $this->signIn();
-        $banner = $this->makeField(Assets::class, 'banner', ['sources' => ['volume:' . $this->volume->uid], 'defaultUploadLocationSource' => 'volume:' . $this->volume->uid, 'maxRelations' => 1]);
-        $notes = $this->makeSection('notes', [$this->makeEntryType('note', [$banner])]);
-        $slot = ImageSlot::for($banner, $this->newDraft($notes), Craft::$app->getUser()->getIdentity());
+        $slot = $this->bannerSlot();
 
         // No entry here has a banner yet, so there is nothing to compare with.
         $this->assertSame([], $slot->references());
 
-        $this->http->append(new Response(200, [], json_encode(['results' => array_map(fn(int $i) => ['id' => "p{$i}", 'thumbnail' => "https://example.com/p{$i}.jpg", 'creator' => 'Ann', 'license' => 'cc0'], range(1, 5))])));
+        $this->photosFor(5);
+        $this->fake->respond('photo-picker', "2: a carved oak table\n4: a workshop bench");
 
-        $options = $this->plugin->imagePicker->shortlist($slot, ['carved table']);
+        $results = $this->plugin->imagePicker->find($slot, ['carved table']);
 
-        $this->assertCount(5, $options);
-        $this->assertSame([], array_filter(array_column($options, 'picked')));
-        $this->assertSame([], $this->fake->prompted('photo-picker'));
+        $this->assertTrue($results->judged);
+        $this->assertFalse($results->withReferences);
+        $this->assertSame(['p2', 'p4'], array_map(fn($photo) => $photo->id, $results->photos));
+        $this->assertStringContainsString('There are no reference images', $this->fake->prompted('photo-picker')[0]->prompt);
+    }
+
+    public function testPhotographsNotJudgedAreNotCalledTheBestMatch(): void
+    {
+        $this->signIn();
+        $slot = $this->bannerSlot();
+
+        // No writing model to judge with.
+        $this->unfake();
+        $this->plugin->providers->keys['anthropic'] = null;
+        $this->photosFor(5);
+
+        $results = $this->plugin->imagePicker->find($slot, ['carved table']);
+
+        $this->assertCount(5, $results);
+        $this->assertFalse($results->judged);
+        $this->assertSame([], $results->picked());
+    }
+
+    public function testWhenNothingFitsASecondRoundIsSearched(): void
+    {
+        $this->signIn();
+        $slot = $this->bannerSlot();
+
+        $this->photosFor(4);
+        $this->fake->respond('photo-picker', 'none: oak dining table; carpenter at work', '1: a carpenter at a bench');
+        $this->photosFor(2, 'q');
+        $this->http->append(new Response(200, [], json_encode(['results' => []])));
+
+        $results = $this->plugin->imagePicker->find($slot, ['carved table']);
+
+        $this->assertTrue($results->retried);
+        $this->assertSame(['carved table', 'oak dining table', 'carpenter at work'], $results->terms);
+        $this->assertSame(['q1'], array_map(fn($photo) => $photo->id, $results->picked()));
     }
 
     public function testAPhotographFromElsewhereIsRefused(): void
@@ -286,7 +316,7 @@ class ImagePickerTest extends TestCase
     public function testADownloadStaysSecureAndWithinItsSize(): void
     {
         $stock = $this->plugin->imagePicker->stock();
-        $photo = fn(string $url) => new Response(200, [], json_encode(['url' => $url, 'license' => 'cc0', 'creator' => 'Ann']));
+        $photo = fn(string $url) => new Response(200, [], json_encode(['id' => 'abc', 'url' => $url, 'thumbnail' => $url, 'license' => 'cc0', 'creator' => 'Ann']));
 
         // Redirected to plain http: not followed.
         $this->http->append($photo('https://example.com/a.png'), new Response(302, ['Location' => 'http://example.com/a.png']));
@@ -294,9 +324,12 @@ class ImagePickerTest extends TestCase
         try {
             $stock->fetch('openverse', 'abc');
             $this->fail('An insecure redirect was followed.');
-        } catch (\Throwable $exception) {
-            $this->assertStringContainsString('http', strtolower($exception->getMessage()));
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertSame('That photograph has no secure download address.', $exception->getMessage());
         }
+
+        // Craft's clients hand redirects back for core to check.
+        $this->assertFalse($this->sent[1]['options']['allow_redirects']);
 
         // Too large, by what it says and by what arrives.
         $this->http->append($photo('https://example.com/b.png'), new Response(200, ['Content-Type' => 'image/png', 'Content-Length' => (string) (20 * 1024 * 1024)], 'x'));
@@ -309,6 +342,26 @@ class ImagePickerTest extends TestCase
             } catch (\InvalidArgumentException $exception) {
                 $this->assertSame('That photograph is too large to use.', $exception->getMessage());
             }
+        }
+    }
+
+    private function bannerSlot(): ImageSlot
+    {
+        $banner = $this->makeField(Assets::class, 'banner', ['sources' => ['volume:' . $this->volume->uid], 'defaultUploadLocationSource' => 'volume:' . $this->volume->uid, 'maxRelations' => 1]);
+        $notes = $this->makeSection('notes', [$this->makeEntryType('note', [$banner])]);
+
+        return ImageSlot::for($banner, $this->newDraft($notes), Craft::$app->getUser()->getIdentity());
+    }
+
+    /**
+     * One Openverse search's results, and their thumbnails.
+     */
+    private function photosFor(int $count, string $prefix = 'p'): void
+    {
+        $this->http->append(new Response(200, [], json_encode(['results' => array_map(fn(int $i) => ['id' => "{$prefix}{$i}", 'thumbnail' => "https://example.com/{$prefix}{$i}.jpg", 'creator' => 'Ann', 'license' => 'cc0'], range(1, $count))])));
+
+        foreach (range(1, $count) as $i) {
+            $this->http->append(new Response(200, ['Content-Type' => 'image/png'], $this->png()));
         }
     }
 

@@ -17,8 +17,11 @@ Click it to choose an image for that one field.
 Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries).
 
 1. Type what the picture should show, or leave it empty and Ghostwriter chooses three searches from the block and page. Separate your own searches with semicolons.
-2. **Search.** The model looks at the results beside the images already used there, and marks the best ones **Best match**. When there is nothing to compare with (no image there on other entries yet, or no writing model), nothing is marked, and a line says the results are in search order.
-3. The best three show first; **View N more** shows the rest.
+2. **Search.** **Searched for: …** above the results lists every search that ran. The model checks each result against the block's and page's words (and what the library says the photo shows), and against the images already used there when there are any. Clear misses are left out, and the best are marked **Best match**.
+   - With no image there on other entries yet, the photos are still judged against the words, and a line says there were no other images to match.
+   - If none fit, Ghostwriter searches once more with better words. If those don't fit either, you see the plain results, with a line saying none quite fit.
+   - With no writing model, nothing is judged or marked, and a line says the results are in search order.
+3. The best three show first; **View N more** shows the rest. Hover a judged photo to see why it was chosen. The credit under each photo links to its page on the library, to check its licence and context.
 4. Click the photo, or **Use this**, on the one you want.
 
 ## Make one
@@ -34,7 +37,7 @@ Ghostwriter never draws a real company's logo from memory. To put a real logo or
 
 ## What happens when you choose one
 
-- The image is saved as an asset in the **field's own upload location**, with a title.
+- The image is saved as an asset in the **field's own upload location**. A found photo is named, titled and given **alt text** from what the library says it shows (for example `potter-mending-a-bowl-x7k2qa.jpg`, "Potter mending a bowl"), falling back to the search words. Its credit and licence go in a credit field on the volume, if it has one.
 - It goes straight into the field, as if you'd uploaded it. Save the entry as usual.
 - If the field held a **striped placeholder**, the placeholder comes out. In a field that holds only one image, the new image replaces the old one.
 - If the field is full, the image is saved to Assets and you're asked to make room.
