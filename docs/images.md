@@ -2,7 +2,7 @@
 
 On every image field in a section Ghostwriter writes for, a **Ghostwriter** button sits beside **Add an asset** and **Upload a file**. When the field is full, it sits just below the field instead.
 
-It isn't shown on fields that only accept other kinds of file (for example PDFs), on fields with no upload location, or when no image tool is available (no photo library, no OpenAI or Gemini key, and no Imagick for logo cards).
+It isn't shown on fields that only accept other kinds of file (for example PDFs), on fields with no upload location, or when neither a photo library nor an OpenAI or Gemini key is available.
 
 Click it to choose an image for that one field.
 
@@ -30,17 +30,7 @@ Needs an OpenAI or Gemini key (see [API keys](api-keys.md)).
 3. **Make the picture.** It takes a minute or two, matching the style of the images already in that place.
 4. **Use this**, or **Make another**.
 
-Ghostwriter never draws a real company's logo from memory. For logos, use a logo card.
-
-## Logo card
-
-For partner, client or technology tiles: your logo, centred on a flat colour or a gradient, drawn in code so it comes out exactly as it went in. Needs the Imagick PHP extension.
-
-1. Choose the **Logo**: a PNG, SVG or WebP with a transparent background. SVGs that refer to other files or contain scripts are refused.
-2. **Colour**: leave blank to use the logo's own main colour, or give a hex value such as `#2B3A64`.
-3. **Second colour, for a gradient** (optional).
-4. **Make the logo white** is on by default, as on a coloured ground it usually should be.
-5. **Make the card and use it.** The card is sized to match the images in that place.
+Ghostwriter never draws a real company's logo from memory. To put a real logo or product in a picture, add it as **an image of your own**.
 
 ## What happens when you choose one
 

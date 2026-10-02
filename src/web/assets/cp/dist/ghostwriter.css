@@ -280,9 +280,7 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-photo--made { max-width: 640px; margin-top: 16px; }
 .gw-photo--made img { aspect-ratio: auto; object-fit: contain; }
 .gw-photo--made figcaption { flex-direction: row; }
-.gw-image-source, .gw-image-logo { display: grid; gap: 10px; margin: 12px 0 16px; }
-.gw-image-logo label { display: grid; gap: 4px; }
-.gw-image-logo .gw-logo-white { display: flex; gap: 6px; align-items: center; }
+.gw-image-source { display: grid; gap: 10px; margin: 12px 0 16px; }
 
 /* The dashboard. */
 .gw-start { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 20px 24px; margin-bottom: 24px; border-radius: var(--large-border-radius, 6px); background: var(--gw-paper); border: 1px solid var(--gw-rule); }

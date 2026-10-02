@@ -23,7 +23,7 @@ It runs on Claude, ChatGPT or Gemini, using your own API key.
 - **Writing beside the form.** **Write with Ghostwriter** on a new entry opens a panel over the form. You answer the brief, Ghostwriter drafts, and you ask for changes in conversation. **Use this draft** puts it into the entry's Craft draft. Nothing is published for you.
 - **Editing what exists.** **Edit with Ghostwriter** on an existing entry opens the same panel, with the entry's content as the draft. You ask for changes in plain words, and **Use these changes** puts them into your own Craft draft of the entry, the "edited, not saved" draft Craft keeps per person. Only the writing changes: images, links, settings and switched-off blocks stay as they were, and the live entry is untouched until you save.
 - **House style.** Spacer heights, breadcrumbs and heading markup that the section's pages agree on are copied into the new page. A link from a page to itself becomes a link to the new page. A link Ghostwriter can't decide points to `https://example.com`, and is listed so you don't miss it.
-- **Images.** A Ghostwriter button sits beside "Add an asset" on image fields. It reads the block the field is in and the page around it. It can find photos in free libraries and pick the ones that best match the images already used there. It can also make a new image in that style, or put a logo on a flat colour or gradient. The image you choose is saved to the field's upload folder and added to the field.
+- **Images.** A Ghostwriter button sits beside "Add an asset" on image fields. It reads the block the field is in and the page around it. It can find photos in free libraries and pick the ones that best match the images already used there. It can also make a new image in that style. The image you choose is saved to the field's upload folder and added to the field.
 - **Image placeholders.** Image fields a draft leaves empty, where the section's pages usually have an image, get a striped placeholder. That way the layout shows where pictures go.
 - **Image style guide.** A written description of the site's images, per section, used whenever images are found or made.
 - **Content plan.** Ideas for what to write next, based on what each section already has and what it lacks. Any idea can be opened as a new entry.
@@ -44,7 +44,7 @@ The writer is told to use only facts from the brief and the conversation. It doe
 - PHP 8.2 or later
 - An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
 - Optional: an OpenAI or Gemini key to make images (Claude does not make images)
-- Optional: the Imagick PHP extension, for logo cards and smaller images sent to models
+- Optional: the Imagick PHP extension, for smaller images sent to models
 
 ## Installation
 

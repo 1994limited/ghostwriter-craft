@@ -2069,9 +2069,10 @@
     });
     /**
      * The Ghostwriter button on an image field, beside "Add an asset" and
-     * "Upload a file". It finds a photograph, has a picture made, or sets a
-     * logo on a ground, and puts the one chosen into the field the way an
-     * upload would, through the field's own input.
+     * "Upload a file". It finds a photograph or has a picture made, and puts
+     * the one chosen into the field the way an upload would, through the
+     * field's own input. The server only offers it when one of the two can
+     * be done.
      */
     Ghostwriter.ImageButton = Garnish.Base.extend({
         init(holder) {
@@ -2089,7 +2090,7 @@
             this.modal = null;
             this.request = null;
             this.timer = null;
-            this.mode = this.config.canFind ? 'find' : (this.config.canMake ? 'make' : 'logo');
+            this.mode = this.config.canFind ? 'find' : 'make';
 
             this.$button = $('<button type="button" class="btn dashed gw-image-launch"/>').append('<span class="gw-mark" aria-hidden="true"></span>', document.createTextNode(t('Ghostwriter')));
             const $row = this.$select.find('> .flex').first();
@@ -2132,11 +2133,11 @@
                 <div class="gw-panel">
                     <div class="gw-panel__header">
                         <h2 class="gw-panel__title"><span class="gw-icon" aria-hidden="true">${this.config.icon ?? ''}</span>${Ghostwriter.escape(t('Image for {label}', { label: this.config.label }))}</h2>
+                        ${this.config.canFind && this.config.canMake ? `
                         <div class="btngroup gw-image-tabs" role="tablist">
-                            ${this.config.canFind ? `<button type="button" class="btn" data-mode="find">${t('Find a photo')}</button>` : ''}
-                            ${this.config.canMake ? `<button type="button" class="btn" data-mode="make">${t('Make one')}</button>` : ''}
-                            ${this.config.canLogo ? `<button type="button" class="btn" data-mode="logo">${t('Logo card')}</button>` : ''}
-                        </div>
+                            <button type="button" class="btn" data-mode="find">${t('Find a photo')}</button>
+                            <button type="button" class="btn" data-mode="make">${t('Make one')}</button>
+                        </div>` : ''}
                         <button type="button" class="btn gw-image-close">${t('Close')}</button>
                     </div>
                     <div class="gw-panel__body">
@@ -2160,17 +2161,6 @@
                             <div class="gw-image-status"></div>
                             <div class="gw-image-made"></div>
                         </div>
-                        <div class="gw-image-pane hidden" data-pane="logo">
-                            <p class="light">${t('Your logo centred on a flat colour or a gradient, drawn exactly as it is. Use a PNG or SVG with a transparent background.')}</p>
-                            <div class="gw-image-logo">
-                                <label>${t('Logo')} <input type="file" accept="image/png,image/svg+xml,image/webp" class="gw-logo-file"></label>
-                                <label>${t('Colour')} <input type="text" class="text gw-logo-colour" placeholder="${Ghostwriter.escape(t('The logo’s own, or #hex'))}"></label>
-                                <label>${t('Second colour, for a gradient')} <input type="text" class="text gw-logo-colour-to" placeholder="#hex"></label>
-                                <label class="gw-logo-white"><input type="checkbox" class="gw-logo-white-check" checked> ${t('Make the logo white')}</label>
-                            </div>
-                            <button type="button" class="btn submit gw-image-logo-make">${t('Make the card and use it')}</button>
-                            <div class="gw-image-status"></div>
-                        </div>
                     </div>
                 </div>`);
 
@@ -2184,7 +2174,6 @@
             this.addListener($modal.find('.gw-image-search'), 'click', 'find');
             this.addListener($modal.find('.gw-image-words'), 'keydown', (event) => event.key === 'Enter' && this.find());
             this.addListener($modal.find('.gw-image-make'), 'click', 'make');
-            this.addListener($modal.find('.gw-image-logo-make'), 'click', 'logo');
 
             this.show(this.mode);
         },
@@ -2253,32 +2242,6 @@
                 this.follow(data, $make);
             } catch (error) {
                 $make.removeClass('loading');
-            }
-        },
-
-        async logo() {
-            const t = this.t;
-            const $pane = this.pane('logo');
-            const $go = $pane.find('.gw-image-logo-make');
-            const file = $pane.find('.gw-logo-file')[0].files[0];
-
-            if (!file) {
-                Craft.cp.displayError(t('Choose the logo file first.'));
-
-                return;
-            }
-
-            const form = new FormData();
-            Object.entries({ ...this.target(), colour: $pane.find('.gw-logo-colour').val(), colourTo: $pane.find('.gw-logo-colour-to').val(), white: $pane.find('.gw-logo-white-check').is(':checked') ? 1 : 0 }).forEach(([key, value]) => form.append(key, value));
-            form.append('logo', file);
-
-            $go.addClass('loading');
-
-            try {
-                await this.place(await Ghostwriter.request('POST', 'images/logo', form));
-            } catch (error) {
-            } finally {
-                $go.removeClass('loading');
             }
         },
 

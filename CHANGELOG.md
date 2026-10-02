@@ -9,7 +9,7 @@
 - The writing panel on new entries, with the brief, a follow-up conversation, a block and text view of the draft that can be edited in place, and **Use this draft**, which writes into the entry's Craft draft.
 - Editing existing entries in conversation, into the person's provisional draft, changing only the writing.
 - House style: settings, links and heading markup that a section's pages agree on are carried into new pages; links to the page itself become links to the new page; links that cannot be decided point to `https://example.com` and are listed.
-- The image button on Assets fields: find free photos (Openverse, Unsplash, Pexels, Pixabay), make an image with OpenAI or Gemini, or set a logo on a flat or gradient ground.
+- The image button on Assets fields: find free photos (Openverse, Unsplash, Pexels, Pixabay), or make an image with OpenAI or Gemini.
 - Striped placeholders in image fields a draft leaves empty, where the section's pages usually have an image.
 - Image style guide.
 - Content plan, with ideas suggested from what each section has and lacks.
@@ -42,6 +42,9 @@
 - Content plan: closing the suggestions box no longer throws the batch away. It waits, with a **N suggestions waiting** card at the top of the plan to reopen it; only **Drop them all** discards it. The add button counts what is ticked (**Add N to the plan**, or **Add none, dismiss the rest**).
 - Content plan ideas are shown newest first within each section, and **Put back** is only offered on dismissed ideas, not finished ones.
 
+### Removed
+- Logo cards (a logo set on a flat or gradient ground) are gone from the image button, which now offers **Find a photo** and **Make one**, with no tabs when only one is available. To put a logo or product in a picture, add it as an image of your own under **Make one**.
+
 ### Fixed
 - **Generate the guide** on the voice guide (and on Get started) with no section ticked no longer reads every section on the site: the button is off until a section is ticked, and the server refuses an empty choice.
 - A kind of content that fails to save (no name, or no question) comes back with what was typed, rather than the stored version.
@@ -50,5 +53,5 @@
 - **Show Get started** at the foot of the dashboard is there whenever Get started is hidden, including once setup is complete.
 - The notes after **Use this draft** (choices left, links to settle, placeholders) are one notification listing them all, which stays until it is closed, instead of a toast per note.
 - Suggested kinds show why each is worth teaching and up to three example titles, on the dashboard and on Get started, as the docs said.
-- The image button no longer appears when there is no image tool at all (no photo library, no image key, no Imagick).
+- The image button no longer appears when there is nothing it can do (no photo library and no image key).
 - Counts read "1 suggestion", "1 idea", "1 entry" rather than "1 ideas", and keeping no suggestions says how many were dismissed rather than "0 ideas added".

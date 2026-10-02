@@ -54,10 +54,6 @@ The button only appears:
 
 Making images needs an OpenAI or Gemini key (Gemini needs billing turned on for image models). OpenAI may ask you to verify your organisation first.
 
-## No "Logo card" option
-
-Logo cards need the Imagick PHP extension. Ask your host to turn it on, or check with `php -m | grep imagick`.
-
 ## Photo search finds little
 
 - Add an Unsplash, Pexels or Pixabay key: Openverse on its own has a smaller, more archival collection.

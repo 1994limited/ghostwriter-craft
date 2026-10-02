@@ -14,7 +14,7 @@ Ghostwriter learns how your site writes, then drafts and edits entries in that v
 - [Editing an existing entry](editing.md): changing what is already published.
 - [Kinds of content](kinds.md): teaching Ghostwriter the things you write often.
 - [The voice guide and image style guide](guides.md): how your site sounds and what its pictures look like.
-- [Images](images.md): finding photos, making images and logo cards from any image field.
+- [Images](images.md): finding photos and making images from any image field.
 - [The content plan](content-plan.md): ideas for what to write next.
 - [The dashboard and widget](dashboard.md): what is in progress, at a glance.
 
