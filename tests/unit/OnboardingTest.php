@@ -54,7 +54,7 @@ class OnboardingTest extends TestCase
 
         // Suggestions waiting are not the same as kinds learned.
         $this->assertFalse($steps['kinds']['done']);
-        $this->assertSame('1 suggestion is waiting on the dashboard.', $steps['kinds']['detail']);
+        $this->assertSame('1 suggestion is waiting on the Overview.', $steps['kinds']['detail']);
 
         $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
         $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));

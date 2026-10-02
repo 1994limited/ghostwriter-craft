@@ -3,6 +3,9 @@
 namespace nineteenninetyfour\ghostwriter\models;
 
 use craft\base\Model;
+use craft\helpers\App;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\NotConfigured;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\BaseUrl;
 
 /**
  * Ghostwriter's settings. They are edited on the plugin's settings page and,
@@ -20,6 +23,19 @@ class Settings extends Model
 
     /** Leave null to use the provider's default model. */
     public ?string $model = null;
+
+    /** The providers a base URL can be set for. */
+    public const BASE_URL_PROVIDERS = ['anthropic', 'openai', 'gemini'];
+
+    /**
+     * A gateway or proxy that speaks a provider's own API, per provider, in
+     * place of the provider's own address. Blank for the provider's own. Each
+     * may be an environment variable ("$GHOSTWRITER_ANTHROPIC_BASE_URL"). It
+     * must be https://, except for localhost, 127.0.0.1 and [::1].
+     *
+     * @var array<string, string>
+     */
+    public array $baseUrls = ['anthropic' => '', 'openai' => '', 'gemini' => ''];
 
     /** Seconds to wait for one response. Long drafts take a while. */
     public int $timeout = 300;
@@ -64,23 +80,24 @@ class Settings extends Model
     public int $imageGuideSamples = 10;
 
     /**
-     * Look for kinds of content in each section without being asked: the
-     * first time a section is seen, and again once ten or more entries have
-     * been published there since. Each look is one model call.
+     * Look for kinds of content in each section when Get started's kinds
+     * step opens: sections never looked at, and those with ten or more
+     * entries published since the last look. Elsewhere kinds are suggested
+     * only when someone asks. Each look is one model call.
      */
     public bool $suggestKindsAutomatically = true;
 
     /**
-     * Whether Get started shows on the dashboard and in the menu. Not kept
+     * Whether Get started shows on the Overview and in the menu. Not kept
      * in project config: it is applied to Ghostwriter's own state when the
-     * settings are saved, where the dashboard's Hide button also writes.
+     * settings are saved, where the Overview's Hide button also writes.
      */
     public bool $showGetStarted = true;
 
     /**
      * Conversations are shared with everyone who may use Ghostwriter: any of
-     * them can open, carry on or remove a piece. Off, each person sees only
-     * the pieces they started.
+     * them can open or carry on a piece, and the person who started it or an
+     * admin can remove it. Off, each person sees only the pieces they started.
      */
     public bool $sharedConversations = true;
 
@@ -113,7 +130,35 @@ class Settings extends Model
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
             [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations'], 'boolean'],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
+            [['baseUrls'], 'validateBaseUrls'],
         ];
+    }
+
+    /**
+     * Each base URL, once any environment variable in it is read, must be one
+     * core will send a key to. The error is kept against the provider's own
+     * field, as "baseUrls.anthropic".
+     */
+    public function validateBaseUrls(string $attribute): void
+    {
+        foreach (self::BASE_URL_PROVIDERS as $provider) {
+            try {
+                BaseUrl::check($provider, $this->baseUrl($provider));
+            } catch (NotConfigured) {
+                $this->addError("$attribute.$provider", \Craft::t('ghostwriter', 'Use an https:// address (http:// only for localhost, 127.0.0.1 or [::1]), with no query string or password.'));
+            }
+        }
+    }
+
+    /**
+     * The base URL for a provider, with environment variables read, or null
+     * for the provider's own address.
+     */
+    public function baseUrl(string $provider): ?string
+    {
+        $value = App::parseEnv(trim((string) ($this->baseUrls[$provider] ?? '')));
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
     /**
@@ -170,6 +215,15 @@ class Settings extends Model
         foreach (['model', 'imageModel', 'imageProvider'] as $key) {
             if (array_key_exists($key, $values) && $values[$key] === '') {
                 $values[$key] = null;
+            }
+        }
+
+        if (array_key_exists('baseUrls', $values)) {
+            $given = is_array($values['baseUrls']) ? $values['baseUrls'] : [];
+            $values['baseUrls'] = [];
+
+            foreach (self::BASE_URL_PROVIDERS as $provider) {
+                $values['baseUrls'][$provider] = is_string($given[$provider] ?? null) ? trim($given[$provider]) : '';
             }
         }
 

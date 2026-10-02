@@ -29,6 +29,9 @@ class ScreensTest extends TestCase
         $this->assertStringContainsString('Articles', $html);
 
         $this->plugin->voiceGuide->save("# Tone of voice\n\nWe, to you.");
+        $html = $this->render('ghostwriter/dashboard/index');
+        $this->assertStringContainsString('class="screen-title" title="Overview">Overview</h1>', $html);
+        $this->assertStringContainsString('Written', $html);
         $html = $this->render('ghostwriter/voice/show');
         $this->assertStringContainsString('We, to you.', $html);
         $this->assertStringContainsString('new Ghostwriter.GuideScreen', $html);

@@ -2,6 +2,8 @@
 
 namespace nineteenninetyfour\ghostwriter\tests\unit;
 
+use Craft;
+use craft\web\View;
 use GuzzleHttp\Psr7\Response;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Effort;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\NotConfigured;
@@ -90,6 +92,72 @@ class ProvidersTest extends TestCase
         // The agent's own limit and effort, from core.
         $this->assertSame(2000, $body['max_tokens']);
         $this->assertSame(['effort' => 'low'], $body['output_config']);
+    }
+
+    public function testAGatewayFromTheSettingsIsCalledInsteadOfTheProvidersOwnAddress(): void
+    {
+        $this->unfake();
+        $settings = $this->plugin->getSettings();
+
+        $_SERVER['GHOSTWRITER_ANTHROPIC_BASE_URL'] = 'https://gateway.example.com/anthropic/';
+        $settings->setAttributes(['baseUrls' => ['anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL']], false);
+
+        try {
+            // Unknown and missing providers are tidied into the three known ones.
+            $this->assertSame(['anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL', 'openai' => '', 'gemini' => ''], $settings->baseUrls);
+            $this->assertSame('https://gateway.example.com/anthropic/', $settings->baseUrl('anthropic'));
+            $this->assertNull($settings->baseUrl('openai'));
+
+            $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Hello.']]])));
+            $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.');
+
+            $this->assertSame('https://gateway.example.com/anthropic/v1/messages', (string) $this->sent[0]['request']->getUri());
+        } finally {
+            unset($_SERVER['GHOSTWRITER_ANTHROPIC_BASE_URL']);
+        }
+
+        // An unset variable means the provider's own address.
+        $this->assertNull($settings->baseUrl('anthropic'));
+    }
+
+    public function testAGatewayMustBeHttpsExceptOnThisMachine(): void
+    {
+        $plugins = Craft::$app->getPlugins();
+
+        $this->assertTrue($plugins->savePluginSettings($this->plugin, ['baseUrls' => ['anthropic' => 'https://gateway.example.com', 'openai' => 'http://localhost:8080', 'gemini' => 'http://[::1]:9000']]));
+        $this->assertSame('http://localhost:8080', $this->plugin->getSettings()->baseUrl('openai'));
+
+        foreach (['http://gateway.example.com', 'https://user:secret@gateway.example.com', 'https://gateway.example.com/?key=1', 'gateway.example.com'] as $address) {
+            $this->assertFalse($plugins->savePluginSettings($this->plugin, ['baseUrls' => ['gemini' => $address]]), $address);
+            $this->assertNotEmpty($this->plugin->getSettings()->getErrors('baseUrls.gemini'), $address);
+        }
+
+        // A variable is checked for what it holds.
+        $_SERVER['GHOSTWRITER_OPENAI_BASE_URL'] = 'http://gateway.example.com';
+
+        try {
+            $this->assertFalse($plugins->savePluginSettings($this->plugin, ['baseUrls' => ['openai' => '$GHOSTWRITER_OPENAI_BASE_URL']]));
+        } finally {
+            unset($_SERVER['GHOSTWRITER_OPENAI_BASE_URL']);
+        }
+    }
+
+    public function testTheGatewaysAreOnTheSettingsScreenAndLockedWhenSetInConfig(): void
+    {
+        $variables = [
+            'settings' => $this->plugin->getSettings(),
+            'sections' => [],
+            'keys' => [],
+            'modelDefaults' => [],
+        ];
+
+        $html = Craft::$app->getView()->renderTemplate('ghostwriter/_settings', $variables + ['overrides' => []], View::TEMPLATE_MODE_CP);
+        $this->assertStringContainsString('Claude (Anthropic) base URL', $html);
+        $this->assertStringContainsString('id="baseUrls-gemini-field"', $html);
+        $this->assertStringNotContainsString('Set by <code>baseUrls</code>', $html);
+
+        $html = Craft::$app->getView()->renderTemplate('ghostwriter/_settings', $variables + ['overrides' => ['baseUrls']], View::TEMPLATE_MODE_CP);
+        $this->assertStringContainsString('Set by <code>baseUrls</code> in config/ghostwriter.php', $html);
     }
 
     public function testABusyProviderIsTriedAgainThenExplainedInPlainWords(): void

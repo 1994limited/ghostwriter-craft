@@ -5,8 +5,8 @@
 #}
 {% extends '_layouts/cp' %}
 
-{% set title = 'Ghostwriter'|t('ghostwriter') %}
-{% set selectedSubnavItem = 'dashboard' %}
+{% set title = 'Overview'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'overview' %}
 
 {% set inProgress = sessions|filter(s => not s.finished) %}
 {% set finished = sessions|filter(s => s.finished) %}
@@ -16,7 +16,7 @@
     working: ['blue', 'Writing'|t('ghostwriter')],
     interview: ['orange', 'Waiting on you'|t('ghostwriter')],
     draft: ['orange', 'Draft ready'|t('ghostwriter')],
-    in_form: ['yellow', 'In the form, not saved'|t('ghostwriter')],
+    in_form: ['yellow', 'In the entry, not saved'|t('ghostwriter')],
     saved: ['green', 'Saved'|t('ghostwriter')],
     published: ['green', 'Published'|t('ghostwriter')],
     editing: ['orange', 'Editing'|t('ghostwriter')],
@@ -96,7 +96,7 @@
         <a class="gw-tile" href="{{ cpUrl('ghostwriter/voice') }}">
             <span class="gw-tile__label">{{ 'Voice guide'|t('ghostwriter') }}</span>
             {% if voice.exists %}
-                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'In place'|t('ghostwriter') }}</span>
+                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'Written'|t('ghostwriter') }}</span>
                 <span class="gw-tile__note">{{ 'Updated {when}'|t('ghostwriter', {when: voice.updatedAt|timestamp}) }}</span>
             {% else %}
                 <span class="gw-tile__value"><span class="status disabled" aria-hidden="true"></span>{{ 'Not written yet'|t('ghostwriter') }}</span>
@@ -106,7 +106,7 @@
         <a class="gw-tile" href="{{ cpUrl('ghostwriter/imagery') }}">
             <span class="gw-tile__label">{{ 'Image style'|t('ghostwriter') }}</span>
             {% if imagery.exists %}
-                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'In place'|t('ghostwriter') }}</span>
+                <span class="gw-tile__value"><span class="status green" aria-hidden="true"></span>{{ 'Written'|t('ghostwriter') }}</span>
                 <span class="gw-tile__note">{{ 'Updated {when}'|t('ghostwriter', {when: imagery.updatedAt|timestamp}) }}</span>
             {% else %}
                 <span class="gw-tile__value"><span class="status disabled" aria-hidden="true"></span>{{ 'Not written yet'|t('ghostwriter') }}</span>

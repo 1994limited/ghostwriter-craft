@@ -1159,7 +1159,7 @@
 
                 html += `
                     <div class="gw-bubble gw-bubble--${mine ? 'me' : 'them'} ${waiting ? 'gw-bubble--asking' : ''}">
-                        <div class="gw-bubble__who">${esc(!mine ? t('Ghostwriter') : (entry.mine === false ? entry.from : t('You')))}${waiting ? ` · <span class="gw-bubble__flag">${esc(t('needs your answer'))}</span>` : ''}</div>
+                        <div class="gw-bubble__who">${waiting ? `<span class="gw-bubble__flag">${esc(t('Ghostwriter needs your answer'))}</span>` : esc(!mine ? t('Ghostwriter') : (entry.mine === false ? entry.from : t('You')))}</div>
                         ${!mine && entry.html ? `<div class="gw-bubble__text gw-prose">${entry.html}</div>` : `<div class="gw-bubble__text gw-pre">${esc(entry.content)}</div>`}
                         ${entry.draft ? `<div class="gw-bubble__draft">✓ ${esc(this.draftNote(entry.draft))}</div>` : ''}
                     </div>`;
@@ -1241,7 +1241,7 @@
                         : (this.view === 'text' ? this.textView(session.preview) : this.preview(session.preview)));
 
                 if (!this.editing && !session.draftProblem && !working) {
-                    body = `<p class="light gw-edit-hint">${esc(t('Click any text to change it. Changes are saved as you leave each piece.'))}</p>` + body;
+                    body = `<p class="light gw-edit-hint">${esc(t('Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back.'))}</p>` + body;
                 }
             }
 
@@ -2555,7 +2555,7 @@
             await Craft.appendBodyHtml(data.bodyHtml);
             select.$container.trigger('change');
 
-            Craft.cp.displaySuccess(t('Image added.'));
+            Craft.cp.displaySuccess(t('Image added. Save to keep it.'));
             this.modal.hide();
         },
     });

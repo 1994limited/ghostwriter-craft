@@ -59,9 +59,15 @@ class PluginTest extends TestCase
     {
         $this->signIn();
 
-        $labels = array_column(Craft::$app->getView()->getTwig()->getGlobals()['craft']->cp->nav(), 'label');
+        $nav = Craft::$app->getView()->getTwig()->getGlobals()['craft']->cp->nav();
+        $labels = array_column($nav, 'label');
 
         $this->assertLessThan(array_search('Utilities', $labels, true) ?: PHP_INT_MAX, array_search('Ghostwriter', $labels, true));
+
+        // Ghostwriter's home is the Overview, so it is not mistaken for Craft's own Dashboard.
+        $ours = $nav[array_search('Ghostwriter', $labels, true)];
+        $this->assertSame('Overview', $ours['subnav']['overview']['label']);
+        $this->assertNotContains('Dashboard', array_column($ours['subnav'], 'label'));
     }
 
         public function testThereIsOnePermission(): void
