@@ -23,6 +23,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\RecordingSleeper;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\Testing\LayoutLog;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Testing\RequestLog;
 use nineteenninetyfour\ghostwriter\Plugin;
 use RuntimeException;
@@ -52,6 +53,10 @@ abstract class TestCase extends CraftTestCase
     protected function _before(): void
     {
         parent::_before();
+
+        // For a parity check: what the layout algorithms gave in this test,
+        // written down to compare with another run (core's bin/compare-layouts).
+        LayoutLog::start(getenv('GHOSTWRITER_RECORD_LAYOUTS') ?: null, static::class . '::' . $this->name());
 
         $this->plugin = Plugin::getInstance();
         $this->forgetNeo();
@@ -91,6 +96,7 @@ abstract class TestCase extends CraftTestCase
             RequestLog::append($path, static::class . '::' . $this->name(), $this->fake->requests());
         }
 
+        LayoutLog::stop();
         FileHelper::removeDirectory($this->workspace);
 
         parent::_after();
