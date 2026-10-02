@@ -283,6 +283,22 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-photo--made figcaption { flex-direction: row; }
 .gw-image-source { display: grid; gap: 10px; margin: 12px 0 16px; }
 
+/* Stock photos: "Search in", the editorial filter, and the chips on each result. */
+.gw-image-source-pick { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gw-image-filters { margin: -8px 0 16px; font-size: 12px; }
+.gw-image-filters label { display: inline-flex; align-items: center; gap: 6px; }
+.gw-photo__media { position: relative; }
+.gw-photo__media img { display: block; }
+.gw-chip { position: absolute; bottom: 6px; max-width: calc(50% - 9px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; line-height: 1.6; color: #fff; background: rgba(28, 30, 36, .78); pointer-events: none; }
+.gw-chip--source { inset-inline-start: 6px; }
+.gw-chip--cost { inset-inline-end: 6px; }
+.gw-photo--paid .gw-chip--cost { background: var(--gw-ink); }
+.gw-chip--editorial { top: 6px; bottom: auto; max-width: calc(100% - 12px); inset-inline-start: 6px; background: #8a4b08; pointer-events: auto; cursor: help; }
+@media (max-width: 600px) {
+    .gw-image-form { flex-wrap: wrap; }
+    .gw-image-form .text { flex-basis: 100%; }
+}
+
 /* The dashboard. */
 .gw-start { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 20px 24px; margin-bottom: 24px; border-radius: var(--large-border-radius, 6px); background: var(--gw-paper); border: 1px solid var(--gw-rule); }
 .gw-start__intro { display: flex; align-items: center; gap: 14px; }

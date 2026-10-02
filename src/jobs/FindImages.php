@@ -34,7 +34,7 @@ class FindImages extends Job
             $slot = ImageSlot::find((int) ($data['fieldId'] ?? 0), (int) ($data['elementId'] ?? 0), (int) ($data['siteId'] ?? 0))
                 ?? throw new InvalidArgumentException('That image field is no longer on the page.');
 
-            $results = $plugin->imagePicker->find($slot, $request->terms);
+            $results = $plugin->imagePicker->find($slot, $request->terms, (string) ($data['source'] ?? 'free'), (bool) ($data['editorial'] ?? false));
 
             if ($results->terms === []) {
                 throw new InvalidArgumentException('There was nothing to search for. Type what the picture should show.');

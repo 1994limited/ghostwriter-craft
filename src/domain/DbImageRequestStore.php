@@ -64,7 +64,9 @@ class DbImageRequestStore implements ImageRequestStore
             $this->delete(substr((string) $name, strlen('image:')));
         }
 
-        Db::delete(Store::FILES, ['<', 'dateCreated', $before]);
+        // Not stock photo comps: they are kept for the library's comp
+        // period, and cleared by the stock cleanup.
+        Db::delete(Store::FILES, ['and', ['<', 'dateCreated', $before], ['not like', 'id', 'stock-%', false]]);
 
         return count($names);
     }
