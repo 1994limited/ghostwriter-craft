@@ -19,7 +19,17 @@ return [
         // The model to write with. Null uses the provider's default.
         // 'model' => null,
 
-        // Seconds to wait for one model response.
+        // A gateway or proxy that speaks the provider's own API, per provider.
+        // Blank calls the provider at its own address. Must be https://, except
+        // for localhost. An environment variable works too.
+        // 'baseUrls' => [
+        //     'anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL',
+        //     'openai' => '',
+        //     'gemini' => '',
+        // ],
+
+        // Seconds to wait for one model response. Queue jobs are given
+        // three times this plus a minute, since busy providers are retried.
         // 'timeout' => 300,
 
         // Section handles Ghostwriter writes for. Empty means every section.
@@ -38,8 +48,24 @@ return [
         // Put a striped placeholder in image fields a draft leaves empty.
         // 'placeholderImages' => true,
 
-        // Look for kinds of content in each section without being asked.
+        // Suggest kinds of content for each section when Get started's kinds
+        // step opens. Elsewhere kinds are only suggested when someone asks.
         // 'suggestKindsAutomatically' => true,
+
+        // Share every conversation with everyone who may use Ghostwriter.
+        // False: each person sees only the pieces they started.
+        // 'sharedConversations' => true,
+
+        // How much of the site is read for the voice guide.
+        // 'voiceMaxEntries' => 24,
+        // 'voiceMaxCharsPerEntry' => 6000,
+        // 'voiceMaxChars' => 90000,
+
+        // Images looked at per section when the image style guide is written.
+        // 'imageGuideSamples' => 10,
+
+        // Ideas asked for each time the content plan looks for gaps.
+        // 'planSuggestions' => 8,
 
         // Where prompt overrides are read from (under prompts/). Guides,
         // kinds, the plan and conversations are kept in the database.

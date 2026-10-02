@@ -7,9 +7,9 @@
 {% import '_includes/forms' as forms %}
 
 {% set title = 'Teach Ghostwriter a kind of content'|t('ghostwriter') %}
-{% set selectedSubnavItem = 'dashboard' %}
+{% set selectedSubnavItem = 'overview' %}
 {% set fullPageForm = true %}
-{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}, {label: section.name|t('site'), url: cpUrl('ghostwriter')}] %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}, {label: section.name|t('site'), url: cpUrl('ghostwriter')}] %}
 
 {% block actionButton %}
     <button type="submit" class="btn submit" {{ configured ? '' : 'disabled' }}>{{ 'Learn this'|t('ghostwriter') }}</button>

@@ -9,7 +9,7 @@
 
 {% set title = guide.title %}
 {% set selectedSubnavItem = guide.nav %}
-{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}] %}
 
 {% block actionButton %}
     <button type="button" id="gw-voice-save" class="btn submit disabled" disabled>{{ 'Save'|t('app') }}</button>

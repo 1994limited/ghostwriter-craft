@@ -171,9 +171,9 @@ class Plugin extends BasePlugin
                 'label' => 'Ghostwriter',
                 'icon' => __DIR__ . '/icon-mask.svg',
                 'subnav' => array_filter([
-                    // Until it is put away: then it is reached from the foot of the dashboard.
+                    // Until it is put away: then it is reached from the foot of the Overview.
                     'setup' => !$this->onboarding->hidden() ? ['label' => Craft::t('ghostwriter', 'Get started'), 'url' => 'ghostwriter/setup'] : null,
-                    'dashboard' => ['label' => Craft::t('ghostwriter', 'Dashboard'), 'url' => 'ghostwriter'],
+                    'overview' => ['label' => Craft::t('ghostwriter', 'Overview'), 'url' => 'ghostwriter'],
                     'plan' => ['label' => Craft::t('ghostwriter', 'Content plan'), 'url' => 'ghostwriter/plan'],
                     'voice' => ['label' => Craft::t('ghostwriter', 'Voice guide'), 'url' => 'ghostwriter/voice'],
                     'imagery' => ['label' => Craft::t('ghostwriter', 'Image style'), 'url' => 'ghostwriter/imagery'],

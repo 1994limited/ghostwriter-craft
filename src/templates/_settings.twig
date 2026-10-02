@@ -39,7 +39,7 @@
 
 {{ forms.lightswitchField({
     label: 'Show Get started'|t('ghostwriter'),
-    instructions: 'The setup steps at the top of the dashboard and in the menu. Turn this back on to bring them back after hiding them.'|t('ghostwriter'),
+    instructions: 'The setup steps at the top of the Overview and in the menu. Turn this back on to bring them back after hiding them.'|t('ghostwriter'),
     name: 'showGetStarted',
     on: settings.showGetStarted,
 }) }}
@@ -84,6 +84,24 @@
     warning: 'model' in overrides ? _self.overridden('model', overrides) : settings.modelWarning(),
     disabled: 'model' in overrides,
 }) }}
+
+<h3>{{ 'Gateways and proxies'|t('ghostwriter') }}</h3>
+<p class="light">{{ 'Only if you send requests through a gateway or proxy that speaks the provider’s own API. Leave blank to call each provider at its own address. It must be an https:// address; http:// is allowed only for localhost.'|t('ghostwriter') }}</p>
+
+{% for handle, label in {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'} %}
+    {{ forms.autosuggestField({
+        label: '{provider} base URL'|t('ghostwriter', {provider: label}),
+        instructions: 'An address, or an environment variable such as `${name}`.'|t('ghostwriter', {name: 'GHOSTWRITER_' ~ handle|upper ~ '_BASE_URL'}),
+        id: 'baseUrls-' ~ handle,
+        name: 'baseUrls[' ~ handle ~ ']',
+        value: settings.baseUrls[handle] ?? '',
+        suggestEnvVars: true,
+        placeholder: 'https://',
+        errors: settings.getErrors('baseUrls.' ~ handle),
+        warning: 'baseUrls' in overrides ? _self.overridden('baseUrls', overrides) : null,
+        disabled: 'baseUrls' in overrides,
+    }) }}
+{% endfor %}
 
 <hr>
 

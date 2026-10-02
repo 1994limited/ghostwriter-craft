@@ -6,9 +6,9 @@
 {% import '_includes/forms' as forms %}
 
 {% set title = type.title %}
-{% set selectedSubnavItem = 'dashboard' %}
+{% set selectedSubnavItem = 'overview' %}
 {% set fullPageForm = true %}
-{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}, {label: sectionName, url: cpUrl('ghostwriter')}] %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}, {label: sectionName, url: cpUrl('ghostwriter')}] %}
 
 {% block actionButton %}
     <button type="button" class="btn" id="gw-type-delete">{{ 'Delete'|t('app') }}</button>

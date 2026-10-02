@@ -85,11 +85,11 @@ class Onboarding extends Component
                 'optional' => false,
                 'detail' => match (true) {
                     $types > 0 => Craft::t('ghostwriter', '{count, plural, =1{# kind} other{# kinds}} learned.', ['count' => $types]),
-                    $suggested > 0 => Craft::t('ghostwriter', '{count, plural, =1{# suggestion is} other{# suggestions are}} waiting on the dashboard.', ['count' => $suggested]),
+                    $suggested > 0 => Craft::t('ghostwriter', '{count, plural, =1{# suggestion is} other{# suggestions are}} waiting on the Overview.', ['count' => $suggested]),
                     default => null,
                 },
                 'action' => $suggested > 0 || $types > 0
-                    ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Review on the dashboard'), 'url' => UrlHelper::cpUrl('ghostwriter')]
+                    ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Review on the Overview'), 'url' => UrlHelper::cpUrl('ghostwriter')]
                     : ['type' => 'post', 'label' => Craft::t('ghostwriter', 'Suggest kinds'), 'route' => 'sections/suggest-kinds', 'data' => [], 'needsKey' => true],
             ],
             [

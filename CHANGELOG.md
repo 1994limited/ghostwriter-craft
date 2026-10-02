@@ -26,6 +26,7 @@
 - Get started's **Plan what to write** step has the plan's optional steer box.
 - Get started's **Connect a model** step points out a key already set for another provider.
 - The image dialog says when no other entry has an image in that place, so there is no style to match.
+- A base URL per provider (`baseUrls`), for a gateway or proxy that speaks the provider's own API. It can be an environment variable, set on the settings page or in `config/ghostwriter.php`, and must be `https://` (or `http://` for localhost, 127.0.0.1 or [::1]).
 
 ### Changed
 - The AI providers, the prompts and draft text handling now come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), the package shared with the Statamic and Filament versions. No change is expected in how Ghostwriter writes or behaves. Prompts to copy for an override are now in `vendor/1994/ghostwriter-core/resources/prompts/`; overrides in `config/ghostwriter/prompts/` keep working.
@@ -51,6 +52,9 @@
 - Kinds are suggested without being asked only in Get started, as its kinds step opens (decision Q3). Opening the dashboard no longer calls the model; elsewhere, suggestions wait for **Suggest kinds** or **Suggest kinds everywhere**.
 - With conversations shared, a piece can be removed only by the person who started it or an admin (decision Q1). Others can still carry it on; **Remove** is hidden from them and the request is refused.
 - The image dialog's intro says photos are picked to suit the page's words as well as the images already used there (F4).
+
+- Wording shared with the Statamic and Filament versions: Ghostwriter's home page is the **Overview** (it was **Dashboard**, which clashed with Craft's own); the question flag reads **Ghostwriter needs your answer**; the guide tiles read **Written** / **Not written yet**; a chosen image says **Image added. Save to keep it.**; the draft's help line reads **Click any writing (or Tab to it) to change it. It's saved when you leave it; Esc puts it back.** A piece put into its entry reads **In the entry, not saved** on the Overview too, as on the content plan.
+- `src/config.php` lists every setting, including `sharedConversations`, `voiceMax*`, `imageGuideSamples` and `planSuggestions`.
 
 ### Removed
 - Logo cards (a logo set on a flat or gradient ground) are gone from the image button, which now offers **Find a photo** and **Make one**, with no tabs when only one is available. To put a logo or product in a picture, add it as an image of your own under **Make one**.

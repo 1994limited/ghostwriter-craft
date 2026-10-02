@@ -8,7 +8,7 @@
 
 {% set title = 'Content plan'|t('ghostwriter') %}
 {% set selectedSubnavItem = 'plan' %}
-{% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}] %}
 
 {% block actionButton %}
     <button type="button" class="btn hidden" id="gw-plan-clear">{{ 'Clear the list'|t('ghostwriter') }}</button>

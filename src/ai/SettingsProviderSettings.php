@@ -38,11 +38,13 @@ final class SettingsProviderSettings implements ProviderSettings
     }
 
     /**
-     * Craft has no gateway setting: every provider is called at its own address.
+     * The gateway set for this provider in the settings (or config), with any
+     * environment variable read; null for the provider's own address. Core
+     * checks it again before sending a key there.
      */
     public function baseUrl(string $provider): ?string
     {
-        return null;
+        return $this->settings()->baseUrl($provider);
     }
 
     public function anthropicFallbacks(): bool
