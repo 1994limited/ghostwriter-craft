@@ -57,6 +57,11 @@ class ImageButton
         $view->registerAssetBundle(GhostwriterAsset::class);
 
         $config = $tools + [
+            // "Search in": free libraries, each paid one, or everything;
+            // this person's last choice, else the site's default.
+            'sources' => $plugin->stockLibraries->sourceOptions(Plugin::canManage($user)),
+            'source' => \nineteenninetyfour\ghostwriter\controllers\ImagesController::rememberedSource(),
+            'editorial' => (bool) $plugin->getSettings()->stockIncludeEditorial,
             'fieldId' => (int) $field->id,
             'elementId' => (int) $element->id,
             'siteId' => (int) $element->siteId,

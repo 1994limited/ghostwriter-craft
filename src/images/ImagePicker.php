@@ -11,6 +11,11 @@ use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageRequest;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetRef;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\PhotoLibrary;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\PreviewableLibrary;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\SearchQuery;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\StandIn;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Photo;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoContext;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoResults;
@@ -18,6 +23,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Images\ReferenceImage;
 use NineteenNinetyFour\Ghostwriter\Core\Images\StockSearch;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\stock\StockLibraries;
 use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use Throwable;
 use yii\base\Component;
@@ -34,6 +40,9 @@ use yii\base\Component;
  */
 class ImagePicker extends Component
 {
+    /** Results asked of a paid library per search. */
+    private const PAID_PER_TERM = 9;
+
     private ?StockSearch $stock = null;
 
     private ?PhotoFinder $finder = null;
@@ -81,13 +90,95 @@ class ImagePicker extends Component
     }
 
     /**
-     * Photographs for the slot: with the searches a person typed, or ones
-     * the model chooses from the block and the page; judged against the
-     * words and the pictures already in that place.
+     * Photographs for the slot, from where the person chose to search:
+     *
+     * - `free`: the free libraries, judged against the words and the
+     *   pictures already in that place (core's PhotoFinder), as before;
+     * - a paid library's ID: that library's own results, in its own order.
+     *   No model sees them, nor their titles: their terms forbid it;
+     * - `everything`: the free ones judged, then each paid library's.
+     *
+     * The searches are the ones the person typed, or ones the model
+     * chooses from the block and the page (the customer's own words, never
+     * a library's). Editorial-only photos are left out unless asked for.
      *
      * @param array<int, string> $terms Empty to have them chosen.
      */
-    public function find(ImageSlot $slot, array $terms = []): PhotoResults
+    public function find(ImageSlot $slot, array $terms = [], string $source = StockLibraries::FREE, bool $editorial = false): PhotoResults
+    {
+        $libraries = Plugin::getInstance()->stockLibraries;
+        $source = $libraries->normaliseSource($source);
+
+        if ($source === StockLibraries::FREE) {
+            return self::withoutEditorial($this->findFree($slot, $terms), $editorial);
+        }
+
+        if ($source !== StockLibraries::EVERYTHING) {
+            $terms = $terms ?: $this->finder()->searchTerms($this->context($slot));
+
+            return new PhotoResults($this->searchPaid([$libraries->paid()[$source]], $terms, $slot->shape(), $editorial), $terms);
+        }
+
+        $free = $this->finder()->canFind() ? self::withoutEditorial($this->findFree($slot, $terms), $editorial) : null;
+        $terms = $free?->terms ?: ($terms ?: $this->finder()->searchTerms($this->context($slot)));
+        $paid = $this->searchPaid(array_values($libraries->paid()), $terms, $slot->shape(), $editorial);
+
+        return new PhotoResults([...($free?->photos ?? []), ...$paid], $terms, (bool) $free?->judged, (bool) $free?->noneFit, (bool) $free?->retried, (bool) $free?->withReferences);
+    }
+
+    /**
+     * Paid libraries' results for the searches, each library's own order,
+     * a few per search. Unjudged: never shown to a model.
+     *
+     * @param array<int, PhotoLibrary> $libraries
+     * @param array<int, string> $terms
+     * @return array<int, Photo>
+     */
+    private function searchPaid(array $libraries, array $terms, string $shape, bool $editorial): array
+    {
+        $found = [];
+
+        foreach ($libraries as $library) {
+            foreach (array_slice($terms, 0, PhotoFinder::MAX_TERMS) as $term) {
+                try {
+                    $photos = $library->search(new SearchQuery($term, $shape, perPage: self::PAID_PER_TERM, editorial: $editorial));
+                } catch (Throwable $exception) {
+                    Craft::warning("Searching {$library->id()} failed: {$exception->getMessage()}", 'ghostwriter');
+
+                    continue;
+                }
+
+                foreach ($photos as $photo) {
+                    if ($editorial || !$photo->editorial) {
+                        $found[$photo->key()] ??= $photo->withTerm($term)->unjudged();
+                    }
+                }
+            }
+        }
+
+        return array_values($found);
+    }
+
+    /**
+     * @return PhotoResults Without editorial-only photos, unless they are asked for.
+     */
+    private static function withoutEditorial(PhotoResults $results, bool $editorial): PhotoResults
+    {
+        if ($editorial) {
+            return $results;
+        }
+
+        return new PhotoResults(array_values(array_filter($results->photos, fn(Photo $photo) => !$photo->editorial)), $results->terms, $results->judged, $results->noneFit, $results->retried, $results->withReferences);
+    }
+
+    /**
+     * The free libraries' photographs for the slot: with the searches a
+     * person typed, or ones the model chooses from the block and the page;
+     * judged against the words and the pictures already in that place.
+     *
+     * @param array<int, string> $terms Empty to have them chosen.
+     */
+    private function findFree(ImageSlot $slot, array $terms = []): PhotoResults
     {
         $references = [];
 
@@ -150,6 +241,56 @@ class ImagePicker extends Component
     }
 
     /**
+     * "Insert preview": a paid library's photo goes into the slot as a
+     * stand-in asset, the comp kept privately for signed-in editors.
+     *
+     * - The photo is looked up again by its ID, never taken from the browser.
+     * - The comp is kept in Ghostwriter's own files (never as an asset,
+     *   never at a public address) until the library's comp period ends;
+     *   where the library's terms allow nothing to be stored, only its
+     *   preview address is noted.
+     * - The asset holds the stand-in: stripes at the photo's aspect ratio
+     *   and a label, nothing of the provider's. It is named, titled and
+     *   described from the photo, as the licensed file will be.
+     * - The ledger records a preview, with where it is used.
+     */
+    public function insertPreview(ImageSlot $slot, PreviewableLibrary $library, string $id): Asset
+    {
+        $plugin = Plugin::getInstance();
+        $photo = $library->photo($id);
+        $preview = $library->preview($id);
+        $capabilities = $library->capabilities();
+
+        $comp = $preview->url;
+
+        if ($preview->file !== null) {
+            $comp = 'stock-comp-' . bin2hex(random_bytes(10));
+            $plugin->store->putFile($comp, $preview->file->content, $preview->file->mime, $preview->file->extension);
+        }
+
+        [$width, $height] = [$photo->width, $photo->height];
+
+        if ((!$width || !$height) && $preview->file !== null && ($size = @getimagesizefromstring($preview->file->content))) {
+            [$width, $height] = [$size[0], $size[1]];
+        }
+
+        $label = Craft::t('ghostwriter', '{library} {id} · preview, not licensed', ['library' => $plugin->stockLibraries->standInName($library->id()), 'id' => $photo->id]);
+        $title = $slot->title() ?: null;
+
+        $asset = $this->keep($slot, StandIn::jpeg($width ?: 1600, $height ?: 1000, $label), 'jpg', [
+            'filename' => $photo->filenameBase($title) . '-' . $library->id() . '-' . $photo->id,
+            'exact' => true,
+            'title' => $photo->assetTitle($title),
+            'alt' => $photo->alt($title),
+        ]);
+
+        $plugin->domain->stock()->recordPreview($photo, self::ref($asset), $comp, $preview->keepUntil, $plugin->domain->person(), StockUsages::usageFor($slot->element, $slot->field), $capabilities->noModelInput);
+        $plugin->stockUsages->forget();
+
+        return $asset;
+    }
+
+    /**
      * An asset as the ledger refers to it: its ID, with its volume and path.
      */
     public static function ref(Asset $asset): AssetRef
@@ -196,7 +337,7 @@ class ImagePicker extends Component
     /**
      * Save a picture as an asset in the slot's upload folder.
      *
-     * @param array{filename?: string, title?: string, alt?: string, credit?: string|null, credit_url?: string|null, licence?: string|null} $meta
+     * @param array{filename?: string, exact?: bool, title?: string, alt?: string, credit?: string|null, credit_url?: string|null, licence?: string|null} $meta
      */
     public function keep(ImageSlot $slot, string $content, string $extension, array $meta = []): Asset
     {
@@ -205,7 +346,12 @@ class ImagePicker extends Component
 
         $extension = $extension === 'jpeg' ? 'jpg' : $extension;
         $name = ($meta['filename'] ?? '') ?: (StringHelper::toKebabCase($meta['title'] ?? '') ?: (StringHelper::toKebabCase($slot->title()) ?: 'image'));
-        $filename = mb_substr($name, 0, 60) . '-' . strtolower(StringHelper::randomString(6)) . '.' . $extension;
+
+        // A stock photo keeps the name its licensed file will have; Craft
+        // adds a number if it is taken.
+        $filename = !empty($meta['exact'])
+            ? mb_substr(StringHelper::toKebabCase($name) ?: 'image', 0, 100) . '.' . $extension
+            : mb_substr($name, 0, 60) . '-' . strtolower(StringHelper::randomString(6)) . '.' . $extension;
 
         $path = Craft::$app->getPath()->getTempPath() . '/' . $filename;
         FileHelper::writeToFile($path, $content);
@@ -219,6 +365,7 @@ class ImagePicker extends Component
         $asset->volumeId = $folder->volumeId;
         $asset->title = trim((string) ($meta['title'] ?? '')) ?: $slot->title();
         $asset->alt = trim((string) ($meta['alt'] ?? '')) ?: null;
+        $asset->avoidFilenameConflicts = true;
         $asset->setScenario(Asset::SCENARIO_CREATE);
 
         // A credit goes in a field made for it, where the volume has one.

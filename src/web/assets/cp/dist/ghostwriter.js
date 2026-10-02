@@ -2237,7 +2237,11 @@
                             <p class="light">${t('Ghostwriter reads the block this field is in, and the rest of the page, then searches free photo libraries and picks the photos that best suit the page’s words and the images already used here.')}</p>
                             <div class="flex gw-image-form">
                                 <input type="text" class="text fullwidth gw-image-words" placeholder="${Ghostwriter.escape(t('What should it show? Leave empty and Ghostwriter will choose'))}">
+                                ${this.sourcePicker()}
                                 <button type="button" class="btn submit gw-image-search">${t('Search')}</button>
+                            </div>
+                            <div class="gw-image-filters${this.hasPaid() ? '' : ' hidden'}">
+                                <label class="gw-image-editorial"><input type="checkbox"${this.config.editorial ? ' checked' : ''}> ${t('Include editorial images')}</label>
                             </div>
                             <div class="gw-image-status"></div>
                             <div class="gw-image-grid"></div>
@@ -2311,16 +2315,39 @@
             return { fieldId: this.config.fieldId, elementId: this.config.elementId, siteId: this.config.siteId };
         },
 
+        /**
+         * "Search in": the free libraries, each paid library, or
+         * everything. Only shown when there is a paid library to choose.
+         */
+        sourcePicker() {
+            const sources = this.config.sources ?? [];
+
+            if (!this.hasPaid()) {
+                return '';
+            }
+
+            const options = sources.map((source) => `<option value="${Ghostwriter.escape(source.value)}"${source.value === this.config.source ? ' selected' : ''}${source.disabled ? ' disabled' : ''}>${Ghostwriter.escape(source.label)}</option>`).join('');
+
+            return `<label class="gw-image-source-pick"><span class="light">${this.t('Search in:')}</span> <span class="select small"><select class="gw-image-source-select" aria-label="${Ghostwriter.escape(this.t('Search in'))}">${options}</select></span></label>`;
+        },
+
+        hasPaid() {
+            return (this.config.sources ?? []).some((source) => source.value !== 'free');
+        },
+
         async find() {
             const t = this.t;
             const $pane = this.pane('find');
             const $search = $pane.find('.gw-image-search');
+            const source = $pane.find('.gw-image-source-select').val() ?? 'free';
+            const editorial = $pane.find('.gw-image-editorial input').prop('checked') ? 1 : 0;
 
             $search.addClass('loading');
             $pane.find('.gw-image-grid').empty();
+            this.config.source = source;
 
             try {
-                const data = await Ghostwriter.request('POST', 'images/start', { ...this.target(), mode: 'find', words: $pane.find('.gw-image-words').val() });
+                const data = await Ghostwriter.request('POST', 'images/start', { ...this.target(), mode: 'find', words: $pane.find('.gw-image-words').val(), source, editorial });
                 this.status($pane, `<div class="gw-empty"><div class="spinner"></div><p>${t('Reading the page and searching the photo libraries…')}</p></div>`);
                 this.follow(data, $search);
             } catch (error) {
@@ -2406,8 +2433,10 @@
             // a model judged against the page.
             let note = null;
 
-            if (!data.options.length) {
-                // The error says so.
+            const free = data.options.filter((photo) => !photo.paid);
+
+            if (!free.length) {
+                // Paid results alone: the line below says whose order they are in.
             } else if (data.noneFit) {
                 note = t('None of these quite fit the page, even after searching again. Try other words.');
             } else if (!data.judged) {
@@ -2420,14 +2449,24 @@
                 $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(note)}</p>`);
             }
 
+            // No model judges a paid library's photos: their terms forbid it.
+            (data.paidLibraries ?? []).forEach((library) => {
+                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(t('{library} results are in {library}’s order; Ghostwriter doesn’t judge paid libraries.', { library }))}</p>`);
+            });
+
             data.options.forEach((photo, i) => {
                 const $card = $(`
-                    <figure class="gw-photo${photo.picked ? ' gw-photo--picked' : ''}${i >= SHOWN ? ' hidden' : ''}">
-                        <img src="${Ghostwriter.escape(photo.thumb)}" alt="${Ghostwriter.escape(photo.alt ?? '')}" loading="lazy"${photo.reason ? ` title="${Ghostwriter.escape(photo.reason)}"` : ''}>
+                    <figure class="gw-photo${photo.picked ? ' gw-photo--picked' : ''}${photo.paid ? ' gw-photo--paid' : ''}${i >= SHOWN ? ' hidden' : ''}">
+                        <div class="gw-photo__media">
+                            <img src="${Ghostwriter.escape(photo.thumb)}" alt="${Ghostwriter.escape(photo.alt ?? '')}" loading="lazy"${photo.reason ? ` title="${Ghostwriter.escape(photo.reason)}"` : ''}>
+                            <span class="gw-chip gw-chip--source">${Ghostwriter.escape(photo.source_label ?? photo.source)}</span>
+                            <span class="gw-chip gw-chip--cost">${Ghostwriter.escape(photo.paid ? photo.cost : t('Free'))}</span>
+                            ${photo.editorial ? `<span class="gw-chip gw-chip--editorial" tabindex="0" title="${Ghostwriter.escape(photo.restrictions ?? t('Editorial use only'))}">${t('Editorial')}</span>` : ''}
+                        </div>
                         <figcaption>
                             ${photo.picked && data.judged ? `<span class="gw-photo__badge">${t('Best match')}</span>` : ''}
                             <span class="light">${/^https:\/\//.test(photo.credit_url ?? '') ? `<a href="${Ghostwriter.escape(photo.credit_url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${Ghostwriter.escape(photo.credit)}</a>` : Ghostwriter.escape(photo.credit)} · ${Ghostwriter.escape(photo.licence)}</span>
-                            <button type="button" class="btn small submit">${t('Use this')}</button>
+                            <button type="button" class="btn small submit">${photo.paid ? t('Insert preview') : t('Use this')}</button>
                         </figcaption>
                     </figure>`);
 
@@ -2555,8 +2594,11 @@
             await Craft.appendBodyHtml(data.bodyHtml);
             select.$container.trigger('change');
 
-            Craft.cp.displaySuccess(t('Image added. Save to keep it.'));
+            Craft.cp.displaySuccess(result.preview
+                ? t('Preview added. Only signed-in editors see the photo; license it before publishing.')
+                : t('Image added. Save to keep it.'));
             this.modal.hide();
+            this.$holder.trigger('ghostwriter:stock-changed');
         },
     });
 

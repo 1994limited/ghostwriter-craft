@@ -213,6 +213,14 @@ class StockLibraries extends Component
     }
 
     /**
+     * A library's name on a stand-in: "Getty Images", "Demo stock".
+     */
+    public function standInName(string $id): string
+    {
+        return trim((string) preg_replace('/\s*\(.*\)$/', '', $this->label($id)));
+    }
+
+    /**
      * Whether each key a library needs is in the environment. Read each
      * time; the values are never stored or shown.
      *

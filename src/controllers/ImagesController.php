@@ -11,12 +11,15 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Images\ImageRequest;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Images\StoredFile;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\NotAllowed;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\PreviewableLibrary;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
+use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoUnavailable;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
 use nineteenninetyfour\ghostwriter\jobs\FindImages;
 use nineteenninetyfour\ghostwriter\jobs\MakeImage;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\stock\StockLibraries;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -27,6 +30,9 @@ use yii\web\Response;
  */
 class ImagesController extends Controller
 {
+    /** Where each person's "Search in" choice is kept, in their user preferences. */
+    public const SOURCE_PREFERENCE = 'ghostwriter:stockSource';
+
     /** Pictures that may be uploaded to put in a made image, by MIME type. */
     private const UPLOAD_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
 
@@ -53,7 +59,12 @@ class ImagesController extends Controller
                 return $this->refuse('Type what the picture should show.');
             }
 
-            $request = $plugin->domain->images()->start(ImageRequest::FIND, $plugin->domain->viewer(), $this->details($slot));
+            // Where to search ("Search in"), remembered for this person.
+            $source = $plugin->stockLibraries->normaliseSource((string) $request->getBodyParam('source', StockLibraries::FREE));
+            $editorial = (bool) $request->getBodyParam('editorial', false);
+            self::rememberSource($source);
+
+            $request = $plugin->domain->images()->start(ImageRequest::FIND, $plugin->domain->viewer(), $this->details($slot) + ['source' => $source, 'editorial' => $editorial]);
             $request->terms = $terms;
             $plugin->imageStore->save($request);
 
@@ -142,9 +153,25 @@ class ImagesController extends Controller
             return $this->refuse('That image field is no longer on the page.');
         }
 
+        $preview = false;
+
         try {
             if ($request->mode === ImageRequest::FIND) {
-                $asset = $plugin->imagePicker->keepPhoto($slot, (string) $this->request->getRequiredBodyParam('source'), (string) $this->request->getRequiredBodyParam('photo'));
+                $source = (string) $this->request->getRequiredBodyParam('source');
+                $id = (string) $this->request->getRequiredBodyParam('photo');
+                $library = $plugin->stockLibraries->paid()[$source] ?? null;
+
+                if ($library !== null) {
+                    // A paid photo goes in as a preview, never as the file.
+                    if (!$library instanceof PreviewableLibrary) {
+                        return $this->refuse('That library’s photos can’t be previewed here.');
+                    }
+
+                    $asset = $plugin->imagePicker->insertPreview($slot, $library, $id);
+                    $preview = true;
+                } else {
+                    $asset = $plugin->imagePicker->keepPhoto($slot, $source, $id);
+                }
             } else {
                 $file = $request->file ? $plugin->domain->images()->file($request->id, StoredFile::MADE) : null;
 
@@ -156,11 +183,33 @@ class ImagesController extends Controller
                     'title' => trim((string) ($data['direction'] ?? '')) !== '' ? mb_substr(trim($data['direction']), 0, 80) : $slot->title(),
                 ]);
             }
-        } catch (InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException|PhotoUnavailable $exception) {
             return $this->refuse($exception->getMessage());
         }
 
-        return $this->asJson($this->kept($asset));
+        return $this->asJson($this->kept($asset) + ['preview' => $preview]);
+    }
+
+    /**
+     * The person's last "Search in" choice, kept in their Craft user
+     * preferences; the site's default until they choose.
+     */
+    public static function rememberedSource(): string
+    {
+        $user = Craft::$app->getUser()->getIdentity();
+        $plugin = Plugin::getInstance();
+        $source = $user?->getPreference(self::SOURCE_PREFERENCE) ?? $plugin->getSettings()->stockDefaultSource;
+
+        return $plugin->stockLibraries->normaliseSource(is_string($source) ? $source : null);
+    }
+
+    private static function rememberSource(string $source): void
+    {
+        $user = Craft::$app->getUser()->getIdentity();
+
+        if ($user && $user->getPreference(self::SOURCE_PREFERENCE) !== $source) {
+            Craft::$app->getUsers()->saveUserPreferences($user, [self::SOURCE_PREFERENCE => $source]);
+        }
     }
 
     private function slot(): ImageSlot
@@ -233,6 +282,27 @@ class ImagesController extends Controller
     {
         $details = $request->details;
 
+        $libraries = Plugin::getInstance()->stockLibraries;
+        $options = array_map(function(array $photo) use ($libraries): array {
+            $source = (string) ($photo['source'] ?? '');
+            $paid = isset($libraries->all()[$source]);
+            $offer = is_array($photo['offer'] ?? null) ? $photo['offer'] : null;
+
+            $option = array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked', 'reason', 'alt', 'title', 'editorial', 'restrictions']));
+
+            // The demo library calls nobody: its thumbnails are served here.
+            if ($source === StockLibraries::DEMO) {
+                $option['thumb'] = StockController::demoThumbUrl((string) $photo['id']);
+            }
+
+            return $option + [
+                'paid' => $paid,
+                'source_label' => $libraries->shortLabel($source),
+                'cost' => $paid ? (string) ($offer['label'] ?? 'Paid') : 'Free',
+                'editorial' => (bool) ($photo['editorial'] ?? false),
+            ];
+        }, $request->options);
+
         return [
             'id' => $request->id,
             'mode' => $request->mode,
@@ -240,7 +310,9 @@ class ImagesController extends Controller
             'error' => $request->error,
             'terms' => $request->terms,
             'direction' => $details['direction'] ?? null,
-            'options' => array_map(fn(array $photo) => array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked', 'reason', 'alt'])), $request->options),
+            'source' => $details['source'] ?? StockLibraries::FREE,
+            'paidLibraries' => array_values(array_unique(array_map(fn(array $option) => $option['source_label'], array_filter($options, fn(array $option) => $option['paid'])))),
+            'options' => $options,
             'judged' => (bool) ($details['judged'] ?? false),
             'noneFit' => (bool) ($details['noneFit'] ?? false),
             'withReferences' => (bool) ($details['withReferences'] ?? false),
