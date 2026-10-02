@@ -185,6 +185,37 @@ class SessionsController extends Controller
     }
 
     /**
+     * Run a failed turn again, with the message that failed, so nothing has
+     * to be typed twice.
+     */
+    public function actionRetry(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        $last = $session->messages[array_key_last($session->messages) ?? 0] ?? null;
+
+        if ($session->status !== Session::FAILED || ($last['role'] ?? null) !== 'user') {
+            return $this->refuse('There is nothing to try again.', 409);
+        }
+
+        $session->status = Session::WORKING;
+        $session->error = null;
+
+        $plugin->sessions->save($session);
+
+        RunSessionTurn::start(['sessionId' => $session->id]);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
      * The draft edited by hand.
      */
     public function actionDraft(): Response

@@ -73,6 +73,21 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->plugin->onboarding->progress()['complete']);
     }
 
+    public function testAKeyForAnotherProviderIsPointedOut(): void
+    {
+        $this->unfake();
+        $this->plugin->providers->keys['anthropic'] = null;
+
+        $this->assertNull($this->plugin->onboarding->details()['otherKey']);
+
+        $this->plugin->providers->keys['gemini'] = 'test-key';
+        $this->assertSame('Gemini (Google)', $this->plugin->onboarding->details()['otherKey']);
+
+        // Not once the chosen provider has its own.
+        $this->plugin->providers->keys['anthropic'] = 'test-key';
+        $this->assertNull($this->plugin->onboarding->details()['otherKey']);
+    }
+
     public function testTheWizardSavesTheSectionsChosen(): void
     {
         $this->makeArticlesSection();

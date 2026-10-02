@@ -360,3 +360,13 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-widget__list a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gw-widget__list li > span { flex-shrink: 0; }
 .gw-widget__write { display: flex; gap: 6px; }
+
+/* A turn that failed, with Try again beneath the reason. */
+.gw-failed { margin: 8px 0; }
+.gw-failed .error { margin: 0 0 8px; }
+
+/* "Write with Ghostwriter" beside "New entry" on the entry index. */
+#action-buttons:has(> .gw-index-write) { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; justify-content: flex-end; }
+
+/* Get started: what to steer the plan's first ideas towards. */
+.gw-wizard__steer { margin: 0 0 10px; }

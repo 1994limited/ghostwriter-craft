@@ -12,6 +12,8 @@ Click it to choose an image for that one field.
 - **Style.** It looks at the images already in the **same place** on the section's other entries: the same field, in the same kind of block. If none use that exact block, it looks at the same field in a block of the same family, for example "Link Grid – Bottom Text" for "Link Grid – Center Text". The [image style guide](guides.md#the-image-style-guide) adds the words.
 - **Shape.** Landscape, portrait or square, from those images.
 
+If no other entry has an image in that place yet, the dialog says so at the top: there is no style to match, so photos are chosen and pictures made from the words alone.
+
 ## Find a photo
 
 Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries).

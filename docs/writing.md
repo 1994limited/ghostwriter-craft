@@ -4,6 +4,8 @@
 
 Open a section's **New entry** screen and click **Write with Ghostwriter** at the top. The button appears on new entries in the sections Ghostwriter writes for, for people with the **Use Ghostwriter** permission.
 
+Or click **Write with Ghostwriter** beside **New entry** on the section's entry list: it starts a new entry with Ghostwriter open. It's there while a section Ghostwriter writes for is chosen.
+
 You can also start from Ghostwriter's own screens: **Write** beside a section on the [dashboard](dashboard.md), **Write something** on the [widget](dashboard.md#the-dashboard-widget), or **Draft this** on an idea in the [content plan](content-plan.md). Each opens a new entry with Ghostwriter already open.
 
 Ghostwriter opens in a large panel over the entry form. The form stays where it is underneath.
@@ -37,6 +39,8 @@ Once there is a draft, ask for changes in plain words:
 - "Less formal."
 
 Press **⌘↵** (or **Ctrl+↵**) to send. A draft usually takes a minute or two. Ghostwriter's replies show lists, bold and links as they are meant to read.
+
+If a turn fails (the provider was busy, say), the panel says **That didn’t work** with the reason, and **Try again** sends the same message again, so nothing has to be typed twice.
 
 ## The draft
 

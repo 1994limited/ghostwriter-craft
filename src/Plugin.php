@@ -17,6 +17,8 @@ use craft\events\RegisterUserPermissionsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\services\Dashboard;
 use craft\services\UserPermissions;
+use craft\events\TemplateEvent;
+use craft\web\View;
 use craft\web\twig\variables\Cp;
 use craft\web\UrlManager;
 use nineteenninetyfour\ghostwriter\ai\Providers;
@@ -137,6 +139,13 @@ class Plugin extends BasePlugin
             $entry = $event->sender;
 
             $event->html .= Launcher::buttonFor($entry);
+        });
+
+        // And beside "New entry" on the entry index.
+        Event::on(View::class, View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE, function(TemplateEvent $event): void {
+            if ($event->templateMode === View::TEMPLATE_MODE_CP && in_array($event->template, ['entries', 'entries/index'], true)) {
+                Launcher::registerIndexButton();
+            }
         });
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event): void {

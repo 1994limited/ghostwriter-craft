@@ -19,7 +19,7 @@
     {% include 'ghostwriter/_includes/setup-alert' %}
 
     <div id="gw-voice-error" class="readable gw-alert{{ state.status == 'failed' ? '' : ' hidden' }}">
-        <p class="error with-icon"><strong>{{ 'That did not work.'|t('ghostwriter') }}</strong> <span data-error>{{ state.error }}</span></p>
+        <p class="error with-icon"><strong>{{ 'That didn’t work'|t('ghostwriter') }}</strong> <span data-error>{{ state.error }}</span></p>
     </div>
 
     <p id="gw-voice-updated" class="light{{ state.updatedAt ? '' : ' hidden' }}">{{ 'Updated {when}'|t('ghostwriter', {when: state.updatedAt}) }}</p>
