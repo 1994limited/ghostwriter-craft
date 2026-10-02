@@ -87,6 +87,7 @@ class LoggingTest extends TestCase
 
         $html = Craft::$app->getView()->renderTemplate('ghostwriter/_settings', $variables + ['overrides' => ['logReplies']], View::TEMPLATE_MODE_CP);
         $this->assertStringContainsString('Set by <code>logReplies</code> in config/ghostwriter.php', $html);
+        $this->assertMatchesRegularExpression('/<select[^>]*id="logReplies"[^>]*disabled/', $html);
     }
 
     /** @var array<int, array{level: string, message: string, context: array<string, mixed>}> */
