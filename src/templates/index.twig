@@ -29,6 +29,7 @@
         <th scope="row">
             {% if s.url %}<a href="{{ s.url }}">{{ s.title }}</a>{% else %}{{ s.title }}{% endif %}
             <div class="light smalltext">{{ s.type }}{{ s.section ? ' · ' ~ s.section }}</div>
+            {% include 'ghostwriter/_includes/people' with {s: s} only %}
         </th>
         <td><span class="status {{ stage[0] }}" aria-hidden="true"></span>{{ stage[1] }}</td>
         <td class="light">{{ s.updatedAt }}</td>

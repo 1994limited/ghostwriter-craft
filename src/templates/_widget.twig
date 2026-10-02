@@ -30,7 +30,7 @@
             {% for s in inProgress %}
                 <li>
                     {% if s.url %}<a href="{{ s.url }}">{{ s.title }}</a>{% else %}{{ s.title }}{% endif %}
-                    <span class="light smalltext">{{ s.section ?? s.type }}</span>
+                    <span class="light smalltext">{{ s.section ?? s.type }}{{ s.startedBy ? ' · ' ~ 'Started by {name}'|t('ghostwriter', {name: s.startedBy}) }}</span>
                 </li>
             {% endfor %}
         </ul>

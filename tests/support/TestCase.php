@@ -64,6 +64,7 @@ abstract class TestCase extends CraftTestCase
         $settings->sections = [];
         $settings->voiceSections = [];
         $settings->imageProvider = null;
+        $settings->sharedConversations = true;
 
         // Retries don't wait in tests; what they would have waited is kept.
         $this->sleeper = new RecordingSleeper();

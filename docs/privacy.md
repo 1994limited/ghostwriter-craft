@@ -26,6 +26,6 @@ Each provider's own terms decide how they handle what you send. In particular, o
 
 ## What is kept, and where
 
-- Conversations and drafts are kept in the `ghostwriter_sessions` table. Each belongs to the person who started it; nobody else can see or open it. Remove a piece from the dashboard to delete its conversation.
+- Conversations and drafts are kept in the `ghostwriter_sessions` table. By default they are shared with everyone who has the **Use Ghostwriter** permission, who can open and carry them on; each message records who sent it. With `sharedConversations` off, each belongs to the person who started it and nobody else can see or open it. Remove a piece from the dashboard to delete its conversation.
 - Images made or uploaded but not yet used are kept in the `ghostwriter_files` table for a day.
 - Guides, kinds and the plan are kept in the `ghostwriter_documents` table.

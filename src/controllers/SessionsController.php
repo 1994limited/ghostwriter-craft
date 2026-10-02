@@ -79,12 +79,12 @@ class SessionsController extends Controller
         $examples = array_slice(array_values(array_filter((array) $this->request->getBodyParam('examples'), 'is_numeric')), 0, 6);
         $examples = $examples ? array_map('intval', Entry::find()->id($examples)->section($type->section)->status(null)->fixedOrder()->ids()) : [];
 
-        $session = Session::start($type->handle, $answers, Craft::$app->getUser()->getId(), $examples);
+        $session = Session::start($type->handle, $answers, $this->me(), $examples);
         $session->elementId = (int) $entry->getCanonicalId();
         $session->siteId = (int) $entry->siteId;
         $session->entryType = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entry->getType()->handle : null;
-        $session->addMessage('user', $plugin->studio->brief($type, $session));
-        $session->status = Session::WORKING;
+        $session->addMessage('user', $plugin->studio->brief($type, $session), $this->me());
+        $session->run($this->me());
 
         $plugin->sessions->save($session);
 
@@ -135,6 +135,7 @@ class SessionsController extends Controller
         $session->status = Session::IDLE;
         $session->error = null;
         $session->appliedAt = null;
+        $session->touch($this->me());
 
         if ($session->messages === [] || !$this->wasEditing($session)) {
             $session->addMessage('user', 'This entry already exists on the site. Its content as it stands is the current draft. I will ask for changes to it.');
@@ -164,7 +165,7 @@ class SessionsController extends Controller
         }
 
         if ($session->status === Session::WORKING) {
-            return $this->refuse('Ghostwriter is still working on the last message.', 409);
+            return $this->busy($session, 'Ghostwriter is still working on the last message.');
         }
 
         $message = trim((string) $this->request->getBodyParam('message'));
@@ -173,9 +174,8 @@ class SessionsController extends Controller
             return $this->refuse('Write a message first.');
         }
 
-        $session->addMessage('user', $message);
-        $session->status = Session::WORKING;
-        $session->error = null;
+        $session->addMessage('user', $message, $this->me());
+        $session->run($this->me());
 
         $plugin->sessions->save($session);
 
@@ -230,6 +230,7 @@ class SessionsController extends Controller
         }
 
         $session->draft = $draft;
+        $session->touch($this->me());
 
         Plugin::getInstance()->sessions->save($session);
 
@@ -249,7 +250,7 @@ class SessionsController extends Controller
         $session = $this->session();
 
         if ($session->status === Session::WORKING) {
-            return $this->refuse('Ghostwriter is still working on the draft. Try again when it has finished.', 409);
+            return $this->busy($session, 'Ghostwriter is still working on the draft. Try again when it has finished.');
         }
 
         try {
@@ -291,6 +292,7 @@ class SessionsController extends Controller
         unset($node);
 
         $session->draft = trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+        $session->touch($this->me());
 
         $plugin->sessions->save($session);
 
@@ -325,6 +327,7 @@ class SessionsController extends Controller
         $session->appliedAt = Session::now();
         $session->elementId = (int) $result['draft']->getCanonicalId();
         $session->siteId = (int) $result['draft']->siteId;
+        $session->touch($this->me());
 
         $plugin->sessions->save($session);
 
@@ -409,7 +412,7 @@ class SessionsController extends Controller
         $id = (int) $entry->getCanonicalId();
         $section = $entry->getSection();
 
-        foreach ($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()) as $session) {
+        foreach ($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()) as $session) {
             if (($session->source === $id || $session->elementId === $id) && $plugin->types->find($session->type)) {
                 return $session;
             }
@@ -425,7 +428,7 @@ class SessionsController extends Controller
             }
         }
 
-        return Session::start(($type ?? ContentType::generic($section))->handle, [], Craft::$app->getUser()->getId());
+        return Session::start(($type ?? ContentType::generic($section))->handle, [], $this->me());
     }
 
     /**
@@ -455,17 +458,38 @@ class SessionsController extends Controller
     }
 
     /**
-     * The piece named in the request, if it is the signed-in person's own.
-     * Anyone else's is treated as not there at all.
+     * The piece named in the request, if the signed-in person may see it:
+     * anyone's when conversations are shared, otherwise only their own.
+     * One they may not see is treated as not there at all.
      */
     private function session(): Session
     {
-        $session = Plugin::getInstance()->sessions->find((string) $this->request->getParam('id'));
+        $sessions = Plugin::getInstance()->sessions;
+        $session = $sessions->find((string) $this->request->getParam('id'));
 
-        if ($session === null || $session->userId === null || $session->userId !== (int) Craft::$app->getUser()->getId()) {
+        if ($session === null || !$sessions->canSee($session, $this->me())) {
             throw new NotFoundHttpException('No such piece of writing.');
         }
 
         return $session;
+    }
+
+    private function me(): ?int
+    {
+        $id = Craft::$app->getUser()->getId();
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * One run at a time. When it is someone else's, say whose.
+     */
+    private function busy(Session $session, string $message): Response
+    {
+        if ($session->runBy !== null && $session->runBy !== $this->me()) {
+            $message = Craft::t('ghostwriter', '{name} is waiting on Ghostwriter.', ['name' => Presenter::name($session->runBy)]);
+        }
+
+        return $this->refuse($message, 409);
     }
 }

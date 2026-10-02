@@ -10,7 +10,7 @@
   - **Write**, to start a new entry with Ghostwriter.
   - A **Kinds** menu: **Teach a kind** and **Suggest kinds**.
   - **N suggested kinds to review**, when there are suggestions. See [Kinds of content](kinds.md).
-- **In progress**: pieces being written, with their stage (Writing, Waiting on you, Draft ready, In the form, Editing, and so on). Click one to carry on, or **Remove** it. A piece leaves this list once its entry has been saved. Finished pieces are under **Show finished**.
+- **In progress**: pieces being written, with their stage (Writing, Waiting on you, Draft ready, In the form, Editing, and so on). When conversations are shared, each shows who started it and who last changed it. Click one to carry on, or **Remove** it. A piece leaves this list once its entry has been saved. Finished pieces are under **Show finished**.
 
 ## The dashboard widget
 

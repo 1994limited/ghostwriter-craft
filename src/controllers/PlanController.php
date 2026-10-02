@@ -222,6 +222,10 @@ class PlanController extends Controller
             'finished' => $progress['finished'] ?? false,
             'resumeUrl' => $progress['url'] ?? null,
             'entryUrl' => $progress['entryUrl'] ?? null,
+            // Who started it and who last changed it, when conversations are shared.
+            'startedBy' => $progress['startedBy'] ?? null,
+            'touchedBy' => $progress['touchedBy'] ?? null,
+            'waitingOn' => $progress['waitingOn'] ?? null,
             'sectionTitle' => $this->sectionTitle($idea['section']),
             'typeTitle' => $idea['type'] ? $plugin->types->find($idea['type'])?->title : null,
             // A new entry with Ghostwriter open on it and this idea's brief filling itself in.

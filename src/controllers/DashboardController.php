@@ -48,7 +48,7 @@ class DashboardController extends Controller
                     'url' => \craft\helpers\UrlHelper::cpUrl('ghostwriter/types/' . $type->handle),
                 ], $plugin->types->forSection($section->handle))),
             ], $plugin->types->sections()),
-            'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->sessions->forUser((int) Craft::$app->getUser()->getId()), 0, 30)),
+            'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()), 0, 30)),
             'checking' => $checking,
             'setup' => $plugin->onboarding->progress(),
             'canHideSetup' => $plugin->onboarding->canToggle(),

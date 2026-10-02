@@ -1,0 +1,8 @@
+{# Who started a piece and who last changed it, when conversations are shared; and whether someone is waiting on Ghostwriter for it. #}
+{% if s.startedBy or s.waitingOn %}
+    <div class="light smalltext gw-people">
+        {%- if s.startedBy %}{{ 'Started by {name}'|t('ghostwriter', {name: s.startedBy}) }}{% endif -%}
+        {%- if s.touchedBy %} · {{ 'last changed by {name}'|t('ghostwriter', {name: s.touchedBy}) }}{% endif -%}
+        {%- if s.waitingOn %}{{ s.startedBy ? ' · ' }}{{ '{name} is waiting on Ghostwriter'|t('ghostwriter', {name: s.waitingOn}) }}{% endif -%}
+    </div>
+{% endif %}

@@ -262,6 +262,19 @@
         } catch (error) {}
     });
 
+    /**
+     * "Started by Ann · last changed by you", when conversations are shared.
+     */
+    Ghostwriter.people = function (item) {
+        const t = (message, params) => Craft.t('ghostwriter', message, params);
+
+        return [
+            item.startedBy ? t('Started by {name}', { name: item.startedBy }) : null,
+            item.touchedBy ? t('last changed by {name}', { name: item.touchedBy }) : null,
+            item.waitingOn ? t('{name} is waiting on Ghostwriter', { name: item.waitingOn }) : null,
+        ].filter(Boolean).join(' · ');
+    };
+
     Ghostwriter.announceApplied = function (message, notes) {
         if (!notes.length) {
             return Craft.cp.displaySuccess(message);
@@ -1017,7 +1030,7 @@
                 <h3 class="gw-subheading">${esc(t('Or carry on with'))}</h3>
                 <ul class="gw-list">${this.info.sessions.map((item) => `
                     <li><button type="button" class="gw-list__item" data-action="resume" data-id="${esc(item.id)}">
-                        <span>${esc(item.title)}</span><span class="light">${esc(item.type)} · ${esc(item.updatedAt)}</span>
+                        <span>${esc(item.title)}</span><span class="light">${esc([item.type, item.updatedAt, Ghostwriter.people(item)].filter(Boolean).join(' · '))}</span>
                     </button></li>`).join('')}
                 </ul>`;
         },
@@ -1140,14 +1153,17 @@
 
                 html += `
                     <div class="gw-bubble gw-bubble--${mine ? 'me' : 'them'} ${waiting ? 'gw-bubble--asking' : ''}">
-                        <div class="gw-bubble__who">${esc(mine ? t('You') : t('Ghostwriter'))}${waiting ? ` · <span class="gw-bubble__flag">${esc(t('needs your answer'))}</span>` : ''}</div>
+                        <div class="gw-bubble__who">${esc(!mine ? t('Ghostwriter') : (entry.mine === false ? entry.from : t('You')))}${waiting ? ` · <span class="gw-bubble__flag">${esc(t('needs your answer'))}</span>` : ''}</div>
                         ${!mine && entry.html ? `<div class="gw-bubble__text gw-prose">${entry.html}</div>` : `<div class="gw-bubble__text gw-pre">${esc(entry.content)}</div>`}
                         ${entry.draft ? `<div class="gw-bubble__draft">✓ ${esc(this.draftNote(entry.draft))}</div>` : ''}
                     </div>`;
             });
 
             if (this.working()) {
-                html += `<div class="gw-bubble gw-bubble--them gw-working" role="status"><div class="spinner small"></div><span data-progress>${esc(this.progress())}</span><span class="gw-elapsed" data-elapsed></span></div>`;
+                // Someone else's request: one run at a time, and it is theirs.
+                html += session.waitingOn
+                    ? `<div class="gw-bubble gw-bubble--them gw-working" role="status"><div class="spinner small"></div><span>${esc(t('{name} is waiting on Ghostwriter', { name: session.waitingOn }))}</span></div>`
+                    : `<div class="gw-bubble gw-bubble--them gw-working" role="status"><div class="spinner small"></div><span data-progress>${esc(this.progress())}</span><span class="gw-elapsed" data-elapsed></span></div>`;
             }
 
             if (session.status === 'failed') {
@@ -1691,7 +1707,7 @@
                 html += `<section class="gw-section"><h2>${esc(t('In progress'))}</h2><p class="light">${esc(t('Started, and not yet saved as an entry.'))}</p>
                     <div class="gw-plan-list">${started.map((idea) => `
                         <div class="gw-plan-item">
-                            <div class="gw-plan-item__text"><strong>${esc(idea.title)}</strong><span class="light">${esc(idea.sectionTitle)} · ${esc(t(STAGES[idea.stage] ?? 'Started'))}</span></div>
+                            <div class="gw-plan-item__text"><strong>${esc(idea.title)}</strong><span class="light">${esc([idea.sectionTitle, t(STAGES[idea.stage] ?? 'Started'), Ghostwriter.people(idea)].filter(Boolean).join(' · '))}</span></div>
                             <div class="gw-plan-item__actions">
                                 ${idea.resumeUrl ? `<a class="btn small submit" href="${esc(idea.resumeUrl)}">${esc(t('Resume'))}</a>` : ''}
                                 <button type="button" class="btn small" data-plan="reopen" data-id="${esc(idea.id)}">${esc(t('Back to ideas'))}</button>

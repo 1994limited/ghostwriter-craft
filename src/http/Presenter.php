@@ -18,6 +18,28 @@ use nineteenninetyfour\ghostwriter\sessions\Session;
  */
 class Presenter
 {
+    /** @var array<int, string> */
+    private static array $names = [];
+
+    /**
+     * A person's name as the control panel shows it, for "who sent this".
+     */
+    public static function name(?int $userId): string
+    {
+        if ($userId === null) {
+            return Craft::t('ghostwriter', 'Someone');
+        }
+
+        return self::$names[$userId] ??= (Craft::$app->getUsers()->getUserById($userId)?->getName() ?? Craft::t('ghostwriter', 'Someone'));
+    }
+
+    private function me(): ?int
+    {
+        $id = Craft::$app->getUser()->getId();
+
+        return $id === null ? null : (int) $id;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -43,6 +65,26 @@ class Presenter
             // Sessions are resumed where they were started: on the entry
             // they are being written into.
             'url' => $entry ? UrlHelper::urlWithParams((string) $entry->getCpEditUrl(), ['ghostwriter' => $session->id]) : null,
+        ] + $this->people($session);
+    }
+
+    /**
+     * Who started a piece and who last did something to it, when
+     * conversations are shared; and whether someone else is waiting on
+     * Ghostwriter for it now.
+     *
+     * @return array{startedBy: ?string, touchedBy: ?string, waitingOn: ?string}
+     */
+    private function people(Session $session): array
+    {
+        $me = $this->me();
+        $shared = Plugin::getInstance()->sessions->shared();
+        $touched = $session->touchedBy ?? $session->userId;
+
+        return [
+            'startedBy' => $shared ? ($session->userId === $me ? Craft::t('ghostwriter', 'you') : self::name($session->userId)) : null,
+            'touchedBy' => $shared && $touched !== $session->userId ? ($touched === $me ? Craft::t('ghostwriter', 'you') : self::name($touched)) : null,
+            'waitingOn' => $session->status === Session::WORKING && $session->runBy !== null && $session->runBy !== $me ? self::name($session->runBy) : null,
         ];
     }
 
@@ -121,9 +163,14 @@ class Presenter
             'error' => $session->error,
             // Replies use lists and bold, so they are shown as markdown, with
             // any HTML in them escaped. What the person typed stays as typed.
+            // A person's message says who sent it, since others may carry on
+            // the same conversation. Older ones were the starter's.
             'messages' => array_map(fn(array $message) => $message['role'] === 'assistant'
                 ? $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
-                : $message, $session->messages),
+                : $message + [
+                    'mine' => ($message['by'] ?? $session->userId) === $this->me(),
+                    'from' => self::name($message['by'] ?? $session->userId),
+                ], $session->messages),
             'draft' => $session->draft,
             'draftProblem' => $problem,
             'preview' => $preview,
@@ -131,6 +178,7 @@ class Presenter
             'usage' => $session->usage,
             'appliedAt' => $session->appliedAt,
             'images' => [],
-        ];
+            'shared' => Plugin::getInstance()->sessions->shared(),
+        ] + $this->people($session);
     }
 }

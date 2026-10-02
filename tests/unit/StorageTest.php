@@ -35,8 +35,9 @@ class StorageTest extends TestCase
         $this->assertDirectoryDoesNotExist($this->workspace . '/storage');
     }
 
-    public function testAPieceOfWritingIsItsOwnersAlone(): void
+    public function testWithSharingOffAPieceOfWritingIsItsOwnersAlone(): void
     {
+        $this->plugin->getSettings()->sharedConversations = false;
         $this->plugin->types->save(ContentType::fromArray('guide', ['title' => 'Guide', 'section' => 'articles']));
 
         $owner = $this->signIn();
