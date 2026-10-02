@@ -6,15 +6,17 @@ use Craft;
 use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use craft\models\Section;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\Analysis;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\KindSuggestions;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\FoundKind;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
 use nineteenninetyfour\ghostwriter\jobs\SuggestKinds;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\types\ContentType;
-use nineteenninetyfour\ghostwriter\types\KindSuggestions;
-use nineteenninetyfour\ghostwriter\types\TypeState;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -45,7 +47,7 @@ class SectionsController extends Controller
             return $this->request->getAcceptsJson() ? $refusal : $this->back((string) $refusal->data['message']);
         }
 
-        if ($plugin->typeState->get($section->handle)['status'] === TypeState::WORKING) {
+        if ($plugin->types->analysis($section->handle)->isWorking()) {
             return $this->request->getAcceptsJson()
                 ? $this->refuse('Ghostwriter is already learning this section.', 409)
                 : $this->back('Ghostwriter is already learning this section.');
@@ -57,7 +59,7 @@ class SectionsController extends Controller
         // Entries from another section cannot be the model.
         $examples = $examples ? Entry::find()->id($examples)->section($section->handle)->status(null)->fixedOrder()->ids() : [];
 
-        $plugin->typeState->set($section->handle, TypeState::WORKING);
+        $plugin->types->changeAnalysis($section->handle, fn(Analysis $analysis) => $analysis->begin());
 
         AnalyseSection::start(['section' => $section->handle, 'title' => $title !== '' ? mb_substr($title, 0, 60) : null, 'examples' => array_map('intval', $examples)]);
 
@@ -98,8 +100,12 @@ class SectionsController extends Controller
         $handles = [];
 
         foreach ($sections as $section) {
-            if ($due ? $plugin->kinds->due($section) : $plugin->kinds->get($section->handle)['status'] !== KindSuggestions::WORKING) {
-                $plugin->kinds->update($section->handle, ['status' => KindSuggestions::WORKING, 'error' => null]);
+            if ($due ? $plugin->types->due($section) : !$plugin->types->suggestions($section->handle)->isWorking()) {
+                $plugin->types->changeSuggestions($section->handle, function(KindSuggestions $suggestions): void {
+                    if (!$suggestions->isWorking()) {
+                        $suggestions->begin();
+                    }
+                });
                 $handles[] = $section->handle;
             }
         }
@@ -123,7 +129,9 @@ class SectionsController extends Controller
     {
         $this->requirePostRequest();
 
-        Plugin::getInstance()->kinds->remove($this->section()->handle, (string) $this->request->getRequiredBodyParam('id'), dismissed: true);
+        $id = (string) $this->request->getRequiredBodyParam('id');
+
+        Plugin::getInstance()->types->changeSuggestions($this->section()->handle, fn(KindSuggestions $suggestions) => $suggestions->remove($id, dismissed: true));
 
         return $this->asJson(['sections' => $this->kindStates()]);
     }
@@ -138,22 +146,22 @@ class SectionsController extends Controller
 
         $plugin = Plugin::getInstance();
         $section = $this->section();
-        $suggestion = $plugin->kinds->find($section->handle, (string) $this->request->getRequiredBodyParam('id'))
+        $suggestion = $plugin->types->suggestions($section->handle)->find((string) $this->request->getRequiredBodyParam('id'))
             ?? throw new NotFoundHttpException('That suggestion has gone.');
 
         if ($refusal = $this->notConfigured()) {
             return $refusal;
         }
 
-        if ($plugin->typeState->get($section->handle)['status'] === TypeState::WORKING) {
+        if ($plugin->types->analysis($section->handle)->isWorking()) {
             return $this->refuse('Ghostwriter is already learning a kind in this section. Try again in a minute.', 409);
         }
 
-        $plugin->typeState->set($section->handle, TypeState::WORKING);
+        $plugin->types->changeAnalysis($section->handle, fn(Analysis $analysis) => $analysis->begin());
 
         AnalyseSection::start(['section' => $section->handle, 'title' => $suggestion['title'], 'examples' => $suggestion['examples']]);
 
-        $plugin->kinds->remove($section->handle, $suggestion['id']);
+        $plugin->types->changeSuggestions($section->handle, fn(KindSuggestions $suggestions) => $suggestions->remove((string) $suggestion['id']));
 
         return $this->asJson(['status' => 'working', 'sections' => $this->kindStates()]);
     }
@@ -167,7 +175,7 @@ class SectionsController extends Controller
 
         $plugin = Plugin::getInstance();
         $section = $this->section();
-        $suggestions = $plugin->kinds->get($section->handle)['suggestions'];
+        $suggestions = $plugin->types->suggestions($section->handle)->suggestions;
 
         if ($refusal = $this->notConfigured()) {
             return $refusal;
@@ -177,20 +185,22 @@ class SectionsController extends Controller
             return $this->refuse('There is nothing suggested to learn.');
         }
 
-        if ($plugin->typeState->get($section->handle)['status'] === TypeState::WORKING) {
+        if ($plugin->types->analysis($section->handle)->isWorking()) {
             return $this->refuse('Ghostwriter is already learning a kind in this section. Try again in a minute.', 409);
         }
 
-        $plugin->typeState->set($section->handle, TypeState::WORKING);
+        $plugin->types->changeAnalysis($section->handle, fn(Analysis $analysis) => $analysis->begin());
 
         AnalyseSection::start([
             'section' => $section->handle,
             'kinds' => array_map(fn(array $suggestion) => ['title' => $suggestion['title'], 'examples' => $suggestion['examples']], $suggestions),
         ]);
 
-        foreach ($suggestions as $suggestion) {
-            $plugin->kinds->remove($section->handle, $suggestion['id']);
-        }
+        $plugin->types->changeSuggestions($section->handle, function(KindSuggestions $state) use ($suggestions): void {
+            foreach ($suggestions as $suggestion) {
+                $state->remove((string) $suggestion['id']);
+            }
+        });
 
         return $this->asJson(['status' => 'working', 'sections' => $this->kindStates()]);
     }
@@ -206,7 +216,7 @@ class SectionsController extends Controller
         $states = [];
 
         foreach ($plugin->types->sections() as $section) {
-            $states[$section->handle] = $plugin->kinds->get($section->handle) + ['learning' => $plugin->typeState->get($section->handle)];
+            $states[$section->handle] = $plugin->types->suggestions($section->handle)->toArray() + ['learning' => $plugin->types->analysis($section->handle)->toArray()];
         }
 
         return $states;
@@ -257,14 +267,14 @@ class SectionsController extends Controller
             'configured' => $plugin->studio->configured(),
             'provider' => $plugin->studio->provider(),
             'keyName' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? null,
-            'hasVoice' => $plugin->voiceGuide->exists(),
+            'hasVoice' => $plugin->domain->guide(Guide::VOICE)->exists(),
             'voiceUrl' => UrlHelper::cpUrl('ghostwriter/voice'),
             'section' => ['handle' => $section->handle, 'title' => Craft::t('site', $section->name)],
-            'state' => $plugin->typeState->get($section->handle),
+            'state' => $plugin->types->analysis($section->handle)->toArray(),
             // On a form for one entry type, only the types written for it.
             'types' => array_values(array_map(
-                fn(ContentType $type) => $type->forQuestionnaire(),
-                array_filter($types, fn(ContentType $type) => !$entryType || !$type->entryType || $type->entryType === $entryType),
+                fn(ContentType $type) => $plugin->types->questionnaire($type),
+                array_filter($types, fn(ContentType $type) => !$entryType || !$type->variant || $type->variant === $entryType),
             )),
             // Kinds of entry found by how the existing ones are built,
             // offered as ready-made models for something new.
@@ -272,12 +282,12 @@ class SectionsController extends Controller
             'entries' => $this->entries($section),
             // Ideas from the content plan waiting to be written here.
             'ideas' => array_values(array_map(
-                fn(array $idea) => array_intersect_key($idea, array_flip(['id', 'title', 'type', 'why', 'notes'])),
-                array_filter($plugin->ideas->all(), fn(array $idea) => $idea['section'] === $section->handle && $idea['status'] === \nineteenninetyfour\ghostwriter\planning\IdeaRepository::OPEN),
+                fn(Idea $idea) => array_intersect_key(PlanController::idea($idea), array_flip(['id', 'title', 'type', 'why', 'notes'])),
+                array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->group === $section->handle && $idea->isOpen()),
             )),
             'sessions' => array_values(array_filter(array_map(
                 fn($session) => $presenter->summary($session),
-                array_filter($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()), fn($session) => isset($types[$session->type]) && $session->source === null),
+                array_filter($plugin->domain->sessions()->visible($plugin->domain->viewer()), fn($session) => isset($types[$session->kind]) && !$session->isEditing()),
             ), fn(array $summary) => !$summary['finished'])),
         ];
     }

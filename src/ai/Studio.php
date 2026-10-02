@@ -7,6 +7,9 @@ use craft\models\Section;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\ProviderException;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\Truncated;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Studio as CoreStudio;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\StudioOptions;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\SuggestedIdea;
@@ -14,8 +17,6 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\SuggestedKind;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\UnreadableReply;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\sessions\Session;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 use Psr\Log\LoggerInterface;
 use yii\base\Component;
 
@@ -97,9 +98,9 @@ class Studio extends Component
     public function analyseSection(Section $section, EntryType $entryType, ?string $title = null, array $examples = []): ContentType
     {
         $data = $this->core()->analyseType($this->inputs()->typeSurvey($section, $entryType, $title, $examples))->value;
-        $handle = Plugin::getInstance()->types->handleFor($title ?: (string) ($data['title'] ?? ''), $section->handle);
+        $types = Plugin::getInstance()->types;
 
-        return ContentType::fromArray($handle, array_filter([
+        return $types->make($types->handleFor($title ?: (string) ($data['title'] ?? ''), $section->handle), array_filter([
             'section' => $section->handle,
             'entryType' => count($section->getEntryTypes()) > 1 ? $entryType->handle : null,
             'examples' => $examples,
@@ -112,7 +113,7 @@ class Studio extends Component
      * already planned.
      *
      * @param array<int, string> $sections Handles of the sections to plan for.
-     * @param array<int, array<string, mixed>> $plan Ideas already on the plan, whatever their status.
+     * @param array<int, Idea> $plan Ideas already on the plan, whatever their status.
      * @return array<int, array{title: string, section: string, type: ?string, why: string, notes: string}>
      * @throws UnreadableReply|ProviderException
      */

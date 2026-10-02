@@ -7,11 +7,13 @@ use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use DateTime;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\DraftPreview;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\sessions\Session;
 
 /**
  * Shapes sessions for the control panel.
@@ -45,28 +47,29 @@ class Presenter
      */
     public function summary(Session $session): array
     {
-        $type = Plugin::getInstance()->types->find($session->type);
+        $plugin = Plugin::getInstance();
+        $type = $plugin->types->find($session->kind);
         $entry = $this->entryFor($session);
-        $stage = $this->stage($session, $entry);
+        $progress = Progress::of($session, $this->record($entry), $plugin->domain->options());
 
         return [
             'id' => $session->id,
             'title' => $session->title(),
-            'type' => $type?->title ?? $session->type,
-            'section' => ($section = $type?->craftSection()) ? Craft::t('site', $section->name) : null,
+            'type' => $type?->title ?? $session->kind,
+            'section' => ($section = $type ? $plugin->types->section($type) : null) ? Craft::t('site', $section->name) : null,
             'status' => $session->status,
             'hasDraft' => $session->draft !== null,
-            'stage' => $stage,
+            'stage' => $progress->stage,
             // Done with: the draft has become a saved entry, or the changes
             // to an existing one have been put into its draft.
-            'finished' => $session->status !== Session::WORKING && ($session->source ? $session->appliedAt !== null : in_array($stage, ['saved', 'published'], true)),
+            'finished' => $progress->finished,
             'entryUrl' => $entry && !$entry->getIsUnpublishedDraft() ? $entry->getCpEditUrl() : null,
             'updatedAt' => Craft::$app->getFormatter()->asRelativeTime(new DateTime((string) $session->updatedAt)),
             // Sessions are resumed where they were started: on the entry
             // they are being written into.
             'url' => $entry ? UrlHelper::urlWithParams((string) $entry->getCpEditUrl(), ['ghostwriter' => $session->id]) : null,
             // Shared, a piece is removed only by whoever started it or a manager.
-            'canDelete' => Plugin::getInstance()->sessions->canDelete($session, Craft::$app->getUser()->getIdentity()),
+            'canDelete' => $plugin->domain->access()->canDelete($session, $plugin->domain->viewer()),
         ] + $this->people($session);
     }
 
@@ -79,16 +82,19 @@ class Presenter
      */
     private function people(Session $session): array
     {
+        $domain = Plugin::getInstance()->domain;
         $me = $this->me();
-        $shared = Plugin::getInstance()->sessions->shared();
-        $touched = $session->touchedBy ?? $session->userId;
+        $shared = $domain->options()->shared;
+        $startedBy = self::user($session->startedBy);
+        $touched = self::user($session->touchedBy) ?? $startedBy;
+        $waitingOn = self::user($session->waitingOn($domain->viewer()));
 
         return [
-            'startedBy' => $shared ? ($session->userId === $me ? Craft::t('ghostwriter', 'you') : self::name($session->userId)) : null,
-            'touchedBy' => $shared && $touched !== $session->userId ? ($touched === $me ? Craft::t('ghostwriter', 'you') : self::name($touched)) : null,
+            'startedBy' => $shared ? ($startedBy === $me ? Craft::t('ghostwriter', 'you') : self::name($startedBy)) : null,
+            'touchedBy' => $shared && $touched !== $startedBy ? ($touched === $me ? Craft::t('ghostwriter', 'you') : self::name($touched)) : null,
             // Only when shared: a private piece is only ever its starter's
             // to wait on, and naming them elsewhere (the plan) would leak it.
-            'waitingOn' => $shared && $session->status === Session::WORKING && $session->runBy !== null && $session->runBy !== $me ? self::name($session->runBy) : null,
+            'waitingOn' => $shared && $waitingOn !== null ? self::name($waitingOn) : null,
         ];
     }
 
@@ -98,26 +104,34 @@ class Presenter
      */
     public function entryFor(Session $session): ?Entry
     {
-        $id = $session->source ?? $session->elementId;
+        $id = $session->source ?? $session->recordId;
 
         if (!$id) {
             return null;
         }
 
-        return Entry::find()->id($id)->drafts(null)->provisionalDrafts(false)->siteId($session->siteId ?? '*')->status(null)->one();
+        return Entry::find()->id((int) $id)->drafts(null)->provisionalDrafts(false)->siteId($session->siteId ?? '*')->status(null)->one();
     }
 
-    private function stage(Session $session, ?Entry $entry): string
+    /**
+     * What Craft knows of the entry, for where the piece has got to: an
+     * unpublished draft is not saved content yet.
+     */
+    private function record(?Entry $entry): Record
     {
         return match (true) {
-            $session->status === Session::FAILED => 'failed',
-            $session->status === Session::WORKING => 'working',
-            $session->source !== null => $session->appliedAt ? 'changed' : 'editing',
-            $entry !== null && !$entry->getIsUnpublishedDraft() => $entry->getStatus() === Entry::STATUS_LIVE ? 'published' : 'saved',
-            $session->appliedAt !== null => 'in_form',
-            $session->draft !== null => 'draft',
-            default => 'interview',
+            $entry === null => Record::none(),
+            $entry->getIsUnpublishedDraft() => Record::unsaved(),
+            default => Record::saved($entry->getStatus() === Entry::STATUS_LIVE, $entry->dateUpdated),
         };
+    }
+
+    /**
+     * A user ID as Craft keeps it.
+     */
+    private static function user(int|string|null $id): ?int
+    {
+        return is_numeric($id) ? (int) $id : null;
     }
 
     private function markdown(string $text): string
@@ -133,7 +147,8 @@ class Presenter
      */
     public function detail(Session $session): array
     {
-        $type = Plugin::getInstance()->types->find($session->type);
+        $plugin = Plugin::getInstance();
+        $type = $plugin->types->find($session->kind);
         $problem = null;
         $words = 0;
         $preview = [];
@@ -143,7 +158,7 @@ class Presenter
                 $draft = Draft::parse($session->draft);
                 $words = $draft->wordCount();
 
-                if ($entryType = $type?->forSession($session)->craftEntryType()) {
+                if ($entryType = $type ? $plugin->types->entryType($type->forSession($session)) : null) {
                     $preview = (new DraftPreview())->render($draft->data, (new SchemaReader())->read($entryType));
                 }
             } catch (InvalidArgumentException $exception) {
@@ -155,13 +170,13 @@ class Presenter
 
         return [
             'id' => $session->id,
-            'editing' => $session->source !== null,
+            'editing' => $session->isEditing(),
             // Whether the writer has asked something and is waiting for an answer.
             'waitingOnYou' => $session->status === Session::IDLE
                 && $last !== null
                 && $last['role'] === 'assistant'
-                && ($last['asks'] ?? ($session->draft === null && $session->source === null)),
-            'type' => $type?->forQuestionnaire(),
+                && ($last['asks'] ?? ($session->draft === null && !$session->isEditing())),
+            'type' => $type ? $plugin->types->questionnaire($type) : null,
             'title' => $session->title(),
             'status' => $session->status,
             'error' => $session->error,
@@ -172,8 +187,8 @@ class Presenter
             'messages' => array_map(fn(array $message) => $message['role'] === 'assistant'
                 ? $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
                 : $message + [
-                    'mine' => ($message['by'] ?? $session->userId) === $this->me(),
-                    'from' => self::name($message['by'] ?? $session->userId),
+                    'mine' => self::user($message['by'] ?? $session->startedBy) === $this->me(),
+                    'from' => self::name(self::user($message['by'] ?? $session->startedBy)),
                 ], $session->messages),
             'draft' => $session->draft,
             'draftProblem' => $problem,
@@ -182,7 +197,7 @@ class Presenter
             'usage' => $session->usage,
             'appliedAt' => $session->appliedAt,
             'images' => [],
-            'shared' => Plugin::getInstance()->sessions->shared(),
+            'shared' => $plugin->domain->options()->shared,
         ] + $this->people($session);
     }
 }

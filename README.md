@@ -76,7 +76,7 @@ Ghostwriter for Craft CMS is commercial software. See [LICENSE.md](LICENSE.md).
 
 ## Development
 
-The providers, prompts, draft text handling and layout algorithms come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), which Composer installs from Packagist.
+The providers, prompts, draft text handling, layout algorithms and the rules for pieces, the content plan, kinds, guides and images come from [ghostwriter-core](https://github.com/1994limited/ghostwriter-core), which Composer installs from Packagist.
 
 ```bash
 composer install

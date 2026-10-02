@@ -4,8 +4,8 @@ namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
 use craft\elements\Entry;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\KindSuggestions;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\types\KindSuggestions;
 use Throwable;
 
 /**
@@ -30,12 +30,13 @@ class SuggestKinds extends Job
 
             try {
                 $suggestions = $plugin->studio->suggestKinds($section);
+                $live = (int) Entry::find()->section($handle)->status('live')->count();
 
-                $plugin->kinds->store($handle, $suggestions, (int) Entry::find()->section($handle)->status('live')->count());
+                $plugin->types->changeSuggestions($handle, fn(KindSuggestions $state) => $state->store($suggestions, $live));
             } catch (Throwable $exception) {
                 Craft::error($exception, 'ghostwriter');
 
-                $plugin->kinds->update($handle, ['status' => KindSuggestions::FAILED, 'error' => $exception->getMessage()]);
+                $plugin->types->changeSuggestions($handle, fn(KindSuggestions $state) => $state->fail($exception->getMessage()));
             }
         }
     }

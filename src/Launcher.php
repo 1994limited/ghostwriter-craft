@@ -106,8 +106,10 @@ class Launcher
      */
     private static function currentSession(int $elementId): ?string
     {
-        foreach (Plugin::getInstance()->sessions->visibleTo((int) \Craft::$app->getUser()->getId()) as $session) {
-            if ($session->elementId === $elementId && $session->source === null) {
+        $domain = Plugin::getInstance()->domain;
+
+        foreach ($domain->sessions()->visible($domain->viewer()) as $session) {
+            if ($session->recordId === $elementId && !$session->isEditing()) {
                 return $session->id;
             }
         }

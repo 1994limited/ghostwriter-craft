@@ -2,14 +2,15 @@
 
 namespace nineteenninetyfour\ghostwriter\tests\unit;
 
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\PlanState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\jobs\SuggestIdeas;
-use nineteenninetyfour\ghostwriter\planning\IdeaRepository;
-use nineteenninetyfour\ghostwriter\planning\PlanState;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 
 /**
  * The content plan: ideas for what is missing, and drafting from one.
@@ -24,14 +25,14 @@ class PlanTest extends TestCase
 
         $this->makeArticlesSection();
         $this->makeArticle('What Does a Website Cost?', 'A paragraph about cost that is long enough to count as a sample.');
-        $this->plugin->types->save(ContentType::fromArray('guide', ['title' => 'Guide', 'section' => 'articles', 'questions' => [['handle' => 'what', 'label' => 'What is it about?', 'required' => true]]]));
+        $this->plugin->types->save($this->plugin->types->make('guide', ['title' => 'Guide', 'section' => 'articles', 'questions' => [['handle' => 'what', 'label' => 'What is it about?', 'required' => true]]]));
     }
 
     public function testGhostwriterSuggestsWhatTheSiteIsMissing(): void
     {
-        $ideas = $this->plugin->ideas;
-        $ideas->add(['title' => 'Rebuild or repair?', 'section' => 'articles']);
-        $ideas->update($ideas->add(['title' => 'Our office dog', 'section' => 'articles'])['id'], ['status' => IdeaRepository::DISMISSED]);
+        $plan = $this->plugin->domain->plan();
+        $plan->add(['title' => 'Rebuild or repair?', 'section' => 'articles']);
+        $plan->dismiss($plan->add(['title' => 'Our office dog', 'section' => 'articles'])->id);
 
         $this->fake->respond('planner', "<ideas>\n- title: How to brief a web agency\n  collection: articles\n  type: guide\n  why: The cost guide sends readers off to get quotes with nothing on how to ask for one.\n  notes: For an owner about to approach agencies. [Add a brief we thought was good]\n- title: Rebuild or repair?\n  collection: articles\n- title: A page about nothing\n  collection: nowhere\n- title: Slow site, lost sale\n  section: articles\n  type: made-up\n</ideas>");
 
@@ -39,12 +40,12 @@ class PlanTest extends TestCase
 
         // Two suggestions wait to be looked over; the repeat and the one for
         // a section not planned for are left out. Nothing is on the plan yet.
-        $pending = $this->plugin->planState->get()['pending'];
+        $pending = $plan->state()->pending;
 
         $this->assertSame(['How to brief a web agency', 'Slow site, lost sale'], array_column($pending, 'title'));
         $this->assertSame('guide', $pending[0]['type']);
         $this->assertNull($pending[1]['type']);
-        $this->assertCount(2, $ideas->all());
+        $this->assertCount(2, $this->plugin->plans->ideas());
 
         // It was shown what exists, what is planned and what was turned down.
         $request = $this->fake->prompted('planner')[0];
@@ -62,8 +63,8 @@ class PlanTest extends TestCase
             'Our office dog' => 'dismissed',
             'How to brief a web agency' => 'open',
             'Slow site, lost sale' => 'dismissed',
-        ], array_column(array_values($ideas->all()), 'status', 'title'));
-        $this->assertSame(PlanState::IDLE, $this->plugin->planState->get()['status']);
+        ], array_column($this->plugin->plans->ideas(), 'status', 'title'));
+        $this->assertSame('idle', $plan->state()->status);
     }
 
     public function testThePlanScreenAddsDismissesAndStartsASearch(): void
@@ -82,14 +83,14 @@ class PlanTest extends TestCase
         $this->assertSame('open', $this->action('ghostwriter/plan/update', ['id' => $idea['id'], 'status' => 'open'])['data']['ideas'][0]['status']);
         $this->assertSame(422, $this->action('ghostwriter/plan/update', ['id' => $idea['id'], 'status' => 'published'])['status']);
 
-        $this->assertSame(PlanState::WORKING, $this->action('ghostwriter/plan/suggest', ['sections' => ['articles', 'nowhere'], 'steer' => 'Ecommerce.'])['data']['status']);
+        $this->assertSame('working', $this->action('ghostwriter/plan/suggest', ['sections' => ['articles', 'nowhere'], 'steer' => 'Ecommerce.'])['data']['status']);
 
         $job = $this->queued(SuggestIdeas::class)[0];
         $this->assertSame(['articles'], $job->sections);
         $this->assertSame('Ecommerce.', $job->steer);
 
         // The plan is kept in the database, one row per idea.
-        $this->assertCount(count($this->plugin->ideas->all()), $this->plugin->store->documents('idea'));
+        $this->assertCount(count($this->plugin->plans->ideas()), $this->plugin->store->documents('idea'));
         $this->assertFileDoesNotExist($this->workspace . '/guides/ideas.yaml');
     }
 
@@ -98,7 +99,7 @@ class PlanTest extends TestCase
         $this->signIn();
 
         foreach (['First', 'Second', 'Third'] as $title) {
-            $this->plugin->ideas->add(['title' => $title, 'section' => 'articles']);
+            $this->plugin->domain->plan()->add(['title' => $title, 'section' => 'articles']);
         }
 
         $this->assertSame(['Third', 'Second', 'First'], array_column($this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'], 'title'));
@@ -107,10 +108,10 @@ class PlanTest extends TestCase
     public function testSuggestionsWaitUntilTheyAreDecided(): void
     {
         $this->signIn();
-        $this->plugin->planState->update(['pending' => [
+        $this->plugin->domain->plan()->changeState(fn(PlanState $state) => $state->pending = [
             ['title' => 'Rebuild or repair?', 'section' => 'articles', 'type' => null, 'why' => 'Asked often.', 'notes' => ''],
             ['title' => 'Our office dog', 'section' => 'articles', 'type' => null, 'why' => '', 'notes' => ''],
-        ]]);
+        ]);
 
         // Still there on the next visit: the screen has them to show.
         $screen = $this->action('ghostwriter/plan/show', method: 'GET')['data']['variables'];
@@ -123,37 +124,74 @@ class PlanTest extends TestCase
         $this->assertSame(['dismissed', 'dismissed'], array_column($data['ideas'], 'status'));
     }
 
+    public function testANewBatchJoinsTheOneWaiting(): void
+    {
+        $plan = $this->plugin->domain->plan();
+        $plan->changeState(fn(PlanState $state) => $state->pending = [['title' => 'Rebuild or repair?', 'section' => 'articles', 'type' => null, 'why' => '', 'notes' => '']]);
+
+        $this->fake->respond('planner', "<ideas>\n- title: How to brief a web agency\n  collection: articles\n- title: rebuild or repair?\n  collection: articles\n</ideas>");
+
+        (new SuggestIdeas(['sections' => ['articles']]))->execute(null);
+
+        // Kept until someone decides (E3), and no title twice.
+        $this->assertSame(['Rebuild or repair?', 'How to brief a web agency'], array_column($plan->state()->pending, 'title'));
+    }
+
+    public function testOnlyADismissedIdeaIsPutBack(): void
+    {
+        $this->signIn();
+        $plan = $this->plugin->domain->plan();
+        $open = $plan->add(['title' => 'Open', 'section' => 'articles']);
+        $piece = $this->plugin->sessions->save(Session::start(Format::Craft, 'guide', [], \Craft::$app->getUser()->getId()));
+        $started = $plan->start($plan->add(['title' => 'Started', 'section' => 'articles'])->id, $piece->id);
+
+        // A started piece is resumed, not put back (E8).
+        foreach ([$open, $started] as $idea) {
+            $refused = $this->action('ghostwriter/plan/update', ['id' => $idea->id, 'status' => 'open']);
+            $this->assertSame(409, $refused['status']);
+            $this->assertSame('Only a dismissed idea can be put back.', $refused['data']['message']);
+        }
+
+        $this->assertSame(Idea::DRAFTED, $this->plugin->plans->find($started->id)->status);
+        $this->assertSame(404, $this->action('ghostwriter/plan/update', ['id' => 'nothing', 'title' => 'X'])['status']);
+
+        // Words change without the state.
+        $this->action('ghostwriter/plan/update', ['id' => $started->id, 'title' => ' Started, renamed ']);
+        $this->assertSame(['Started, renamed', Idea::DRAFTED], [$this->plugin->plans->find($started->id)->title, $this->plugin->plans->find($started->id)->status]);
+    }
+
     public function testTheListCanBeClearedWithoutTouchingStartedPieces(): void
     {
         $this->signIn();
 
-        $ideas = $this->plugin->ideas;
-        $ideas->add(['title' => 'One', 'section' => 'articles']);
-        $ideas->add(['title' => 'Two', 'section' => 'articles']);
-        $ideas->update($ideas->add(['title' => 'Started', 'section' => 'articles'])['id'], ['status' => IdeaRepository::DRAFTED, 'session' => 'x']);
-        $ideas->update($ideas->add(['title' => 'No', 'section' => 'articles'])['id'], ['status' => IdeaRepository::DISMISSED]);
+        $plan = $this->plugin->domain->plan();
+        $plan->add(['title' => 'One', 'section' => 'articles']);
+        $plan->add(['title' => 'Two', 'section' => 'articles']);
+        $piece = $this->plugin->sessions->save(Session::start(Format::Craft, 'guide', [], \Craft::$app->getUser()->getId()));
+        $plan->start($plan->add(['title' => 'Started', 'section' => 'articles'])->id, $piece->id);
+        $plan->dismiss($plan->add(['title' => 'No', 'section' => 'articles'])->id);
 
         $this->assertSame(422, $this->action('ghostwriter/plan/clear', ['status' => 'drafted'])['status']);
         $this->action('ghostwriter/plan/clear', ['status' => 'open']);
 
-        $this->assertSame(['Started' => 'drafted', 'No' => 'dismissed'], array_column(array_values($ideas->all()), 'status', 'title'));
+        $this->assertSame(['Started' => 'drafted', 'No' => 'dismissed'], array_column($this->plugin->plans->ideas(), 'status', 'title'));
     }
 
     public function testAnIdeaIsOfferedOnTheEntryAndMarkedDraftedWhenStarted(): void
     {
         $this->signIn(admin: true);
 
-        $idea = $this->plugin->ideas->add(['title' => 'Rebuild or repair?', 'section' => 'articles', 'why' => 'Nothing on it yet.']);
+        $idea = $this->plugin->domain->plan()->add(['title' => 'Rebuild or repair?', 'section' => 'articles', 'why' => 'Nothing on it yet.']);
 
         $offered = $this->action('ghostwriter/sections/show', ['section' => 'articles'], 'GET')['data']['ideas'];
-        $this->assertSame([['id' => $idea['id'], 'title' => 'Rebuild or repair?', 'type' => null, 'why' => 'Nothing on it yet.', 'notes' => '']], $offered);
+        $this->assertSame([['id' => $idea->id, 'title' => 'Rebuild or repair?', 'type' => null, 'why' => 'Nothing on it yet.', 'notes' => '']], $offered);
 
         $target = $this->newDraft($this->articles);
-        $session = $this->action('ghostwriter/sessions/start', ['type' => 'guide', 'answers' => ['what' => 'Whether to rebuild.'], 'idea' => $idea['id'], 'elementId' => $target->id])['data']['id'];
+        $session = $this->action('ghostwriter/sessions/start', ['type' => 'guide', 'answers' => ['what' => 'Whether to rebuild.'], 'idea' => $idea->id, 'elementId' => $target->id])['data']['id'];
 
-        $idea = $this->plugin->ideas->find($idea['id']);
-        $this->assertSame(IdeaRepository::DRAFTED, $idea['status']);
-        $this->assertSame($session, $idea['session']);
+        $idea = $this->plugin->plans->find($idea->id);
+        $this->assertSame(Idea::DRAFTED, $idea->status);
+        $this->assertSame($session, $idea->session);
 
         // No longer offered as something to write.
         $this->assertSame([], $this->action('ghostwriter/sections/show', ['section' => 'articles'], 'GET')['data']['ideas']);
@@ -175,13 +213,13 @@ class PlanTest extends TestCase
     {
         $this->signIn(admin: true);
 
-        $idea = $this->plugin->ideas->add(['title' => 'Rebuild or repair?', 'section' => 'articles']);
+        $idea = $this->plugin->domain->plan()->add(['title' => 'Rebuild or repair?', 'section' => 'articles']);
 
-        $this->action('ghostwriter/sections/new', ['section' => 'articles', 'idea' => $idea['id']], 'GET', json: false);
+        $this->action('ghostwriter/sections/new', ['section' => 'articles', 'idea' => $idea->id], 'GET', json: false);
 
         $location = (string) \Craft::$app->getResponse()->getHeaders()->get('location');
 
         $this->assertStringContainsString('ghostwriter=new', $location);
-        $this->assertStringContainsString('idea=' . $idea['id'], $location);
+        $this->assertStringContainsString('idea=' . $idea->id, $location);
     }
 }

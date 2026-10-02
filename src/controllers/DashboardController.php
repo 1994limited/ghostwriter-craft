@@ -4,9 +4,11 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 
 use Craft;
 use craft\elements\Entry;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 use yii\web\Response;
 
@@ -20,7 +22,8 @@ class DashboardController extends Controller
     public function actionIndex(): Response
     {
         $plugin = Plugin::getInstance();
-        $guide = $plugin->voiceGuide;
+        $guide = $plugin->domain->guide(Guide::VOICE);
+        $imagery = $plugin->domain->guide(Guide::IMAGERY);
         $presenter = new Presenter();
 
         $this->view->registerAssetBundle(GhostwriterAsset::class);
@@ -31,14 +34,14 @@ class DashboardController extends Controller
             'keyName' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? null,
             'voice' => [
                 'exists' => $guide->exists(),
-                'updatedAt' => $guide->updatedAt(),
+                'updatedAt' => $guide->updatedAt,
             ],
             'sections' => array_map(fn($section) => [
                 'handle' => $section->handle,
                 'name' => Craft::t('site', $section->name),
                 'entries' => (int) Entry::find()->section($section->handle)->status(null)->count(),
-                'learning' => $plugin->typeState->get($section->handle),
-                'kinds' => ['suggestions' => $plugin->kinds->presented($section->handle)] + $plugin->kinds->get($section->handle),
+                'learning' => $plugin->types->analysis($section->handle)->toArray(),
+                'kinds' => ['suggestions' => $plugin->types->presented($section->handle)] + $plugin->types->suggestions($section->handle)->toArray(),
                 'types' => array_values(array_map(fn(ContentType $type) => [
                     'title' => $type->title,
                     'description' => $type->description,
@@ -46,12 +49,12 @@ class DashboardController extends Controller
                     'url' => \craft\helpers\UrlHelper::cpUrl('ghostwriter/types/' . $type->handle),
                 ], $plugin->types->forSection($section->handle))),
             ], $plugin->types->sections()),
-            'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()), 0, 30)),
+            'sessions' => array_map(fn($session) => $presenter->summary($session), array_slice($plugin->domain->sessions()->visible($plugin->domain->viewer()), 0, 30)),
             'setup' => $plugin->onboarding->progress(),
             'canHideSetup' => $plugin->onboarding->canToggle(),
             'nextStep' => $plugin->onboarding->nextStep(),
-            'imagery' => ['exists' => $plugin->imageryGuide->exists(), 'updatedAt' => $plugin->imageryGuide->updatedAt()],
-            'planOpen' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === \nineteenninetyfour\ghostwriter\planning\IdeaRepository::OPEN)),
+            'imagery' => ['exists' => $imagery->exists(), 'updatedAt' => $imagery->updatedAt],
+            'planOpen' => count(array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->isOpen())),
             'isAdmin' => Craft::$app->getUser()->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
         ]);
     }

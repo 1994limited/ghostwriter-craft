@@ -2,13 +2,11 @@
 
 namespace nineteenninetyfour\ghostwriter;
 
-use Craft;
 use craft\db\Query;
 use craft\helpers\DateTimeHelper;
 use craft\helpers\Db;
 use craft\helpers\Json;
 use DateTime;
-use RuntimeException;
 use yii\base\Component;
 
 /**
@@ -21,7 +19,8 @@ use yii\base\Component;
  *   state      working state: suggestions, jobs in hand, image requests
  *   files      pictures made or uploaded, while they wait to be used
  *
- * Sessions have a table of their own (see SessionRepository).
+ * Sessions have a table of their own. Core's stores (see domain/) read and
+ * write their records here; its Lock is Craft's mutex (domain/CraftLock).
  */
 class Store extends Component
 {
@@ -32,12 +31,6 @@ class Store extends Component
     public const FILES = '{{%ghostwriter_files}}';
 
     public const SESSIONS = '{{%ghostwriter_sessions}}';
-
-    /** Seconds to wait for another request to finish changing the same thing. */
-    private const LOCK_WAIT = 15;
-
-    /** What is said of work that stopped without finishing. */
-    public const STOPPED = 'This stopped before it finished, probably cut off by a time limit on the server. Try again.';
 
     public function document(string $kind, string $handle): ?string
     {
@@ -89,23 +82,6 @@ class Store extends Component
     }
 
     /**
-     * Whether work marked as in hand since then has been going on for far
-     * longer than a job is allowed: its process was stopped (a time limit,
-     * a restart) before it could say so, and nothing else ever will.
-     */
-    public static function isStale(DateTime|string|null $since): bool
-    {
-        if ($since === null || $since === '') {
-            return false;
-        }
-
-        $since = $since instanceof DateTime ? $since : DateTimeHelper::toDateTime($since);
-        $allowed = (Plugin::getInstance()->getSettings()->timeout + 120) * 2;
-
-        return $since !== false && $since->getTimestamp() < time() - $allowed;
-    }
-
-    /**
      * @param array<string, mixed> $value
      */
     public function putState(string $key, array $value): void
@@ -113,35 +89,9 @@ class Store extends Component
         Db::upsert(self::STATE, ['name' => $key, 'value' => Json::encode($value)]);
     }
 
-    /**
-     * Change a piece of state from what it is now, with nobody else
-     * changing it in between: a job and a request can both be at it.
-     *
-     * @param callable(array<string, mixed>): array<string, mixed> $change
-     * @return array<string, mixed> The state as saved.
-     */
-    public function changeState(string $key, callable $change): array
-    {
-        return $this->locked("state:{$key}", function() use ($key, $change) {
-            $value = $change($this->state($key));
-            $this->putState($key, $value);
-
-            return $value;
-        });
-    }
-
     public function deleteState(string $key): void
     {
         Db::delete(self::STATE, ['name' => $key]);
-    }
-
-    /**
-     * Remove state under a prefix not touched for a while, such as old
-     * image requests.
-     */
-    public function clearStateOlderThan(string $prefix, int $seconds): void
-    {
-        Db::delete(self::STATE, ['and', ['like', 'name', $prefix . '%', false], ['<', 'dateUpdated', Db::prepareDateForDb(new DateTime("-{$seconds} seconds"))]]);
     }
 
     public function putFile(string $id, string $content, string $mime, string $extension): void
@@ -162,33 +112,5 @@ class Store extends Component
     public function deleteFile(string $id): void
     {
         Db::delete(self::FILES, ['id' => $id]);
-    }
-
-    public function clearFilesOlderThan(int $seconds): void
-    {
-        Db::delete(self::FILES, ['<', 'dateCreated', Db::prepareDateForDb(new DateTime("-{$seconds} seconds"))]);
-    }
-
-    /**
-     * Run something while holding a named lock, across every server.
-     *
-     * @template T
-     * @param callable(): T $work
-     * @return T
-     */
-    public function locked(string $name, callable $work): mixed
-    {
-        $mutex = Craft::$app->getMutex();
-        $name = 'ghostwriter:' . $name;
-
-        if (!$mutex->acquire($name, self::LOCK_WAIT)) {
-            throw new RuntimeException('Ghostwriter is busy saving that. Try again in a moment.');
-        }
-
-        try {
-            return $work();
-        } finally {
-            $mutex->release($name);
-        }
     }
 }

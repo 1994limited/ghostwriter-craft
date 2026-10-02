@@ -28,7 +28,7 @@ class ScreensTest extends TestCase
         $this->assertStringContainsString('Not written yet', $html);
         $this->assertStringContainsString('Articles', $html);
 
-        $this->plugin->voiceGuide->save("# Tone of voice\n\nWe, to you.");
+        $this->plugin->domain->saveGuide(\NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide::VOICE, "# Tone of voice\n\nWe, to you.");
         $html = $this->render('ghostwriter/dashboard/index');
         $this->assertStringContainsString('class="screen-title" title="Overview">Overview</h1>', $html);
         $this->assertStringContainsString('Written', $html);
@@ -74,7 +74,7 @@ class ScreensTest extends TestCase
 
     public function testTheKindEditorKeepsQuestionHandlesOutOfSight(): void
     {
-        $this->plugin->types->save(\nineteenninetyfour\ghostwriter\types\ContentType::fromArray('story', ['title' => 'Story', 'section' => 'articles', 'questions' => [['handle' => 'who_for', 'label' => 'Who is it for?']]]));
+        $this->plugin->types->save($this->plugin->types->make('story', ['title' => 'Story', 'section' => 'articles', 'questions' => [['handle' => 'who_for', 'label' => 'Who is it for?']]]));
         $this->signIn();
 
         $html = $this->render('ghostwriter/types/edit', ['handle' => 'story']);

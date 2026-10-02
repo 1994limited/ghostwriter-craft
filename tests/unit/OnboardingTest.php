@@ -4,10 +4,13 @@ namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use Craft;
 use craft\web\View;
-use nineteenninetyfour\ghostwriter\sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\KindSuggestions;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 
 /**
  * Getting started: each step read from the state of the site.
@@ -43,8 +46,8 @@ class OnboardingTest extends TestCase
 
         // Doing each thing ticks it off.
         $this->plugin->providers->keys['anthropic'] = 'test-key';
-        $this->plugin->voiceGuide->save('# Tone of voice');
-        $this->plugin->kinds->store('press', [['title' => 'Coverage', 'description' => '', 'why' => '', 'examples' => [1, 2], 'entryType' => null]], 2);
+        $this->plugin->domain->saveGuide(Guide::VOICE, '# Tone of voice');
+        $this->plugin->types->changeSuggestions('press', fn(KindSuggestions $state) => $state->store([['title' => 'Coverage', 'description' => '', 'why' => '', 'examples' => [1, 2], 'entryType' => null]], 2));
 
         $steps = $this->steps();
         $this->assertTrue($steps['key']['done']);
@@ -56,8 +59,8 @@ class OnboardingTest extends TestCase
         $this->assertFalse($steps['kinds']['done']);
         $this->assertSame('1 suggestion is waiting on the Overview.', $steps['kinds']['detail']);
 
-        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
-        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+        $this->plugin->types->save($this->plugin->types->make('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(Format::Craft, ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
 
         $steps = $this->steps();
         $this->assertTrue($steps['kinds']['done']);
@@ -142,9 +145,9 @@ class OnboardingTest extends TestCase
 
     public function testOnceSetUpTheCardSaysSoUntilItIsHidden(): void
     {
-        $this->plugin->voiceGuide->save('# Tone of voice');
-        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
-        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+        $this->plugin->domain->saveGuide(Guide::VOICE, '# Tone of voice');
+        $this->plugin->types->save($this->plugin->types->make('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(Format::Craft, ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
 
         $html = $this->dashboard();
         $this->assertStringContainsString('You’re set up', $html);
@@ -192,9 +195,9 @@ class OnboardingTest extends TestCase
 
     public function testGetStartedCanBeBroughtBackOnceSetupIsComplete(): void
     {
-        $this->plugin->voiceGuide->save('# Tone of voice');
-        $this->plugin->types->save(ContentType::fromArray('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
-        $this->plugin->sessions->save(Session::start(ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
+        $this->plugin->domain->saveGuide(Guide::VOICE, '# Tone of voice');
+        $this->plugin->types->save($this->plugin->types->make('coverage', ['title' => 'Coverage', 'section' => 'press', 'questions' => [['handle' => 'q', 'label' => 'Q']]]));
+        $this->plugin->sessions->save(Session::start(Format::Craft, ContentType::GENERIC . 'press', [], \Craft::$app->getUser()->getId()));
         $this->assertTrue($this->plugin->onboarding->progress()['complete']);
 
         $this->plugin->onboarding->hide();

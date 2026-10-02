@@ -8,6 +8,7 @@ use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\elements\User;
 use craft\fields\Assets;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
 

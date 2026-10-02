@@ -9,6 +9,7 @@ use craft\helpers\StringHelper;
 use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageRequest;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoContext;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoResults;
@@ -101,7 +102,7 @@ class ImagePicker extends Component
             blockText: $slot->blockText(),
             pageText: $slot->pageText(),
             shape: $slot->shape(),
-            style: Plugin::getInstance()->imageryGuide->for($slot->sectionName()),
+            style: Plugin::getInstance()->domain->guide(Guide::IMAGERY)->section($slot->sectionName()),
         );
     }
 
@@ -209,7 +210,7 @@ class ImagePicker extends Component
     {
         $summary = $slot->blockText() ?: $slot->pageText();
         $summary = mb_strlen($summary) > 1200 ? mb_substr($summary, 0, 1200) . '…' : $summary;
-        $style = Plugin::getInstance()->imageryGuide->for($slot->sectionName());
+        $style = Plugin::getInstance()->domain->guide(Guide::IMAGERY)->section($slot->sectionName());
 
         return strtr(Plugin::getInstance()->paths->prompt('image'), [
             '{{ field }}' => $slot->label(),

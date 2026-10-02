@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "390ed599ea60a6bff6ba2bba2afbe5d4",
+    "content-hash": "45651767842df6362e73e6eb674517c3",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
-            "version": "v0.4.0",
+            "version": "v0.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/1994limited/ghostwriter-core.git",
-                "reference": "f8f7e67099878e1c2a946ce0786e40250025580c"
+                "reference": "2e841fa10b9f540e990631ba5012f5ae462d93d4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/f8f7e67099878e1c2a946ce0786e40250025580c",
-                "reference": "f8f7e67099878e1c2a946ce0786e40250025580c",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/2e841fa10b9f540e990631ba5012f5ae462d93d4",
+                "reference": "2e841fa10b9f540e990631ba5012f5ae462d93d4",
                 "shasum": ""
             },
             "require": {
@@ -38,7 +38,7 @@
                 "phpunit/phpunit": "^11.5|^12.0"
             },
             "suggest": {
-                "ext-gd": "Makes photos small before the photo picker sees them, when Imagick isn't there.",
+                "ext-gd": "Draws the striped image placeholder (Images\\Placeholders), and makes photos small before the photo picker sees them when Imagick isn't there.",
                 "ext-imagick": "Makes photos small before the photo picker sees them (preferred over GD).",
                 "ext-intl": "Transliterates non-Latin scripts in photo file names (Text\\Slug); without it they are dropped.",
                 "guzzlehttp/guzzle": "Required (^7.8 or ^8.0) to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
@@ -50,7 +50,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.4.x-dev"
+                    "dev-main": "0.5.x-dev"
                 }
             },
             "autoload": {
@@ -68,7 +68,7 @@
                     "homepage": "https://1994.co.uk"
                 }
             ],
-            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer, the Studio (every model job), the schema model and layout algorithms, and photo search.",
+            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer, the Studio (every model job), the schema model and layout algorithms, the domain model with its rules and store contracts, and photo search and image placeholders.",
             "homepage": "https://github.com/1994limited/ghostwriter-core",
             "keywords": [
                 "ai",
@@ -80,7 +80,7 @@
                 "issues": "https://github.com/1994limited/ghostwriter-core/issues",
                 "source": "https://github.com/1994limited/ghostwriter-core"
             },
-            "time": "2026-10-02T14:28:17+00:00"
+            "time": "2026-10-02T15:18:29+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",

@@ -19,7 +19,7 @@ The suggestions open in a box, **Ghostwriter suggests**, all ticked. Untick any 
 
 ## Suggestions waiting
 
-Closing the box keeps the suggestions. A card at the top of the plan says "N suggestions waiting", and **Review** opens the box again. Only **Drop them all** throws a batch away.
+Closing the box keeps the suggestions. A card at the top of the plan says "N suggestions waiting", and **Review** opens the box again. Only **Drop them all** throws a batch away. Asking for more while a batch is waiting adds the new suggestions to it, leaving out any title already waiting or on the plan.
 
 ![The card at the top of the content plan saying 3 suggestions waiting, with Review](images/plan-waiting.png)
 
@@ -29,7 +29,7 @@ Under **Add your own**, give a working title, choose the section, add notes if y
 
 ## The list
 
-- **In progress** comes first ("Started, and not yet saved as an entry."): ideas whose piece has been started. Each shows where it has got to: **Ghostwriter is writing**, **Waiting on your answers**, **Draft ready to use**, **In the entry, not saved** or **Something went wrong last time**, with who started it, **Resume** and **Back to ideas**.
+- **In progress** comes first ("Started, and not yet saved as an entry."): ideas whose piece has been started. Each shows where it has got to: **Ghostwriter is writing**, **Waiting on your answers**, **Draft ready to use**, **In the entry, not saved** or **Something went wrong last time**, with who started it and **Resume**.
 - **Open ideas** follow, grouped by section, newest first, with how many there are to write. Ideas Ghostwriter suggested are marked **Suggested**, and an idea for one of your kinds shows the kind.
 - **Finished and dismissed** ideas are folded away at the bottom. **Show N finished and dismissed** opens them, and **Hide finished and dismissed** folds them again.
 
@@ -39,7 +39,7 @@ Under **Add your own**, give a working title, choose the section, add notes if y
 
 Click **Draft this** on an idea. A new entry in that section opens with Ghostwriter open, its title and notes in the [quick brief](writing.md#the-brief), and the brief filled in from them (one model call). Open ideas for a section are also offered in the panel itself, first, under **From the content plan**.
 
-Once you start writing it (not when the entry opens), the idea moves to **In progress**, and **Resume** reopens the piece. **Back to ideas** returns it to the list.
+Once you start writing it (not when the entry opens), the idea moves to **In progress**, and **Resume** reopens the piece. If the piece's conversation is deleted, the idea goes back to the open ideas.
 
 A piece counts as finished once its entry is saved. A draft put into the entry but never saved stays in progress, so it can still be resumed.
 

@@ -5,8 +5,8 @@ namespace nineteenninetyfour\ghostwriter\jobs;
 use Craft;
 use craft\elements\Entry;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\Analysis;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\types\TypeState;
 use Throwable;
 
 /**
@@ -61,7 +61,7 @@ class AnalyseSection extends Job
             }
         }
 
-        $plugin->typeState->set($this->section, $failed ? TypeState::FAILED : TypeState::IDLE, $failed ? implode(' ', $failed) : null);
+        $plugin->types->changeAnalysis($this->section, fn(Analysis $analysis) => $failed ? $analysis->fail(implode(' ', $failed)) : $analysis->succeed());
     }
 
     protected function defaultDescription(): ?string

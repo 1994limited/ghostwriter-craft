@@ -4,13 +4,14 @@ namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use Craft;
 use craft\elements\User;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\DomainOptions;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Launcher;
-use nineteenninetyfour\ghostwriter\sessions\Session;
 use nineteenninetyfour\ghostwriter\tests\support\RecordingMutex;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 
 /**
  * Conversations are shared with everyone who may use Ghostwriter (decision
@@ -30,7 +31,7 @@ class SharingTest extends TestCase
         parent::_before();
 
         $this->makeArticlesSection();
-        $this->plugin->types->save(ContentType::fromArray('project', [
+        $this->plugin->types->save($this->plugin->types->make('project', [
             'title' => 'Article',
             'section' => 'articles',
             'questions' => [['handle' => 'what', 'label' => 'What was built?', 'type' => 'textarea', 'required' => true]],
@@ -113,8 +114,7 @@ class SharingTest extends TestCase
     public function testTryingAgainRecordsWhoIsWaitingAndRunsOnce(): void
     {
         $session = $this->annsPiece();
-        $session->status = Session::FAILED;
-        $session->error = 'The provider is overloaded.';
+        $session->fail('The provider is overloaded.');
         $session->addMessage('user', 'Make it shorter.', $this->ann->id);
         $this->plugin->sessions->save($session);
 
@@ -136,11 +136,11 @@ class SharingTest extends TestCase
     {
         $this->plugin->getSettings()->sharedConversations = false;
         $session = $this->annsPiece();
-        $session->run($this->ann->id);
+        $session->claim($this->ann->id, new DomainOptions(Format::Craft));
         $this->plugin->sessions->save($session);
 
-        $ideas = $this->plugin->ideas;
-        $ideas->update($ideas->add(['title' => 'Faceted search', 'section' => 'articles'])['id'], ['status' => \nineteenninetyfour\ghostwriter\planning\IdeaRepository::DRAFTED, 'session' => $session->id]);
+        $plan = $this->plugin->domain->plan();
+        $plan->start($plan->add(['title' => 'Faceted search', 'section' => 'articles'])->id, $session->id);
 
         $this->as($this->bo);
         $idea = $this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'][0];
@@ -220,12 +220,9 @@ class SharingTest extends TestCase
             $mutex->held = [$lock];
 
             foreach (['edit-field' => ['path' => '["intro"]', 'value' => 'Not saved.'], 'draft' => ['draft' => 'title: Not saved']] as $action => $body) {
-                try {
-                    $this->action("ghostwriter/sessions/{$action}", ['id' => $session->id] + $body);
-                    $this->fail("The {$action} edit was saved without the lock.");
-                } catch (\RuntimeException $exception) {
-                    $this->assertStringContainsString('busy', $exception->getMessage());
-                }
+                $refused = $this->action("ghostwriter/sessions/{$action}", ['id' => $session->id] + $body);
+                $this->assertSame(409, $refused['status'], "The {$action} edit was saved without the lock.");
+                $this->assertStringContainsString('busy', $refused['data']['message']);
             }
 
             $this->assertSame("title: Faceted search\nintro: Mine.", $this->plugin->sessions->find($session->id)->draft);
@@ -239,7 +236,7 @@ class SharingTest extends TestCase
         $session = $this->annsPiece();
         $session->draft = "title: Faceted search\nintro: The old intro.";
         $session->addMessage('user', 'Make it shorter.', $this->ann->id);
-        $session->run($this->ann->id);
+        $session->claim($this->ann->id, new DomainOptions(Format::Craft));
         $this->plugin->sessions->save($session);
 
         // The turn would write over them when it saves, so both are refused
@@ -274,8 +271,8 @@ class SharingTest extends TestCase
      */
     private function annsPiece(?int $elementId = null): Session
     {
-        $session = Session::start('project', ['what' => 'A faceted search.'], $this->ann->id);
-        $session->elementId = $elementId;
+        $session = Session::start(Format::Craft, 'project', ['what' => 'A faceted search.'], $this->ann->id);
+        $session->recordId = $elementId;
         $session->addMessage('user', 'The brief.', $this->ann->id);
         $session->addMessage('user', 'Who is it for?', $this->ann->id);
         $session->addMessage('assistant', 'Shall I draft it?');
@@ -304,7 +301,7 @@ class SharingTest extends TestCase
      */
     private function dashboardSessions(): array
     {
-        return $this->plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId());
+        return $this->plugin->domain->sessions()->visible($this->plugin->domain->viewer());
     }
 
     /**
