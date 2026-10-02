@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ca455ae63265d066a549d3cae58a4c6b",
+    "content-hash": "390ed599ea60a6bff6ba2bba2afbe5d4",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
-            "version": "v0.3.0",
+            "version": "v0.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/1994limited/ghostwriter-core.git",
-                "reference": "3d72eb61dbe16fd855e8124c841d41d015381f27"
+                "reference": "f8f7e67099878e1c2a946ce0786e40250025580c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/3d72eb61dbe16fd855e8124c841d41d015381f27",
-                "reference": "3d72eb61dbe16fd855e8124c841d41d015381f27",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/f8f7e67099878e1c2a946ce0786e40250025580c",
+                "reference": "f8f7e67099878e1c2a946ce0786e40250025580c",
                 "shasum": ""
             },
             "require": {
@@ -44,12 +44,13 @@
                 "guzzlehttp/guzzle": "Required (^7.8 or ^8.0) to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
             },
             "bin": [
+                "bin/compare-layouts",
                 "bin/compare-requests"
             ],
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.3.x-dev"
+                    "dev-main": "0.4.x-dev"
                 }
             },
             "autoload": {
@@ -67,7 +68,7 @@
                     "homepage": "https://1994.co.uk"
                 }
             ],
-            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer, the Studio (every model job) and photo search.",
+            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts, the AI provider layer, the Studio (every model job), the schema model and layout algorithms, and photo search.",
             "homepage": "https://github.com/1994limited/ghostwriter-core",
             "keywords": [
                 "ai",
@@ -79,7 +80,7 @@
                 "issues": "https://github.com/1994limited/ghostwriter-core/issues",
                 "source": "https://github.com/1994limited/ghostwriter-core"
             },
-            "time": "2026-10-02T13:02:36+00:00"
+            "time": "2026-10-02T14:28:17+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",

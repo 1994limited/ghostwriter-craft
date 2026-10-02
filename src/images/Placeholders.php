@@ -36,14 +36,14 @@ class Placeholders
     private const EXPECTED = 0.5;
 
     /**
-     * @param array<string, float> $rates How often each field is filled, from PatternFinder.
+     * @param array<string, float> $rates How often each field is filled, from the pattern core's PatternFinder found.
      */
     public function __construct(private array $rates = [])
     {
     }
 
     /**
-     * @param array<string, mixed> $data Entry data in EntryData's shape.
+     * @param array<string, mixed> $data Entry data in core EntryData's shape, as EntryReader reads it.
      * @param array<int, array<string, mixed>> $schema
      * @return array<string, mixed>
      */

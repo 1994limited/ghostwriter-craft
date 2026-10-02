@@ -20,9 +20,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\PlannedIdea;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\TypeSurvey;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\VoiceSample;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
-use nineteenninetyfour\ghostwriter\layouts\EntryData;
-use nineteenninetyfour\ghostwriter\layouts\PatternFinder;
-use nineteenninetyfour\ghostwriter\layouts\SchemaDescriber;
+use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\sessions\Session;
@@ -58,13 +56,14 @@ class StudioInputs
      */
     public function typeSurvey(Section $section, EntryType $entryType, ?string $title = null, array $examples = []): TypeSurvey
     {
-        $schema = (new SchemaReader())->read($entryType);
-        $pattern = (new PatternFinder())->find($section->handle, $schema, $entryType->handle, [], $examples);
+        $layouts = Plugin::getInstance()->layouts;
+        $schema = (new SchemaReader())->schema($entryType);
+        $pattern = $layouts->pattern($section->handle, $schema, $entryType->handle, [], $examples);
 
         return new TypeSurvey(
             Craft::t('site', $section->name),
             $section->handle,
-            Layout::fromPattern((new SchemaDescriber())->describe($schema, $pattern), $pattern),
+            $layouts->layout($schema, $pattern),
             $title,
             $examples !== [],
         );
@@ -78,10 +77,10 @@ class StudioInputs
         $entryType = $type->craftEntryType()
             ?? throw new \InvalidArgumentException("The section \"{$type->section}\" no longer exists.");
 
-        $schema = (new SchemaReader())->read($entryType);
-        $pattern = (new PatternFinder())->find($type->section, $schema, $type->entryType, $type->where, $type->examples);
+        $layouts = Plugin::getInstance()->layouts;
+        $schema = (new SchemaReader())->schema($entryType);
 
-        return Layout::fromPattern((new SchemaDescriber())->describe($schema, $pattern), $pattern);
+        return $layouts->layout($schema, $layouts->pattern($type->section, $schema, $type->entryType, $type->where, $type->examples));
     }
 
     /**
@@ -96,7 +95,7 @@ class StudioInputs
         $entries = Entry::find()->section($section->handle)->status('live')->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::KIND_SAMPLE)->all();
 
         $reader = new SchemaReader();
-        $data = new EntryData();
+        $data = new EntryReader();
         $samples = [];
 
         foreach ($entries as $entry) {

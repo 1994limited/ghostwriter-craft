@@ -2,9 +2,8 @@
 
 namespace nineteenninetyfour\ghostwriter\tests\unit;
 
-use nineteenninetyfour\ghostwriter\drafts\EntryBuilder;
-use nineteenninetyfour\ghostwriter\layouts\PatternFinder;
-use nineteenninetyfour\ghostwriter\layouts\SchemaDescriber;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\Pattern;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
@@ -83,8 +82,7 @@ class LayoutTest extends TestCase
             $this->makeArticle($title, self::PARAGRAPH . " {$title}.", ['relatedEntry' => [$hub->id]], postDate: "2026-01-0" . ($i + 1));
         }
 
-        $schema = $this->schema('articles');
-        $pattern = (new PatternFinder())->find('articles', $schema);
+        $pattern = $this->pattern('articles')->toArray();
         $blocks = $pattern['blocks']['pageBuilder'];
 
         $this->assertSame(3, $pattern['entries']);
@@ -124,8 +122,7 @@ class LayoutTest extends TestCase
         $this->makeNewsArticle('Launch', ['We launched a fabric collection with a partner we admire.', 'It goes on sale in spring.'], '2026-01-02');
         $this->makeNewsArticle('Award', ['Our founder received a lifetime achievement award.'], '2026-01-01');
 
-        $schema = $this->schema('news');
-        $pattern = (new PatternFinder())->find('news', $schema);
+        $pattern = $this->pattern('news')->toArray();
         $blocks = $pattern['blocks']['newsBuilder'];
 
         // The commonest order is a tie; the newest entry's way wins.
@@ -147,10 +144,10 @@ class LayoutTest extends TestCase
         }
 
         $schema = $this->schema('articles');
-        $pattern = (new PatternFinder())->find('articles', $schema);
+        $pattern = $this->pattern('articles');
 
         // Whatever the writer put in such a block, the copy wins.
-        $built = (new EntryBuilder())->build(['title' => 'New', 'pageBuilder' => [
+        $built = $this->build(['title' => 'New', 'pageBuilder' => [
             ['type' => 'cards', 'items' => [['text' => 'Something made up']]],
         ]], $schema, $pattern)['data'];
         $cards = $built['pageBuilder'][0];
@@ -174,7 +171,7 @@ class LayoutTest extends TestCase
             ]]);
         }
 
-        $blocks = (new PatternFinder())->find('articles', $this->schema('articles'))['blocks']['pageBuilder'];
+        $blocks = $this->pattern('articles')->toArray()['blocks']['pageBuilder'];
 
         // Neither wording is on 80% of entries, but none is an entry's own.
         $this->assertSame(['cards'], $blocks['boilerplate']);
@@ -187,13 +184,10 @@ class LayoutTest extends TestCase
         $this->makeArticle('One', self::PARAGRAPH, ['kind' => 'project']);
         $this->makeArticle('Two', self::PARAGRAPH, ['kind' => 'guide', 'pageBuilder' => ['new1' => ['type' => 'longForm', 'enabled' => true, 'fields' => ['content' => '<p>Guide.</p>']]]]);
 
-        $finder = new PatternFinder();
-        $schema = $this->schema('articles');
-
-        $this->assertSame(['longForm'], $finder->find('articles', $schema, null, ['kind' => 'guide'])['blocks']['pageBuilder']['sequence']);
+        $this->assertSame(['longForm'], $this->pattern('articles', ['kind' => 'guide'])->toArray()['blocks']['pageBuilder']['sequence']);
 
         // Nothing matches yet, so the whole section is the evidence.
-        $this->assertSame(2, $finder->find('articles', $schema, null, ['kind' => 'newsletter'])['entries']);
+        $this->assertSame(2, $this->pattern('articles', ['kind' => 'newsletter'])->entries);
     }
 
     public function testTheBriefDescribesWhatIsUsedAndNamesTheRest(): void
@@ -202,8 +196,7 @@ class LayoutTest extends TestCase
             $this->makeArticle($title, self::PARAGRAPH . " {$title}.");
         }
 
-        $schema = $this->schema('articles');
-        $text = (new SchemaDescriber())->describe($schema, (new PatternFinder())->find('articles', $schema));
+        $text = $this->describe('articles');
 
         $this->assertStringContainsString('- `title` (short text, required)', $text);
         $this->assertStringContainsString('- `summary` (plain text). Shown in lists', $text);
@@ -224,8 +217,7 @@ class LayoutTest extends TestCase
         $this->makeNewsArticle('Launch', ['We launched a fabric collection.']);
         $this->makeNewsArticle('Award', ['Our founder received an award.']);
 
-        $schema = $this->schema('news');
-        $text = (new SchemaDescriber())->describe($schema, (new PatternFinder())->find('news', $schema));
+        $text = $this->describe('news');
 
         $this->assertStringContainsString('a block that holds other blocks lists them under `children`', $text);
         $this->assertStringContainsString('- `children` (list of blocks)', $text);
@@ -245,7 +237,7 @@ class LayoutTest extends TestCase
 
         $schema = $this->schema('articles');
 
-        $built = (new EntryBuilder())->build([
+        $built = $this->build([
             'title' => 'New Piece',
             'summary' => "A summary\nover two lines.",
             'relatedEntry' => [99],
@@ -258,7 +250,7 @@ class LayoutTest extends TestCase
                 ['type' => 'related'],
                 ['type' => 'carousel', 'caption' => 'No such block'],
             ],
-        ], $schema, (new PatternFinder())->find('articles', $schema), ['kind' => 'guide']);
+        ], $schema, $this->pattern('articles'), ['kind' => 'guide']);
 
         $data = $built['data'];
         $blocks = $data['pageBuilder'];
@@ -305,7 +297,7 @@ class LayoutTest extends TestCase
 
         $schema = $this->schema('news');
 
-        $built = (new EntryBuilder())->build([
+        $built = $this->build([
             'title' => 'Fresh News',
             'newsBuilder' => [
                 ['type' => 'assetSingle'],
@@ -315,7 +307,7 @@ class LayoutTest extends TestCase
                 ]],
                 ['type' => 'spacer'],
             ],
-        ], $schema, (new PatternFinder())->find('news', $schema));
+        ], $schema, $this->pattern('news'));
 
         $blocks = $built['data']['newsBuilder'];
 
@@ -333,15 +325,44 @@ class LayoutTest extends TestCase
     {
         $schema = $this->schema('press');
 
-        $built = (new EntryBuilder())->build(['title' => 'BOAT International', 'subheading' => "Fitness afloat:\nthe yachts"], $schema, (new PatternFinder())->find('press', $schema));
+        $built = $this->build(['title' => 'BOAT International', 'subheading' => "Fitness afloat:\nthe yachts"], $schema, $this->pattern('press'));
 
         $this->assertSame(['title' => 'BOAT International', 'subheading' => 'Fitness afloat: the yachts'], $built['data']);
         $this->assertSame([], $built['notes']);
 
         // With nothing published there is no pattern, and the brief says so.
-        $text = (new SchemaDescriber())->describe($schema, (new PatternFinder())->find('press', $schema));
+        $text = $this->describe('press');
         $this->assertStringContainsString('- `subheading` (short text)', $text);
         $this->assertStringNotContainsString('usually build', $text);
+    }
+
+    /**
+     * How a section's entries are put together, as the plugin finds it.
+     *
+     * @param array<string, mixed> $where
+     */
+    private function pattern(string $section, array $where = []): Pattern
+    {
+        return $this->plugin->layouts->pattern($section, Schema::fromSpecs($this->schema($section)), null, $where);
+    }
+
+    /**
+     * The section's fields, described as the writer is shown them.
+     */
+    private function describe(string $section): string
+    {
+        return $this->plugin->layouts->layout(Schema::fromSpecs($this->schema($section)), $this->pattern($section))->fields;
+    }
+
+    /**
+     * @param array<string, mixed> $draft
+     * @param array<int, array<string, mixed>> $schema
+     * @param array<string, mixed> $defaults
+     * @return array{data: array<string, mixed>, notes: array<int, string>}
+     */
+    private function build(array $draft, array $schema, Pattern $pattern, array $defaults = []): array
+    {
+        return $this->plugin->layouts->build($draft, Schema::fromSpecs($schema), $pattern, $defaults)->toArray();
     }
 
     /**

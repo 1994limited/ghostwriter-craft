@@ -123,7 +123,7 @@ class SessionsController extends Controller
 
         $entryType = $entry->getType();
         $schema = (new \nineteenninetyfour\ghostwriter\layouts\SchemaReader())->read($entryType);
-        $data = (new EntrySimplifier())->simplify((new \nineteenninetyfour\ghostwriter\layouts\EntryData())->read($entry, $schema), $schema);
+        $data = (new EntrySimplifier())->simplify((new \nineteenninetyfour\ghostwriter\layouts\EntryReader())->read($entry, $schema), $schema);
 
         // Always from the entry as it stands, which may have been edited by
         // hand since Ghostwriter last saw it.

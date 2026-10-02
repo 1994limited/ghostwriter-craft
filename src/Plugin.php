@@ -29,6 +29,7 @@ use nineteenninetyfour\ghostwriter\images\ImagePicker;
 use nineteenninetyfour\ghostwriter\images\ImageRequests;
 use nineteenninetyfour\ghostwriter\images\ImageryGuide;
 use nineteenninetyfour\ghostwriter\images\ImageryState;
+use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
 use nineteenninetyfour\ghostwriter\planning\IdeaRepository;
 use nineteenninetyfour\ghostwriter\planning\PlanState;
@@ -64,6 +65,7 @@ use yii\base\Event;
  * @property-read IdeaRepository $ideas
  * @property-read PlanState $planState
  * @property-read Onboarding $onboarding
+ * @property-read Layouts $layouts
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -105,6 +107,7 @@ class Plugin extends BasePlugin
                 'ideas' => IdeaRepository::class,
                 'planState' => PlanState::class,
                 'onboarding' => Onboarding::class,
+                'layouts' => Layouts::class,
             ],
         ];
     }

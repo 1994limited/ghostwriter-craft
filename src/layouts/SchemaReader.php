@@ -20,6 +20,7 @@ use craft\fields\Range;
 use craft\fields\Table;
 use craft\models\EntryType;
 use craft\models\FieldLayout;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 
 /**
  * Reads a field layout into the plain description of its fields that the
@@ -47,9 +48,6 @@ class SchemaReader
 {
     private const MAX_DEPTH = 5;
 
-    /** Kinds that configure how something looks rather than say anything. */
-    public const SETTING_KINDS = ['choice', 'choices', 'toggle', 'number'];
-
     /** Rich text fields, by class, so neither plugin needs to be installed. */
     private const RICH_TEXT = ['craft\ckeditor\Field', 'craft\redactor\Field', 'craft\htmlfield\HtmlField'];
 
@@ -63,6 +61,14 @@ class SchemaReader
     public function read(EntryType $type): array
     {
         return $this->layout($type->getFieldLayout(), $type->hasTitleField, 0);
+    }
+
+    /**
+     * The same, as core's schema model, for the layout algorithms.
+     */
+    public function schema(EntryType $type): Schema
+    {
+        return Schema::fromSpecs($this->read($type));
     }
 
     /**
