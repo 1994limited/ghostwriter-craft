@@ -1,6 +1,6 @@
 # Release Notes for Ghostwriter
 
-## 1.0.0 - Unreleased
+## 1.0.0 - 2026-10-02
 
 First release. Ghostwriter learns how your site writes and what its pictures look like, then drafts new entries and edits existing ones in that voice, in a panel beside the entry form. Get started walks through setup, the Overview shows what is in progress, and a widget sits on Craft's dashboard.
 
