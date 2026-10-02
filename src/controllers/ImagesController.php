@@ -6,10 +6,14 @@ use Craft;
 use craft\elements\Asset;
 use craft\web\UploadedFile;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Images\ImageRequest;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Images\StoredFile;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\NotAllowed;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
-use nineteenninetyfour\ghostwriter\images\ImageRequests;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
-use nineteenninetyfour\ghostwriter\images\Placeholders;
 use nineteenninetyfour\ghostwriter\jobs\FindImages;
 use nineteenninetyfour\ghostwriter\jobs\MakeImage;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -49,10 +53,13 @@ class ImagesController extends Controller
                 return $this->refuse('Type what the picture should show.');
             }
 
-            $data = $plugin->imageRequests->create($this->owner($slot) + ['mode' => 'find', 'terms' => $terms]);
-            FindImages::start(['request' => $data['id']]);
+            $request = $plugin->domain->images()->start(ImageRequest::FIND, $plugin->domain->viewer(), $this->details($slot));
+            $request->terms = $terms;
+            $plugin->imageStore->save($request);
 
-            return $this->asJson($this->payload($data));
+            FindImages::start(['request' => $request->id]);
+
+            return $this->asJson($this->payload($request));
         }
 
         if ($mode === 'make') {
@@ -60,7 +67,7 @@ class ImagesController extends Controller
                 return $this->refuse('No image provider has an API key. Add OPENAI_API_KEY or GEMINI_API_KEY to your .env file.');
             }
 
-            $data = $plugin->imageRequests->create($this->owner($slot) + ['mode' => 'make', 'direction' => trim((string) $request->getBodyParam('direction', ''))]);
+            $made = $plugin->domain->images()->start(ImageRequest::MAKE, $plugin->domain->viewer(), $this->details($slot) + ['direction' => trim((string) $request->getBodyParam('direction', ''))]);
 
             if ($upload = UploadedFile::getInstanceByName('source')) {
                 // Only pictures, by what the file is, not what it is called.
@@ -71,12 +78,12 @@ class ImagesController extends Controller
                     return $this->refuse('Add a PNG, JPEG or WebP picture.');
                 }
 
-                $plugin->imageRequests->putFile($data['id'], 'source', (string) file_get_contents($upload->tempName), $mime, $extension);
+                $plugin->domain->images()->putFile($made->id, StoredFile::SOURCE, new StoredFile((string) file_get_contents($upload->tempName), $mime, $extension));
             }
 
-            MakeImage::start(['request' => $data['id']]);
+            MakeImage::start(['request' => $made->id]);
 
-            return $this->asJson($this->payload($data));
+            return $this->asJson($this->payload($made));
         }
 
         return $this->refuse('Choose to find a photograph or make a picture.');
@@ -109,14 +116,14 @@ class ImagesController extends Controller
      */
     public function actionPreview(): Response
     {
-        $data = $this->mine((string) $this->request->getRequiredParam('id'));
-        $file = $data['file'] ? Plugin::getInstance()->imageRequests->file($data['id'], 'made') : null;
+        $request = $this->mine((string) $this->request->getRequiredParam('id'));
+        $file = $request->file ? Plugin::getInstance()->domain->images()->file($request->id, StoredFile::MADE) : null;
 
         if ($file === null) {
             throw new NotFoundHttpException();
         }
 
-        return $this->response->sendContentAsFile($file['content'], $data['id'] . '.' . $file['extension'], ['mimeType' => $file['mime'], 'inline' => true]);
+        return $this->response->sendContentAsFile($file->content, $request->id . '.' . $file->extension, ['mimeType' => $file->mime, 'inline' => true]);
     }
 
     /**
@@ -127,24 +134,25 @@ class ImagesController extends Controller
         $this->requirePostRequest();
 
         $plugin = Plugin::getInstance();
-        $data = $this->mine((string) $this->request->getRequiredBodyParam('id'));
-        $slot = ImageSlot::find((int) $data['fieldId'], (int) $data['elementId'], (int) $data['siteId'], Craft::$app->getUser()->getIdentity());
+        $request = $this->mine((string) $this->request->getRequiredBodyParam('id'));
+        $data = $request->details;
+        $slot = ImageSlot::find((int) ($data['fieldId'] ?? 0), (int) ($data['elementId'] ?? 0), (int) ($data['siteId'] ?? 0), Craft::$app->getUser()->getIdentity());
 
         if (!$slot) {
             return $this->refuse('That image field is no longer on the page.');
         }
 
         try {
-            if ($data['mode'] === 'find') {
+            if ($request->mode === ImageRequest::FIND) {
                 $asset = $plugin->imagePicker->keepPhoto($slot, (string) $this->request->getRequiredBodyParam('source'), (string) $this->request->getRequiredBodyParam('photo'));
             } else {
-                $file = $data['file'] ? $plugin->imageRequests->file($data['id'], 'made') : null;
+                $file = $request->file ? $plugin->domain->images()->file($request->id, StoredFile::MADE) : null;
 
                 if ($file === null) {
                     return $this->refuse('That picture is no longer here. Make it again.');
                 }
 
-                $asset = $plugin->imagePicker->keep($slot, $file['content'], $file['extension'], [
+                $asset = $plugin->imagePicker->keep($slot, $file->content, $file->extension, [
                     'title' => trim((string) ($data['direction'] ?? '')) !== '' ? mb_substr(trim($data['direction']), 0, 80) : $slot->title(),
                 ]);
             }
@@ -174,12 +182,13 @@ class ImagesController extends Controller
     }
 
     /**
-     * @return array<string, int>
+     * Where the picture is for, kept with the request.
+     *
+     * @return array<string, mixed>
      */
-    private function owner(ImageSlot $slot): array
+    private function details(ImageSlot $slot): array
     {
         return [
-            'userId' => (int) Craft::$app->getUser()->getId(),
             'fieldId' => (int) $slot->field->id,
             'elementId' => (int) $slot->element->id,
             'siteId' => (int) $slot->element->siteId,
@@ -188,19 +197,18 @@ class ImagesController extends Controller
     }
 
     /**
-     * A request, only for the person who made it.
-     *
-     * @return array<string, mixed>
+     * A request, only for the person who made it: anyone else's is not
+     * there at all.
      */
-    private function mine(string $id): array
+    private function mine(string $id): ImageRequest
     {
-        $data = Plugin::getInstance()->imageRequests->find($id);
+        $domain = Plugin::getInstance()->domain;
 
-        if (!$data || (int) $data['userId'] !== (int) Craft::$app->getUser()->getId()) {
+        try {
+            return $domain->images()->mine($id, $domain->viewer());
+        } catch (NotFound|NotAllowed) {
             throw new NotFoundHttpException('That image request could not be found.');
         }
-
-        return $data;
     }
 
     /**
@@ -219,24 +227,25 @@ class ImagesController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    private function payload(array $data): array
+    private function payload(ImageRequest $request): array
     {
+        $details = $request->details;
+
         return [
-            'id' => $data['id'],
-            'mode' => $data['mode'],
-            'status' => $data['status'],
-            'error' => $data['error'],
-            'terms' => $data['terms'] ?? [],
-            'direction' => $data['direction'] ?? null,
-            'options' => array_map(fn(array $photo) => array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked', 'reason', 'alt'])), $data['options'] ?? []),
-            'judged' => (bool) ($data['judged'] ?? false),
-            'noneFit' => (bool) ($data['noneFit'] ?? false),
-            'withReferences' => (bool) ($data['withReferences'] ?? false),
-            'preview' => $data['status'] === ImageRequests::READY && !empty($data['file'])
-                ? \craft\helpers\UrlHelper::actionUrl('ghostwriter/images/preview', ['id' => $data['id'], 'v' => $data['file']])
+            'id' => $request->id,
+            'mode' => $request->mode,
+            'status' => $request->storedStatus(Format::Craft),
+            'error' => $request->error,
+            'terms' => $request->terms,
+            'direction' => $details['direction'] ?? null,
+            'options' => array_map(fn(array $photo) => array_intersect_key($photo, array_flip(['source', 'id', 'thumb', 'credit', 'credit_url', 'licence', 'term', 'picked', 'reason', 'alt'])), $request->options),
+            'judged' => (bool) ($details['judged'] ?? false),
+            'noneFit' => (bool) ($details['noneFit'] ?? false),
+            'withReferences' => (bool) ($details['withReferences'] ?? false),
+            'preview' => $request->isDone() && !empty($request->file)
+                ? \craft\helpers\UrlHelper::actionUrl('ghostwriter/images/preview', ['id' => $request->id, 'v' => $request->file])
                 : null,
         ];
     }

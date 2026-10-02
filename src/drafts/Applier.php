@@ -10,16 +10,16 @@ use craft\elements\Entry;
 use craft\elements\User;
 use craft\fields\Assets;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
-use nineteenninetyfour\ghostwriter\images\Placeholders;
 use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\sessions\Session;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 
 /**
  * Puts a session's draft into an entry as a Craft draft, never into the live
@@ -56,7 +56,7 @@ class Applier
         $schema = $this->reader->read($entryType);
         $model = Schema::fromSpecs($schema);
 
-        $editing = $session->source !== null;
+        $editing = $session->isEditing();
         $existing = [];
         $pattern = null;
 
@@ -69,7 +69,7 @@ class Applier
             $notes = [];
             $existing = $this->blockIds($original);
         } else {
-            $pattern = $this->layouts->pattern($type->section, $model, $entryType->handle, $type->where, $type->examples);
+            $pattern = $this->layouts->pattern($type->group, $model, $entryType->handle, $type->where, $type->examples);
             $built = $this->layouts->build($draft->data, $model, $pattern, $type->defaults);
             $data = $built->data;
             $notes = $built->notes;
@@ -96,18 +96,19 @@ class Applier
         // image button or uploaded while the piece was being written, is
         // kept where the draft has none, rather than taken out or covered
         // by a placeholder.
-        if ($session->source === null) {
+        if (!$editing) {
             $data = $this->keepImages($data, $schema, $entry);
         }
 
         // Where an image belongs but none is chosen yet, a placeholder shows
-        // it. New entries only: an existing entry keeps its own images.
-        if (Plugin::getInstance()->getSettings()->placeholderImages && $session->source === null) {
-            $placeholders = new Placeholders($pattern?->filled ?? []);
-            $data = $placeholders->fill($data, $schema);
+        // it (core's rule, D10). New entries only: an existing entry keeps
+        // its own images.
+        if (Plugin::getInstance()->getSettings()->placeholderImages && !$editing) {
+            $placeholders = Plugin::getInstance()->domain->placeholders($pattern?->filled ?? []);
+            $data = $placeholders->fill($data, $model);
 
-            if ($placeholders->filled()) {
-                $notes[] = 'A striped placeholder marks each image still to pick: ' . implode('; ', $placeholders->filled()) . '. Replace them before publishing.';
+            if ($note = $placeholders->note()) {
+                $notes[] = $note;
             }
         }
 

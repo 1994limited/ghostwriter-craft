@@ -5,8 +5,8 @@ namespace nineteenninetyfour\ghostwriter\widgets;
 use Craft;
 use craft\base\Widget;
 use craft\helpers\Cp;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use nineteenninetyfour\ghostwriter\http\Presenter;
-use nineteenninetyfour\ghostwriter\planning\IdeaRepository;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 
@@ -71,7 +71,7 @@ class GhostwriterWidget extends Widget
 
         $plugin = Plugin::getInstance();
         $presenter = new Presenter();
-        $sessions = array_map(fn($session) => $presenter->summary($session), $plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()));
+        $sessions = array_map(fn($session) => $presenter->summary($session), $plugin->domain->sessions()->visible($plugin->domain->viewer()));
         $inProgress = array_values(array_filter($sessions, fn(array $summary) => !$summary['finished']));
 
         Craft::$app->getView()->registerAssetBundle(GhostwriterAsset::class);
@@ -79,7 +79,7 @@ class GhostwriterWidget extends Widget
         return Craft::$app->getView()->renderTemplate('ghostwriter/_widget', [
             'inProgress' => array_slice($inProgress, 0, $this->limit),
             'moreInProgress' => max(0, count($inProgress) - $this->limit),
-            'planOpen' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === IdeaRepository::OPEN)),
+            'planOpen' => count(array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->isOpen())),
             'setup' => $plugin->onboarding->progress(),
             'nextStep' => $plugin->onboarding->nextStep(),
             'configured' => $plugin->studio->configured(),

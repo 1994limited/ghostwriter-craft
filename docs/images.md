@@ -73,6 +73,7 @@ A notification says "Image added. Save to keep it." **Nothing is saved to the en
 When a draft is put into a **new** entry and leaves an image field empty, where the section's entries usually have an image in that place (or the field is required), Ghostwriter puts in a striped "image to choose" placeholder. This shows where pictures go. Optional images, such as a background most entries leave empty, are left alone.
 
 - A field that already holds an image in the entry, chosen with the image button or uploaded while the piece was being written, keeps it. Using the draft again doesn't cover it with a placeholder.
+- An empty Matrix or Neo field gets one block with a placeholder only when every one of its block types holds nothing but images (a gallery, say), and its entries usually have one.
 - The placeholder is one shared asset, `ghostwriter-image-placeholder.png`, in the field's volume.
 - The notification after **Use this draft** lists every field that has one. Replace each with the image button before publishing.
 

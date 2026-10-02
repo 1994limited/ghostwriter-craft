@@ -72,7 +72,7 @@ class EditingTest extends TestCase
 
         // Once they have gone into the entry, it starts from the entry again.
         $session = $this->plugin->sessions->find($first['id']);
-        $session->appliedAt = $session::now();
+        $session->markApplied();
         $this->plugin->sessions->save($session);
 
         $this->assertStringStartsWith('title: One', $open()['draft']);

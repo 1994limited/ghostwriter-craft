@@ -3,10 +3,11 @@
 namespace nineteenninetyfour\ghostwriter\controllers;
 
 use Craft;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
 use nineteenninetyfour\ghostwriter\jobs\GenerateVoiceGuide;
 use nineteenninetyfour\ghostwriter\jobs\RefineVoiceGuide;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\voice\VoiceState;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 use yii\web\Response;
 
@@ -75,7 +76,7 @@ class VoiceController extends Controller
             return $this->refuse('Choose at least one section to read.');
         }
 
-        Plugin::getInstance()->voiceState->update(['status' => VoiceState::WORKING, 'error' => null, 'task' => 'scan']);
+        Plugin::getInstance()->domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->begin('scan'));
 
         GenerateVoiceGuide::start(['sections' => $sections]);
 
@@ -96,7 +97,7 @@ class VoiceController extends Controller
             return $this->refuse('The guide is too long to save. Keep it under 60,000 characters.');
         }
 
-        Plugin::getInstance()->voiceGuide->save($document);
+        Plugin::getInstance()->domain->saveGuide(Guide::VOICE, $document);
 
         return $this->asJson($this->payload());
     }
@@ -112,7 +113,7 @@ class VoiceController extends Controller
         $plugin = Plugin::getInstance();
         $message = trim((string) $this->request->getBodyParam('message'));
 
-        if (!$plugin->voiceGuide->exists()) {
+        if (!$plugin->domain->guide(Guide::VOICE)->exists()) {
             return $this->refuse('Generate a voice guide before refining it.');
         }
 
@@ -120,8 +121,10 @@ class VoiceController extends Controller
             return $this->refuse('Say what to change, in under 4,000 characters.');
         }
 
-        $plugin->voiceState->addMessage('user', $message);
-        $plugin->voiceState->update(['status' => VoiceState::WORKING, 'error' => null, 'task' => 'refine']);
+        $plugin->domain->changeGuideState(Guide::VOICE, function(GuideState $state) use ($message): void {
+            $state->begin('refine');
+            $state->addMessage('user', $message);
+        });
 
         RefineVoiceGuide::start();
 
@@ -133,13 +136,13 @@ class VoiceController extends Controller
      */
     private function payload(): array
     {
-        $plugin = Plugin::getInstance();
-        $updatedAt = $plugin->voiceGuide->updatedAt();
+        $domain = Plugin::getInstance()->domain;
+        $guide = $domain->guide(Guide::VOICE);
 
-        return $plugin->voiceState->get() + [
-            'document' => $plugin->voiceGuide->get(),
-            'exists' => $plugin->voiceGuide->exists(),
-            'updatedAt' => $updatedAt ? Craft::$app->getFormatter()->asRelativeTime($updatedAt) : null,
+        return $domain->guideState(Guide::VOICE)->toArray() + [
+            'document' => $guide->body,
+            'exists' => $guide->exists(),
+            'updatedAt' => $guide->updatedAt ? Craft::$app->getFormatter()->asRelativeTime($guide->updatedAt) : null,
         ];
     }
 
@@ -149,7 +152,7 @@ class VoiceController extends Controller
             return $refusal;
         }
 
-        if (Plugin::getInstance()->voiceState->get()['status'] === VoiceState::WORKING) {
+        if (Plugin::getInstance()->domain->guideState(Guide::VOICE)->isWorking()) {
             return $this->refuse('Ghostwriter is still working on the last request.', 409);
         }
 

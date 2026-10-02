@@ -4,7 +4,8 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use nineteenninetyfour\ghostwriter\images\ImageryState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
 use nineteenninetyfour\ghostwriter\jobs\GenerateImageryGuide;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
@@ -71,7 +72,7 @@ class ImageryController extends Controller
             return $refusal;
         }
 
-        if ($plugin->imageryState->get()['status'] === ImageryState::WORKING) {
+        if ($plugin->domain->guideState(Guide::IMAGERY)->isWorking()) {
             return $this->refuse('Ghostwriter is still working on the last request.', 409);
         }
 
@@ -81,7 +82,7 @@ class ImageryController extends Controller
             return $this->refuse('Choose at least one section to look at.');
         }
 
-        $plugin->imageryState->update(['status' => ImageryState::WORKING, 'error' => null, 'task' => 'scan']);
+        $plugin->domain->changeGuideState(Guide::IMAGERY, fn(GuideState $state) => $state->begin('scan'));
 
         GenerateImageryGuide::start(['sections' => $sections]);
 
@@ -98,7 +99,7 @@ class ImageryController extends Controller
             return $this->refuse('The guide cannot be empty, and must be under 60,000 characters.');
         }
 
-        Plugin::getInstance()->imageryGuide->save($document);
+        Plugin::getInstance()->domain->saveGuide(Guide::IMAGERY, $document);
 
         return $this->asJson($this->payload());
     }
@@ -108,13 +109,13 @@ class ImageryController extends Controller
      */
     private function payload(): array
     {
-        $plugin = Plugin::getInstance();
-        $updatedAt = $plugin->imageryGuide->updatedAt();
+        $domain = Plugin::getInstance()->domain;
+        $guide = $domain->guide(Guide::IMAGERY);
 
-        return $plugin->imageryState->get() + [
-            'document' => $plugin->imageryGuide->get(),
-            'exists' => $plugin->imageryGuide->exists(),
-            'updatedAt' => $updatedAt ? Craft::$app->getFormatter()->asRelativeTime($updatedAt) : null,
+        return $domain->guideState(Guide::IMAGERY)->toArray() + [
+            'document' => $guide->body,
+            'exists' => $guide->exists(),
+            'updatedAt' => $guide->updatedAt ? Craft::$app->getFormatter()->asRelativeTime($guide->updatedAt) : null,
         ];
     }
 }

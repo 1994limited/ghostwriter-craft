@@ -3,7 +3,8 @@
 namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
-use nineteenninetyfour\ghostwriter\images\ImageryState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
 use nineteenninetyfour\ghostwriter\images\ImageSampler;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
@@ -20,7 +21,7 @@ class GenerateImageryGuide extends Job
     public function execute($queue): void
     {
         $plugin = Plugin::getInstance();
-        $state = $plugin->imageryState;
+        $domain = $plugin->domain;
 
         try {
             $sections = [];
@@ -45,18 +46,22 @@ class GenerateImageryGuide extends Job
             }
 
             if ($sections === []) {
-                $state->update(['status' => ImageryState::FAILED, 'error' => 'None of those sections has enough images to describe a style from. It takes at least three.', 'task' => null]);
+                $domain->changeGuideState(Guide::IMAGERY, fn(GuideState $state) => $state->fail('None of those sections has enough images to describe a style from. It takes at least three.'));
 
                 return;
             }
 
-            $plugin->imageryGuide->save("# Image style\n\n" . implode("\n\n", $sections));
+            $domain->saveGuide(Guide::IMAGERY, "# Image style\n\n" . implode("\n\n", $sections));
 
-            $state->update(['status' => ImageryState::IDLE, 'error' => null, 'task' => null, 'messages' => [], 'scanned' => $seen]);
+            $domain->changeGuideState(Guide::IMAGERY, function(GuideState $state) use ($seen): void {
+                $state->succeed();
+                $state->messages = [];
+                $state->scanned = $seen;
+            });
         } catch (Throwable $exception) {
             Craft::error($exception, 'ghostwriter');
 
-            $state->update(['status' => ImageryState::FAILED, 'error' => $exception->getMessage(), 'task' => null]);
+            $domain->changeGuideState(Guide::IMAGERY, fn(GuideState $state) => $state->fail($exception->getMessage()));
         }
     }
 

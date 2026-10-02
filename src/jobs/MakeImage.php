@@ -5,7 +5,7 @@ namespace nineteenninetyfour\ghostwriter\jobs;
 use Craft;
 use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
-use nineteenninetyfour\ghostwriter\images\ImageRequests;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Images\StoredFile;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
@@ -21,29 +21,30 @@ class MakeImage extends Job
     public function execute($queue): void
     {
         $plugin = Plugin::getInstance();
-        $requests = $plugin->imageRequests;
-        $data = $requests->find($this->request);
+        $requests = $plugin->domain->images();
+        $request = $requests->find($this->request);
 
-        if (!$data) {
+        if (!$request) {
             return;
         }
 
         try {
-            $slot = ImageSlot::find((int) $data['fieldId'], (int) $data['elementId'], (int) $data['siteId'])
+            $data = $request->details;
+            $slot = ImageSlot::find((int) ($data['fieldId'] ?? 0), (int) ($data['elementId'] ?? 0), (int) ($data['siteId'] ?? 0))
                 ?? throw new InvalidArgumentException('That image field is no longer on the page.');
 
-            $uploaded = $requests->file($this->request, 'source');
-            $source = $uploaded ? Image::fromString($uploaded['content']) : null;
+            $uploaded = $requests->file($this->request, StoredFile::SOURCE);
+            $source = $uploaded ? Image::fromString($uploaded->content) : null;
             $image = $plugin->imagePicker->make($slot, (string) ($data['direction'] ?? ''), $source);
 
-            $requests->putFile($this->request, 'made', $image->data, $image->mime, $image->extension());
-            $requests->update($this->request, ['status' => ImageRequests::READY, 'file' => $this->request . '.' . $image->extension(), 'mime' => $image->mime]);
+            $requests->putFile($this->request, StoredFile::MADE, new StoredFile($image->data, $image->mime, $image->extension()));
+            $requests->succeed($this->request, ['mime' => $image->mime], $this->request . '.' . $image->extension());
         } catch (Throwable $exception) {
             Craft::error($exception, 'ghostwriter');
 
-            $requests->update($this->request, ['status' => ImageRequests::FAILED, 'error' => $exception->getMessage()]);
+            $requests->fail($this->request, $exception->getMessage());
         } finally {
-            $requests->deleteFile($this->request, 'source');
+            $plugin->imageStore->deleteFile($this->request, StoredFile::SOURCE);
         }
     }
 

@@ -4,11 +4,10 @@ namespace nineteenninetyfour\ghostwriter;
 
 use Craft;
 use craft\helpers\UrlHelper;
-use nineteenninetyfour\ghostwriter\images\ImageryState;
-use nineteenninetyfour\ghostwriter\planning\PlanState;
-use nineteenninetyfour\ghostwriter\types\KindSuggestions;
-use nineteenninetyfour\ghostwriter\types\TypeState;
-use nineteenninetyfour\ghostwriter\voice\VoiceState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\PlanState;
 use yii\base\Component;
 
 /**
@@ -32,10 +31,15 @@ class Onboarding extends Component
         $configured = $plugin->studio->configured();
 
         $types = array_sum(array_map(fn($section) => count($plugin->types->forSection($section->handle)), $sections));
-        $suggested = array_sum(array_map(fn($section) => count($plugin->kinds->get($section->handle)['suggestions']), $sections));
-        $kindsWorking = (bool) array_filter($sections, fn($section) => $plugin->kinds->get($section->handle)['status'] === KindSuggestions::WORKING || $plugin->typeState->get($section->handle)['status'] === TypeState::WORKING);
-        $ideas = count($plugin->ideas->all());
-        $pending = count($plugin->planState->get()['pending']);
+        $suggested = array_sum(array_map(fn($section) => count($plugin->types->suggestions($section->handle)->suggestions), $sections));
+        $kindsWorking = (bool) array_filter($sections, fn($section) => $plugin->types->suggestions($section->handle)->isWorking() || $plugin->types->analysis($section->handle)->isWorking());
+        $ideas = count($plugin->plans->ideas());
+        $plan = $this->planState();
+        $pending = count($plan->pending);
+        $voice = $plugin->domain->guide(Guide::VOICE);
+        $voiceState = $plugin->domain->guideState(Guide::VOICE);
+        $imagery = $plugin->domain->guide(Guide::IMAGERY);
+        $imageryState = $plugin->domain->guideState(Guide::IMAGERY);
 
         $settingsLink = $canSettle ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Open the settings'), 'url' => UrlHelper::cpUrl('settings/plugins/ghostwriter')] : null;
 
@@ -68,11 +72,11 @@ class Onboarding extends Component
                 'key' => 'voice',
                 'title' => Craft::t('ghostwriter', 'Learn your voice'),
                 'text' => Craft::t('ghostwriter', 'Ghostwriter reads what you have published and writes a guide to how you sound. Everything it writes follows the guide, which you can edit.'),
-                'done' => $plugin->voiceGuide->exists(),
-                'working' => $plugin->voiceState->get()['status'] === VoiceState::WORKING,
+                'done' => $voice->exists(),
+                'working' => $voiceState->isWorking(),
                 'optional' => false,
-                'detail' => $plugin->voiceState->get()['status'] === VoiceState::FAILED ? $plugin->voiceState->get()['error'] : null,
-                'action' => $plugin->voiceGuide->exists()
+                'detail' => $voiceState->hasFailed() ? $voiceState->error : null,
+                'action' => $voice->exists()
                     ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Review the guide'), 'url' => UrlHelper::cpUrl('ghostwriter/voice')]
                     : ['type' => 'post', 'label' => Craft::t('ghostwriter', 'Write the voice guide'), 'route' => 'voice/scan', 'data' => [], 'needsKey' => true],
             ],
@@ -96,11 +100,11 @@ class Onboarding extends Component
                 'key' => 'imagery',
                 'title' => Craft::t('ghostwriter', 'Describe your images'),
                 'text' => Craft::t('ghostwriter', 'Ghostwriter looks at the pictures your entries use and writes down the house style, so the photographs it finds and the images it makes belong beside them.'),
-                'done' => $plugin->imageryGuide->exists(),
-                'working' => $plugin->imageryState->get()['status'] === ImageryState::WORKING,
+                'done' => $imagery->exists(),
+                'working' => $imageryState->isWorking(),
                 'optional' => true,
-                'detail' => $plugin->imageryState->get()['status'] === ImageryState::FAILED ? $plugin->imageryState->get()['error'] : null,
-                'action' => $plugin->imageryGuide->exists()
+                'detail' => $imageryState->hasFailed() ? $imageryState->error : null,
+                'action' => $imagery->exists()
                     ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Review the image style'), 'url' => UrlHelper::cpUrl('ghostwriter/imagery')]
                     : ['type' => 'post', 'label' => Craft::t('ghostwriter', 'Describe the images'), 'route' => 'imagery/scan', 'data' => ['sections' => array_map(fn($section) => $section->handle, $sections)], 'needsKey' => true],
             ],
@@ -109,7 +113,7 @@ class Onboarding extends Component
                 'title' => Craft::t('ghostwriter', 'Plan what to write'),
                 'text' => Craft::t('ghostwriter', 'Ghostwriter reads the whole site and suggests entries it is missing. Keep the good ones on the content plan; each opens a new entry with its brief filled in.'),
                 'done' => $ideas > 0,
-                'working' => $plugin->planState->get()['status'] === PlanState::WORKING,
+                'working' => $plan->isWorking(),
                 'optional' => true,
                 'detail' => $pending > 0 ? Craft::t('ghostwriter', '{count, plural, =1{# suggestion is} other{# suggestions are}} waiting to be looked over.', ['count' => $pending]) : null,
                 'action' => $ideas > 0 || $pending > 0
@@ -146,6 +150,7 @@ class Onboarding extends Component
         $settings = $plugin->getSettings();
         $user = Craft::$app->getUser();
         $enabled = array_map(fn($section) => $section->handle, $plugin->types->sections());
+        $plan = $this->planState();
 
         return [
             'canChangeSettings' => $user->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
@@ -161,24 +166,24 @@ class Onboarding extends Component
                 'chosen' => in_array($section->handle, $settings->sections, true),
                 'voice' => $settings->voiceSections === [] || in_array($section->handle, $settings->voiceSections, true),
             ], Craft::$app->getEntries()->getAllSections()),
-            'voice' => $this->guide($plugin->voiceGuide->get(), $plugin->voiceState->get()),
-            'imagery' => $this->guide($plugin->imageryGuide->get(), $plugin->imageryState->get()),
+            'voice' => $this->guide($plugin->domain->guide(Guide::VOICE)->body, $plugin->domain->guideState(Guide::VOICE)),
+            'imagery' => $this->guide($plugin->domain->guide(Guide::IMAGERY)->body, $plugin->domain->guideState(Guide::IMAGERY)),
             // Kinds are looked for by themselves only here, as the step opens.
             'autoKinds' => $settings->suggestKindsAutomatically,
             'kinds' => array_map(fn($section) => [
                 'handle' => $section->handle,
                 'title' => Craft::t('site', $section->name),
-                'state' => $plugin->kinds->get($section->handle)['status'],
-                'error' => $plugin->kinds->get($section->handle)['error'],
-                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why', 'exampleTitles'])), $plugin->kinds->presented($section->handle)),
-                'learning' => $plugin->typeState->get($section->handle),
+                'state' => $plugin->types->suggestions($section->handle)->status,
+                'error' => $plugin->types->suggestions($section->handle)->error,
+                'suggestions' => array_map(fn(array $kind) => array_intersect_key($kind, array_flip(['id', 'title', 'description', 'why', 'exampleTitles'])), $plugin->types->presented($section->handle)),
+                'learning' => $plugin->types->analysis($section->handle)->toArray(),
                 'types' => array_values(array_map(fn($type) => ['title' => $type->title, 'url' => UrlHelper::cpUrl('ghostwriter/types/' . $type->handle)], $plugin->types->forSection($section->handle))),
             ], $plugin->types->sections()),
             'plan' => [
-                'ideas' => count(array_filter($plugin->ideas->all(), fn(array $idea) => $idea['status'] === \nineteenninetyfour\ghostwriter\planning\IdeaRepository::OPEN)),
-                'pending' => count($plugin->planState->get()['pending']),
-                'status' => $plugin->planState->get()['status'],
-                'error' => $plugin->planState->get()['error'],
+                'ideas' => count(array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->isOpen())),
+                'pending' => count($plan->pending),
+                'status' => $plan->status,
+                'error' => $plan->error,
                 'url' => UrlHelper::cpUrl('ghostwriter/plan'),
             ],
         ];
@@ -188,18 +193,17 @@ class Onboarding extends Component
      * A guide as the wizard shows it: its opening, rendered, and how the job
      * writing it stands.
      *
-     * @param array<string, mixed> $state
      * @return array<string, mixed>
      */
-    private function guide(string $markdown, array $state): array
+    private function guide(string $markdown, GuideState $state): array
     {
         $opening = mb_substr(trim($markdown), 0, 900);
 
         return [
             'exists' => trim($markdown) !== '',
-            'status' => $state['status'],
-            'error' => $state['error'],
-            'scanned' => count($state['scanned']),
+            'status' => $state->status,
+            'error' => $state->error,
+            'scanned' => count($state->scanned),
             'excerpt' => $opening === '' ? '' : (string) (new \League\CommonMark\GithubFlavoredMarkdownConverter(['html_input' => 'escape', 'allow_unsafe_links' => false]))->convert($opening . (mb_strlen(trim($markdown)) > 900 ? ' …' : '')),
         ];
     }
@@ -255,6 +259,19 @@ class Onboarding extends Component
         }
 
         return null;
+    }
+
+    /**
+     * The plan screen's state, with a search that stopped without finishing
+     * shown as failed.
+     */
+    private function planState(): PlanState
+    {
+        $domain = Plugin::getInstance()->domain;
+        $state = $domain->plan()->state();
+        $state->recoverIfStale($domain->options());
+
+        return $state;
     }
 
     public function hidden(): bool

@@ -22,7 +22,7 @@ composer require 1994/ghostwriter-craft
 php craft plugin/install ghostwriter
 ```
 
-Composer also installs `1994/ghostwriter-core` from Packagist, the package Ghostwriter shares with its Statamic and Filament versions. It holds the providers, the prompts, the draft handling and the layout algorithms. No extra repository is needed.
+Composer also installs `1994/ghostwriter-core` from Packagist, the package Ghostwriter shares with its Statamic and Filament versions. It holds the providers, the prompts, the draft handling, the layout algorithms and the rules for pieces of writing, the content plan and images. No extra repository is needed.
 
 Once it's required, you can also install it from **Settings → Plugins**.
 

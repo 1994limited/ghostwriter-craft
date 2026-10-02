@@ -4,8 +4,8 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 
 use Craft;
 use craft\elements\Entry;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -23,11 +23,12 @@ class TypesController extends Controller
     public function actionEdit(string $handle, ?ContentType $type = null): Response
     {
         $type ??= $this->type($handle);
+        $section = Plugin::getInstance()->types->section($type);
 
         return $this->renderTemplate('ghostwriter/types/_edit', [
             'type' => $type,
-            'sectionName' => Craft::t('site', (string) $type->craftSection()?->name),
-            'sectionUid' => $type->craftSection()?->uid,
+            'sectionName' => Craft::t('site', (string) $section?->name),
+            'sectionUid' => $section?->uid,
             'examples' => $type->examples ? Entry::find()->id($type->examples)->status(null)->fixedOrder()->all() : [],
             // Each question's handle travels with its row, out of sight: it
             // names the answer, and nobody needs to see or change it.
@@ -84,7 +85,7 @@ class TypesController extends Controller
             ], fn($value) => $value !== null);
         }
 
-        $posted = ContentType::fromArray($type->handle, [
+        $posted = Plugin::getInstance()->types->make($type->handle, [
             'title' => $title,
             'description' => trim((string) $this->request->getBodyParam('description')),
             'questions' => $questions,
@@ -92,8 +93,8 @@ class TypesController extends Controller
             'checklist' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $this->request->getBodyParam('checklist')) ?: []))),
             'examples' => array_slice(array_values(array_filter((array) $this->request->getBodyParam('examples'), 'is_numeric')), 0, 6),
             // Not editable on this screen; kept exactly as they were.
-            'section' => $type->section,
-            'entryType' => $type->entryType,
+            'section' => $type->group,
+            'entryType' => $type->variant,
             'where' => $type->where,
             'defaults' => $type->defaults,
         ]);
@@ -136,7 +137,7 @@ class TypesController extends Controller
         $type = $plugin->types->find($handle);
 
         // The built-in general type has nothing to edit.
-        if (!$type || $type->isGeneric() || !$plugin->types->enabled($type->section)) {
+        if (!$type || $type->isGeneric() || !$plugin->types->enabled($type->group)) {
             throw new NotFoundHttpException('No such kind of content.');
         }
 

@@ -3,8 +3,9 @@
 namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\voice\VoiceState;
 use Throwable;
 
 /**
@@ -19,32 +20,30 @@ class GenerateVoiceGuide extends Job
     public function execute($queue): void
     {
         $plugin = Plugin::getInstance();
-        $state = $plugin->voiceState;
+        $domain = $plugin->domain;
 
         try {
             $samples = $plugin->scanner->samples($this->sections);
 
             if ($samples === []) {
-                $state->update(['status' => VoiceState::FAILED, 'error' => 'There is no published content long enough to learn a voice from. Publish a few entries, or pick different sections.', 'task' => null]);
+                $domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->fail('There is no published content long enough to learn a voice from. Publish a few entries, or pick different sections.'));
 
                 return;
             }
 
             $response = $plugin->studio->analyseVoice($samples);
 
-            $plugin->voiceGuide->save((string) $response->document);
+            $domain->saveGuide(Guide::VOICE, (string) $response->document);
 
-            $state->update([
-                'status' => VoiceState::IDLE,
-                'error' => null,
-                'task' => null,
-                'messages' => [],
-                'scanned' => array_map(fn(array $sample) => ['title' => $sample['title'], 'section' => $sample['section']], $samples),
-            ]);
+            $domain->changeGuideState(Guide::VOICE, function(GuideState $state) use ($samples): void {
+                $state->succeed();
+                $state->messages = [];
+                $state->scanned = array_map(fn(array $sample) => ['title' => $sample['title'], 'section' => $sample['section']], $samples);
+            });
         } catch (Throwable $exception) {
             Craft::error($exception, 'ghostwriter');
 
-            $state->update(['status' => VoiceState::FAILED, 'error' => $exception->getMessage(), 'task' => null]);
+            $domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->fail($exception->getMessage()));
         }
     }
 

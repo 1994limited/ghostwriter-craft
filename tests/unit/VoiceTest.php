@@ -6,8 +6,9 @@ use craft\fields\PlainText;
 use craft\models\Section;
 use nineteenninetyfour\ghostwriter\jobs\GenerateVoiceGuide;
 use nineteenninetyfour\ghostwriter\jobs\RefineVoiceGuide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\GuideState;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
-use nineteenninetyfour\ghostwriter\voice\VoiceState;
 
 /**
  * Learning the site's voice from what it has published, and keeping the guide.
@@ -73,9 +74,9 @@ class VoiceTest extends TestCase
 
         (new GenerateVoiceGuide())->execute(null);
 
-        $this->assertStringContainsString('We, to you.', $this->plugin->voiceGuide->get());
-        $this->assertSame(VoiceState::IDLE, $this->plugin->voiceState->get()['status']);
-        $this->assertCount(2, $this->plugin->voiceState->get()['scanned']);
+        $this->assertStringContainsString('We, to you.', $this->plugin->domain->guide(Guide::VOICE)->body);
+        $this->assertSame('idle', $this->plugin->domain->guideState(Guide::VOICE)->status);
+        $this->assertCount(2, $this->plugin->domain->guideState(Guide::VOICE)->scanned);
         $this->assertStringContainsString('We, to you.', (string) $this->plugin->store->document('guide', 'voice'));
         $this->assertFileDoesNotExist($this->workspace . '/guides/voice.md');
 
@@ -89,11 +90,11 @@ class VoiceTest extends TestCase
     {
         (new GenerateVoiceGuide(['sections' => ['no-such-section']]))->execute(null);
 
-        $state = $this->plugin->voiceState->get();
+        $state = $this->plugin->domain->guideState(Guide::VOICE);
 
-        $this->assertSame(VoiceState::FAILED, $state['status']);
-        $this->assertStringContainsString('no published content long enough', $state['error']);
-        $this->assertFalse($this->plugin->voiceGuide->exists());
+        $this->assertSame('failed', $state->status);
+        $this->assertStringContainsString('no published content long enough', $state->error);
+        $this->assertFalse($this->plugin->domain->guide(Guide::VOICE)->exists());
         $this->assertSame([], $this->fake->prompted('voice-analyst'));
     }
 
@@ -103,7 +104,7 @@ class VoiceTest extends TestCase
 
         (new GenerateVoiceGuide())->execute(null);
 
-        $this->assertSame(['failed', 'The provider is overloaded.'], array_values(array_intersect_key($this->plugin->voiceState->get(), ['status' => 1, 'error' => 1])));
+        $this->assertSame(['failed', 'The provider is overloaded.'], array_values(array_intersect_key($this->plugin->domain->guideState(Guide::VOICE)->toArray(), ['status' => 1, 'error' => 1])));
 
         // Still explained on the next visit, and the one after: it stays
         // until the next run starts.
@@ -112,20 +113,20 @@ class VoiceTest extends TestCase
         $this->assertSame('The provider is overloaded.', $this->action('ghostwriter/voice/show', method: 'GET')['data']['variables']['state']['error']);
 
         $this->action('ghostwriter/voice/scan', ['sections' => ['articles']]);
-        $this->assertSame([VoiceState::WORKING, null], array_values(array_intersect_key($this->plugin->voiceState->get(), ['status' => 1, 'error' => 1])));
+        $this->assertSame(['working', null], array_values(array_intersect_key($this->plugin->domain->guideState(Guide::VOICE)->toArray(), ['status' => 1, 'error' => 1])));
     }
 
     public function testRefiningAppliesTheChangeAndRecordsTheReply(): void
     {
-        $this->plugin->voiceGuide->save("# Tone of voice\n\nOriginal.");
-        $this->plugin->voiceState->addMessage('user', 'Ban the word synergy.');
+        $this->plugin->domain->saveGuide(Guide::VOICE, "# Tone of voice\n\nOriginal.");
+        $this->plugin->domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->addMessage('user', 'Ban the word synergy.'));
 
         $this->fake->respond('voice-editor', "<reply>Added it.</reply>\n<document>\n# Tone of voice\n\nNever say synergy.\n</document>");
 
         (new RefineVoiceGuide())->execute(null);
 
-        $this->assertStringContainsString('Never say synergy.', $this->plugin->voiceGuide->get());
-        $this->assertSame('Added it.', $this->plugin->voiceState->get()['messages'][1]['content']);
+        $this->assertStringContainsString('Never say synergy.', $this->plugin->domain->guide(Guide::VOICE)->body);
+        $this->assertSame('Added it.', $this->plugin->domain->guideState(Guide::VOICE)->messages[1]['content']);
 
         $prompt = $this->fake->prompted('voice-editor')[0];
         $this->assertStringContainsString('Original.', $prompt->prompt);
@@ -134,16 +135,16 @@ class VoiceTest extends TestCase
 
     public function testARefinementThatOnlyAsksAQuestionLeavesTheGuideAlone(): void
     {
-        $this->plugin->voiceGuide->save("# Tone of voice\n\nOriginal.");
-        $this->plugin->voiceState->addMessage('user', 'Make it better.');
-        $this->plugin->voiceState->addMessage('assistant', 'Better in what way?');
-        $this->plugin->voiceState->addMessage('user', 'Shorter.');
+        $this->plugin->domain->saveGuide(Guide::VOICE, "# Tone of voice\n\nOriginal.");
+        $this->plugin->domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->addMessage('user', 'Make it better.'));
+        $this->plugin->domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->addMessage('assistant', 'Better in what way?'));
+        $this->plugin->domain->changeGuideState(Guide::VOICE, fn(GuideState $state) => $state->addMessage('user', 'Shorter.'));
 
         $this->fake->respond('voice-editor', '<reply>Shorter where?</reply>');
 
         (new RefineVoiceGuide())->execute(null);
 
-        $this->assertStringContainsString('Original.', $this->plugin->voiceGuide->get());
+        $this->assertStringContainsString('Original.', $this->plugin->domain->guide(Guide::VOICE)->body);
 
         // The earlier exchange goes along as the conversation so far.
         $request = $this->fake->prompted('voice-editor')[0];
@@ -158,7 +159,7 @@ class VoiceTest extends TestCase
         $response = $this->action('ghostwriter/voice/scan', ['sections' => ['articles']]);
 
         $this->assertSame(200, $response['status'], json_encode($response['data']));
-        $this->assertSame(VoiceState::WORKING, $response['data']['status']);
+        $this->assertSame('working', $response['data']['status']);
         $this->assertSame(['articles'], $this->queued(GenerateVoiceGuide::class)[0]->sections);
 
         // Not twice at once.
@@ -169,7 +170,7 @@ class VoiceTest extends TestCase
         $this->runQueue();
 
         $status = $this->action('ghostwriter/voice/status', method: 'GET')['data'];
-        $this->assertSame(VoiceState::IDLE, $status['status']);
+        $this->assertSame('idle', $status['status']);
         $this->assertTrue($status['exists']);
         $this->assertStringContainsString('We, to you.', $status['document']);
     }
@@ -211,7 +212,7 @@ class VoiceTest extends TestCase
 
         $this->assertSame(200, $response['status'], json_encode($response['data']));
         $this->assertTrue($response['data']['exists']);
-        $this->assertStringContainsString('Edited by hand.', $this->plugin->voiceGuide->get());
+        $this->assertStringContainsString('Edited by hand.', $this->plugin->domain->guide(Guide::VOICE)->body);
 
         $this->assertSame('working', $this->action('ghostwriter/voice/refine', ['message' => 'Shorter.'])['data']['status']);
         $this->assertCount(1, $this->queued(RefineVoiceGuide::class));

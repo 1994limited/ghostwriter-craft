@@ -5,6 +5,13 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 use Craft;
 use craft\elements\Entry;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Busy;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Conflict;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\NotAllowed;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
 use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
@@ -12,8 +19,6 @@ use nineteenninetyfour\ghostwriter\drafts\Applier;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\sessions\Session;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -77,20 +82,21 @@ class SessionsController extends Controller
 
         // Entries to model this one piece on; only ones from its own section.
         $examples = array_slice(array_values(array_filter((array) $this->request->getBodyParam('examples'), 'is_numeric')), 0, 6);
-        $examples = $examples ? array_map('intval', Entry::find()->id($examples)->section($type->section)->status(null)->fixedOrder()->ids()) : [];
+        $examples = $examples ? array_map('intval', Entry::find()->id($examples)->section($type->group)->status(null)->fixedOrder()->ids()) : [];
 
-        $session = Session::start($type->handle, $answers, $this->me(), $examples);
-        $session->elementId = (int) $entry->getCanonicalId();
+        $session = Session::start(Format::Craft, $type->handle, $answers, $this->me(), $examples);
+        $session->recordId = (int) $entry->getCanonicalId();
         $session->siteId = (int) $entry->siteId;
-        $session->entryType = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entry->getType()->handle : null;
-        $session->addMessage('user', $plugin->studio->brief($type, $session), $this->me());
-        $session->run($this->me());
-
-        $plugin->sessions->save($session);
+        $session->variant = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entry->getType()->handle : null;
+        $session = $plugin->domain->sessions()->start($session, $plugin->studio->brief($type, $session), $plugin->domain->viewer());
 
         // Started from the content plan: that idea is now in hand.
         if ($idea = $this->request->getBodyParam('idea')) {
-            $plugin->ideas->update((string) $idea, ['status' => \nineteenninetyfour\ghostwriter\planning\IdeaRepository::DRAFTED, 'session' => $session->id]);
+            try {
+                $plugin->domain->plan()->start((string) $idea, $session->id);
+            } catch (NotFound) {
+                // Gone from the plan meanwhile: the piece goes ahead.
+            }
         }
 
         RunSessionTurn::start(['sessionId' => $session->id]);
@@ -117,7 +123,7 @@ class SessionsController extends Controller
         // the entry as it stands.
         $fresh = (bool) $this->request->getBodyParam('fresh');
 
-        if ($session->status === Session::WORKING || (!$fresh && $session->source === $canonicalId && $session->appliedAt === null && $this->wasEditing($session))) {
+        if ($session->isWorking() || (!$fresh && $session->source === $canonicalId && $session->appliedAt === null && $this->wasEditing($session))) {
             return $this->asJson((new Presenter())->detail($session));
         }
 
@@ -128,9 +134,10 @@ class SessionsController extends Controller
         // Always from the entry as it stands, which may have been edited by
         // hand since Ghostwriter last saw it.
         $session->source = $canonicalId;
-        $session->elementId = $canonicalId;
+        $session->editing = true;
+        $session->recordId = $canonicalId;
         $session->siteId = (int) $entry->siteId;
-        $session->entryType = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entryType->handle : null;
+        $session->variant = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entryType->handle : null;
         $session->draft = trim(\Symfony\Component\Yaml\Yaml::dump(($entryType->hasTitleField ? ['title' => (string) $entry->title] : []) + $data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
         $session->status = Session::IDLE;
         $session->error = null;
@@ -139,8 +146,7 @@ class SessionsController extends Controller
 
         if ($session->messages === [] || !$this->wasEditing($session)) {
             $session->addMessage('user', 'This entry already exists on the site. Its content as it stands is the current draft. I will ask for changes to it.');
-            $session->addMessage('assistant', 'I have the entry as it stands. Tell me what to change.');
-            $session->messages[array_key_last($session->messages)]['editing'] = true;
+            $session->addMessage('assistant', 'I have the entry as it stands. Tell me what to change.', extra: ['editing' => true]);
         }
 
         $plugin->sessions->save($session);
@@ -172,20 +178,12 @@ class SessionsController extends Controller
 
         // One run at a time: checked and started under the session's lock,
         // so two people sending at once can't both start one.
-        $started = false;
-        $session = $plugin->sessions->change($session->id, function(Session $session) use ($message, &$started): bool {
-            if ($session->status === Session::WORKING) {
-                return false;
-            }
-
-            $session->addMessage('user', $message, $this->me());
-            $session->run($this->me());
-
-            return $started = true;
-        }) ?? throw new NotFoundHttpException('No such piece of writing.');
-
-        if (!$started) {
-            return $this->busy($session, 'Ghostwriter is still working on the last message.');
+        try {
+            $session = $plugin->domain->sessions()->send($session->id, $message, $plugin->domain->viewer());
+        } catch (Busy $busy) {
+            return $this->busy($busy);
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
         }
 
         RunSessionTurn::start(['sessionId' => $session->id]);
@@ -210,23 +208,14 @@ class SessionsController extends Controller
 
         // Under the session's lock, like a new message, and recording who is
         // waiting on it.
-        $started = false;
-        $session = $plugin->sessions->change($session->id, function(Session $session) use (&$started): bool {
-            $last = $session->messages[array_key_last($session->messages) ?? 0] ?? null;
-
-            if ($session->status !== Session::FAILED || ($last['role'] ?? null) !== 'user') {
-                return false;
-            }
-
-            $session->run($this->me());
-
-            return $started = true;
-        }) ?? throw new NotFoundHttpException('No such piece of writing.');
-
-        if (!$started) {
-            return $session->status === Session::WORKING
-                ? $this->busy($session, 'Ghostwriter is already trying again.')
-                : $this->refuse('There is nothing to try again.', 409);
+        try {
+            $session = $plugin->domain->sessions()->retry($session->id, $plugin->domain->viewer());
+        } catch (Busy $busy) {
+            return $this->busy($busy, 'Ghostwriter is already trying again.');
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        } catch (Conflict $conflict) {
+            return $this->refuse($conflict->getMessage(), $conflict->status());
         }
 
         RunSessionTurn::start(['sessionId' => $session->id]);
@@ -310,7 +299,7 @@ class SessionsController extends Controller
 
         $plugin = Plugin::getInstance();
         $session = $this->session();
-        $type = $this->type($session->type)->forSession($session);
+        $type = $this->type($session->kind)->forSession($session);
         $entry = $this->target($type);
 
         if ($session->draft === null) {
@@ -326,11 +315,10 @@ class SessionsController extends Controller
 
         // Noted so the session can be shown as handed over, not still in
         // progress; under the lock, so a turn finishing meanwhile is kept.
-        $plugin->sessions->change($session->id, function(Session $session) use ($result): void {
-            $session->appliedAt = Session::now();
-            $session->elementId = (int) $result['draft']->getCanonicalId();
+        $plugin->domain->sessions()->change($session->id, function(Session $session) use ($result): void {
+            $session->markApplied($this->me());
+            $session->recordId = (int) $result['draft']->getCanonicalId();
             $session->siteId = (int) $result['draft']->siteId;
-            $session->touch($this->me());
         });
 
         // A provisional draft ("edited, not saved") opens with the entry
@@ -342,14 +330,17 @@ class SessionsController extends Controller
     {
         $this->requirePostRequest();
 
-        $sessions = Plugin::getInstance()->sessions;
+        $domain = Plugin::getInstance()->domain;
         $session = $this->session();
 
-        if (!$sessions->canDelete($session, Craft::$app->getUser()->getIdentity())) {
-            throw new ForbiddenHttpException(Craft::t('ghostwriter', 'Only the person who started this piece, or an admin, can remove it.'));
+        // Shared, only whoever started it or someone who manages Ghostwriter.
+        try {
+            $domain->sessions()->delete($session->id, $domain->viewer(), Craft::t('ghostwriter', 'Only the person who started this piece, or an admin, can remove it.'));
+        } catch (NotFound) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        } catch (NotAllowed $refused) {
+            throw new ForbiddenHttpException($refused->getMessage());
         }
-
-        $sessions->delete($session);
 
         return $this->asJson(['deleted' => true]);
     }
@@ -372,7 +363,7 @@ class SessionsController extends Controller
             ->status(null)
             ->one();
 
-        if (!$entry || $entry->getSection()?->handle !== $type->section) {
+        if (!$entry || $entry->getSection()?->handle !== $type->group) {
             throw new NotFoundHttpException('That entry cannot be written into from here.');
         }
 
@@ -421,8 +412,8 @@ class SessionsController extends Controller
         $id = (int) $entry->getCanonicalId();
         $section = $entry->getSection();
 
-        foreach ($plugin->sessions->visibleTo((int) Craft::$app->getUser()->getId()) as $session) {
-            if (($session->source === $id || $session->elementId === $id) && $plugin->types->find($session->type)) {
+        foreach ($plugin->domain->sessions()->visible($plugin->domain->viewer()) as $session) {
+            if (($session->source === $id || $session->recordId === $id) && $plugin->types->find($session->kind)) {
                 return $session;
             }
         }
@@ -437,7 +428,7 @@ class SessionsController extends Controller
             }
         }
 
-        return Session::start(($type ?? ContentType::generic($section))->handle, [], $this->me());
+        return Session::start(Format::Craft, ($type ?? $plugin->types->generic($section))->handle, [], $this->me());
     }
 
     /**
@@ -459,7 +450,7 @@ class SessionsController extends Controller
         $plugin = Plugin::getInstance();
         $type = $plugin->types->find($handle);
 
-        if (!$type || !$plugin->types->enabled($type->section)) {
+        if (!$type || !$plugin->types->enabled($type->group)) {
             throw new NotFoundHttpException('No such kind of content.');
         }
 
@@ -473,14 +464,13 @@ class SessionsController extends Controller
      */
     private function session(): Session
     {
-        $sessions = Plugin::getInstance()->sessions;
-        $session = $sessions->find((string) $this->request->getParam('id'));
+        $domain = Plugin::getInstance()->domain;
 
-        if ($session === null || !$sessions->canSee($session, $this->me())) {
+        try {
+            return $domain->sessions()->find((string) $this->request->getParam('id'), $domain->viewer());
+        } catch (NotFound|NotAllowed) {
             throw new NotFoundHttpException('No such piece of writing.');
         }
-
-        return $session;
     }
 
     private function me(): ?int
@@ -500,40 +490,41 @@ class SessionsController extends Controller
      */
     private function handEdit(Session $session, callable $edit): Response
     {
+        $domain = Plugin::getInstance()->domain;
         $refusal = null;
 
-        $session = Plugin::getInstance()->sessions->change($session->id, function(Session $session) use ($edit, &$refusal): bool {
-            if ($session->status === Session::WORKING) {
-                $refusal = $this->busy($session, 'Ghostwriter is still working on the draft. Try again when it has finished.');
+        try {
+            $session = $domain->sessions()->edit($session->id, $domain->viewer(), function(Session $session) use ($edit, &$refusal): ?bool {
+                try {
+                    $session->draft = $edit($session);
+                } catch (InvalidArgumentException $exception) {
+                    $refusal = $this->refuse($exception->getMessage());
 
-                return false;
-            }
+                    return false;
+                }
 
-            try {
-                $session->draft = $edit($session);
-            } catch (InvalidArgumentException $exception) {
-                $refusal = $this->refuse($exception->getMessage());
-
-                return false;
-            }
-
-            $session->touch($this->me());
-
-            return true;
-        }) ?? throw new NotFoundHttpException('No such piece of writing.');
+                return null;
+            });
+        } catch (Busy $busy) {
+            return $this->busy($busy);
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
 
         return $refusal ?? $this->asJson((new Presenter())->detail($session));
     }
 
     /**
      * One run at a time. When it is someone else's, say whose.
+     *
+     * @param string|null $mine What to say when it is the person's own request.
      */
-    private function busy(Session $session, string $message): Response
+    private function busy(Busy $busy, ?string $mine = null): Response
     {
-        if ($session->runBy !== null && $session->runBy !== $this->me()) {
-            $message = Craft::t('ghostwriter', '{name} is waiting on Ghostwriter.', ['name' => Presenter::name($session->runBy)]);
-        }
+        $message = $busy->waitingOn !== null
+            ? Craft::t('ghostwriter', '{name} is waiting on Ghostwriter.', ['name' => Presenter::name((int) $busy->waitingOn)])
+            : ($mine ?? $busy->getMessage());
 
-        return $this->refuse($message, 409);
+        return $this->refuse($message, $busy->status());
     }
 }

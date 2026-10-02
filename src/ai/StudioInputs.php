@@ -7,6 +7,9 @@ use craft\elements\Entry;
 use craft\models\EntryType;
 use craft\models\Section;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\ContentKind;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Conversation;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\ImagerySample;
@@ -23,8 +26,6 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
-use nineteenninetyfour\ghostwriter\sessions\Session;
-use nineteenninetyfour\ghostwriter\types\ContentType;
 
 /**
  * Craft's objects as the inputs core's Studio takes: sections, entry types
@@ -74,13 +75,13 @@ class StudioInputs
      */
     public function layout(ContentType $type): Layout
     {
-        $entryType = $type->craftEntryType()
-            ?? throw new \InvalidArgumentException("The section \"{$type->section}\" no longer exists.");
+        $entryType = Plugin::getInstance()->types->entryType($type)
+            ?? throw new \InvalidArgumentException("The section \"{$type->group}\" no longer exists.");
 
         $layouts = Plugin::getInstance()->layouts;
         $schema = (new SchemaReader())->schema($entryType);
 
-        return $layouts->layout($schema, $layouts->pattern($type->section, $schema, $type->entryType, $type->where, $type->examples));
+        return $layouts->layout($schema, $layouts->pattern($type->group, $schema, $type->variant, $type->where, $type->examples));
     }
 
     /**
@@ -90,7 +91,6 @@ class StudioInputs
     public function kindSurvey(Section $section): KindSurvey
     {
         $plugin = Plugin::getInstance();
-        $state = $plugin->kinds->get($section->handle);
         $several = count($section->getEntryTypes()) > 1;
         $entries = Entry::find()->section($section->handle)->status('live')->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::KIND_SAMPLE)->all();
 
@@ -120,7 +120,7 @@ class StudioInputs
             $section->handle,
             $samples,
             $this->kinds($plugin->types->forSection($section->handle)),
-            $state['dismissed'],
+            $plugin->types->suggestions($section->handle)->dismissed,
         );
     }
 
@@ -128,7 +128,7 @@ class StudioInputs
      * The sections to plan for, with what each holds, and the plan so far.
      *
      * @param array<int, string> $sections Section handles; unknown ones are left out.
-     * @param array<int, array<string, mixed>> $plan Ideas already on the plan.
+     * @param array<int, Idea> $plan Ideas already on the plan.
      */
     public function planContext(array $sections, array $plan, string $voice, string $steer = ''): PlanContext
     {
@@ -154,7 +154,7 @@ class StudioInputs
 
         return new PlanContext(
             $groups,
-            array_map(fn(array $idea) => new PlannedIdea((string) $idea['title'], (string) $idea['section'], (string) $idea['status']), array_values($plan)),
+            array_map(fn(Idea $idea) => new PlannedIdea($idea->title, $idea->group, $idea->status), array_values($plan)),
             $voice,
             $steer,
             $plugin->getSettings()->planSuggestions,
@@ -168,7 +168,7 @@ class StudioInputs
      */
     public function briefTitles(ContentType $type): array
     {
-        $entries = Entry::find()->section($type->section)->status(null)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::BRIEF_TITLES)->all();
+        $entries = Entry::find()->section($type->group)->status(null)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::BRIEF_TITLES)->all();
 
         return array_map(fn(Entry $entry) => (string) $entry->title, $entries);
     }
@@ -184,7 +184,7 @@ class StudioInputs
 
     public function kind(ContentType $type): ContentKind
     {
-        return ContentKind::fromArray($type->handle, $type->toArray());
+        return $type->toStudio();
     }
 
     public function conversation(Session $session): Conversation

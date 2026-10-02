@@ -4,15 +4,16 @@ namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use Craft;
 use craft\elements\Entry;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Launcher;
-use nineteenninetyfour\ghostwriter\sessions\Session;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
-use nineteenninetyfour\ghostwriter\types\ContentType;
-use nineteenninetyfour\ghostwriter\types\TypeState;
 
 /**
  * Learning a section, the questionnaire, the conversation, and handing the
@@ -46,9 +47,9 @@ class WritingTest extends TestCase
         $type = $this->plugin->types->find('project-article');
 
         $this->assertSame('Project article', $type->title);
-        $this->assertSame('articles', $type->section);
+        $this->assertSame('articles', $type->group);
         $this->assertSame(['what', 'avoid'], array_column($type->questions, 'handle'));
-        $this->assertSame(TypeState::IDLE, $this->plugin->typeState->get('articles')['status']);
+        $this->assertSame('idle', $this->plugin->types->analysis('articles')->status);
         $this->assertStringContainsString('section: articles', (string) $this->plugin->store->document('type', 'project-article'));
 
         // The analyst was shown the fields, the pattern and a real entry.
@@ -64,7 +65,7 @@ class WritingTest extends TestCase
         (new AnalyseSection(['section' => 'articles']))->execute(null);
 
         $this->assertSame([], $this->plugin->types->forSection('articles'));
-        $this->assertSame(TypeState::FAILED, $this->plugin->typeState->get('articles')['status']);
+        $this->assertSame('failed', $this->plugin->types->analysis('articles')->status);
     }
 
     public function testAnAnswerThatCannotBeReadIsAskedForAgain(): void
@@ -80,7 +81,7 @@ class WritingTest extends TestCase
         (new AnalyseSection(['section' => 'articles', 'title' => 'Contact page']))->execute(null);
 
         $this->assertSame(['offices'], array_column($this->plugin->types->find('contact-page')->questions, 'handle'));
-        $this->assertSame(TypeState::IDLE, $this->plugin->typeState->get('articles')['status']);
+        $this->assertSame('idle', $this->plugin->types->analysis('articles')->status);
 
         $retry = $this->fake->prompted('type-analyst')[1];
         $this->assertSame('Your answer could not be read: it had no questions. Reply again with the whole type, as one YAML document inside a <type> block and nothing else.', $retry->prompt);
@@ -102,7 +103,7 @@ class WritingTest extends TestCase
 
         $response = $this->action('ghostwriter/sections/analyse', ['section' => 'articles', 'title' => 'Case study', 'examples' => [$this->entry('One')->id, $this->makeEntry($this->press, 'Elsewhere')->id]]);
 
-        $this->assertSame(TypeState::WORKING, $response['data']['state']['status']);
+        $this->assertSame('working', $response['data']['state']['status']);
 
         // Entries from another section cannot be the model.
         $job = $this->queued(AnalyseSection::class)[0];
@@ -195,8 +196,8 @@ class WritingTest extends TestCase
 
         $session = $this->plugin->sessions->find($started['data']['id']);
 
-        $this->assertSame($user->id, $session->userId);
-        $this->assertSame($draft->id, $session->elementId);
+        $this->assertSame($user->id, $session->startedBy);
+        $this->assertSame($draft->id, $session->recordId);
         $this->assertSame([$this->entry('Two')->id], $session->examples);
         $this->assertStringContainsString('A faceted search.', $session->messages[0]['content']);
         $this->assertStringContainsString('(not answered)', $session->messages[0]['content']);
@@ -205,7 +206,7 @@ class WritingTest extends TestCase
 
     public function testTheWriterCanInterviewFirstAndDraftSecond(): void
     {
-        $this->plugin->voiceGuide->save("# Tone of voice\n\nTwo punchlines at most.");
+        $this->plugin->domain->saveGuide(Guide::VOICE, "# Tone of voice\n\nTwo punchlines at most.");
         $type = $this->saveType();
         $session = $this->startedSession();
 
@@ -249,7 +250,7 @@ class WritingTest extends TestCase
 
         // The writer's instructions carry the voice, the type's guidance, the
         // fields read from the layout, the pattern and a real example.
-        $instructions = $this->plugin->studio->writerInstructions($type, $this->plugin->voiceGuide->get());
+        $instructions = $this->plugin->studio->writerInstructions($type, $this->plugin->domain->guide(Guide::VOICE)->body);
 
         foreach (['Two punchlines at most.', 'Open on the reader. Two sections.', '`longForm`: LongForm', 'in this order: hero, longForm, cards, related', '<example number="1">', 'A paragraph about Three'] as $expected) {
             $this->assertStringContainsString($expected, $instructions);
@@ -428,8 +429,8 @@ class WritingTest extends TestCase
         $this->makeNewsArticle('Award', ['Our founder received an award.']);
 
         $target = $this->newDraft($this->news);
-        $session = Session::start(ContentType::GENERIC . 'news', ['subject' => 'A new collection.'], Craft::$app->getUser()->getId());
-        $session->elementId = $target->id;
+        $session = Session::start(Format::Craft, ContentType::GENERIC . 'news', ['subject' => 'A new collection.'], Craft::$app->getUser()->getId());
+        $session->recordId = $target->id;
         $session->draft = "title: Fresh News\nnewsBuilder:\n  - type: assetSingle\n  - type: textWithAsset\n    children:\n      - type: text\n        richText: |\n          ### Fresh\n\n          We have news.\n  - type: spacer";
         $this->plugin->sessions->save($session);
 
@@ -593,7 +594,7 @@ class WritingTest extends TestCase
         $type = $this->plugin->types->find('project');
 
         $this->assertSame('Project article', $type->title);
-        $this->assertSame('articles', $type->section);
+        $this->assertSame('articles', $type->group);
         $this->assertSame([['handle' => 'who', 'label' => 'Who was it for?', 'instructions' => 'A description will do.', 'type' => 'text', 'required' => true]], $type->questions);
         $this->assertSame(['No invented figures.'], $type->checklist);
         $this->assertSame([$this->entry('One')->id], $type->examples);
@@ -643,7 +644,7 @@ class WritingTest extends TestCase
 
     private function saveType(): ContentType
     {
-        return $this->plugin->types->save(ContentType::fromArray('project', [
+        return $this->plugin->types->save($this->plugin->types->make('project', [
             'title' => 'Article',
             'description' => 'A project write-up.',
             'section' => 'articles',
@@ -660,7 +661,7 @@ class WritingTest extends TestCase
     {
         $type = $this->plugin->types->find('project');
 
-        $session = Session::start('project', ['what' => 'A faceted search.'], Craft::$app->getUser()->getId());
+        $session = Session::start(Format::Craft, 'project', ['what' => 'A faceted search.'], Craft::$app->getUser()->getId());
         $session->addMessage('user', $this->plugin->studio->brief($type, $session));
         $session->status = Session::WORKING;
 
@@ -672,7 +673,7 @@ class WritingTest extends TestCase
         $session = $this->startedSession();
         $session->draft = $draft;
         $session->status = Session::IDLE;
-        $session->elementId = $target?->id;
+        $session->recordId = $target?->id;
 
         return $this->plugin->sessions->save($session);
     }

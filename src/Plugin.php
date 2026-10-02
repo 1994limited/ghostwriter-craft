@@ -25,20 +25,18 @@ use nineteenninetyfour\ghostwriter\ai\Providers;
 use nineteenninetyfour\ghostwriter\ai\Studio;
 use nineteenninetyfour\ghostwriter\content\ContentScanner;
 use nineteenninetyfour\ghostwriter\content\ProseExtractor;
+use nineteenninetyfour\ghostwriter\domain\CraftLock;
+use nineteenninetyfour\ghostwriter\domain\DbGuideStore;
+use nineteenninetyfour\ghostwriter\domain\DbImageRequestStore;
+use nineteenninetyfour\ghostwriter\domain\DbKindStore;
+use nineteenninetyfour\ghostwriter\domain\DbPlanStore;
+use nineteenninetyfour\ghostwriter\domain\DbSessionStore;
+use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
+use nineteenninetyfour\ghostwriter\domain\Domain;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
-use nineteenninetyfour\ghostwriter\images\ImageRequests;
-use nineteenninetyfour\ghostwriter\images\ImageryGuide;
-use nineteenninetyfour\ghostwriter\images\ImageryState;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
-use nineteenninetyfour\ghostwriter\planning\IdeaRepository;
-use nineteenninetyfour\ghostwriter\planning\PlanState;
-use nineteenninetyfour\ghostwriter\sessions\SessionRepository;
-use nineteenninetyfour\ghostwriter\types\KindSuggestions;
 use nineteenninetyfour\ghostwriter\types\TypeRepository;
-use nineteenninetyfour\ghostwriter\types\TypeState;
-use nineteenninetyfour\ghostwriter\voice\VoiceGuide;
-use nineteenninetyfour\ghostwriter\voice\VoiceState;
 use nineteenninetyfour\ghostwriter\widgets\GhostwriterWidget;
 use yii\base\Event;
 
@@ -52,18 +50,16 @@ use yii\base\Event;
  * @property-read Store $store
  * @property-read ContentScanner $scanner
  * @property-read ProseExtractor $prose
- * @property-read VoiceGuide $voiceGuide
- * @property-read VoiceState $voiceState
+ * @property-read Domain $domain
+ * @property-read CraftLock $lock
+ * @property-read DbSessionStore $sessions
+ * @property-read DbPlanStore $plans
+ * @property-read DbKindStore $kindStore
+ * @property-read DbGuideStore $guides
+ * @property-read DbImageRequestStore $imageStore
+ * @property-read DbWaitingStore $waitingStore
  * @property-read TypeRepository $types
- * @property-read TypeState $typeState
- * @property-read SessionRepository $sessions
- * @property-read KindSuggestions $kinds
- * @property-read ImageryGuide $imageryGuide
- * @property-read ImageryState $imageryState
  * @property-read ImagePicker $imagePicker
- * @property-read ImageRequests $imageRequests
- * @property-read IdeaRepository $ideas
- * @property-read PlanState $planState
  * @property-read Onboarding $onboarding
  * @property-read Layouts $layouts
  * @method Settings getSettings()
@@ -94,18 +90,17 @@ class Plugin extends BasePlugin
                 'store' => Store::class,
                 'scanner' => ContentScanner::class,
                 'prose' => ProseExtractor::class,
-                'voiceGuide' => VoiceGuide::class,
-                'voiceState' => VoiceState::class,
+                // Core's domain rules, and the stores and lock they work over.
+                'domain' => Domain::class,
+                'lock' => CraftLock::class,
+                'sessions' => DbSessionStore::class,
+                'plans' => DbPlanStore::class,
+                'kindStore' => DbKindStore::class,
+                'guides' => DbGuideStore::class,
+                'imageStore' => DbImageRequestStore::class,
+                'waitingStore' => DbWaitingStore::class,
                 'types' => TypeRepository::class,
-                'typeState' => TypeState::class,
-                'sessions' => SessionRepository::class,
-                'kinds' => KindSuggestions::class,
-                'imageryGuide' => ImageryGuide::class,
-                'imageryState' => ImageryState::class,
                 'imagePicker' => ImagePicker::class,
-                'imageRequests' => ImageRequests::class,
-                'ideas' => IdeaRepository::class,
-                'planState' => PlanState::class,
                 'onboarding' => Onboarding::class,
                 'layouts' => Layouts::class,
             ],

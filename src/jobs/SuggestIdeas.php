@@ -3,7 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
-use nineteenninetyfour\ghostwriter\planning\PlanState;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
 
@@ -21,17 +21,18 @@ class SuggestIdeas extends Job
     public function execute($queue): void
     {
         $plugin = Plugin::getInstance();
+        $plan = $plugin->domain->plan();
 
         try {
-            $suggested = $plugin->studio->suggestIdeas($this->sections, array_values($plugin->ideas->all()), $plugin->voiceGuide->get(), $this->steer);
+            $suggested = $plugin->studio->suggestIdeas($this->sections, $plugin->plans->ideas(), $plugin->domain->guide(Guide::VOICE)->body, $this->steer);
 
-            // Held for the person to look over; nothing joins the plan until
-            // they say which.
-            $plugin->planState->update(['status' => PlanState::IDLE, 'error' => null, 'task' => null, 'pending' => array_values($suggested)]);
+            // Held for the person to look over, alongside any batch still
+            // waiting (E3); nothing joins the plan until they say which.
+            $plan->receive($suggested);
         } catch (Throwable $exception) {
             Craft::error($exception, 'ghostwriter');
 
-            $plugin->planState->update(['status' => PlanState::FAILED, 'error' => $exception->getMessage(), 'task' => null]);
+            $plan->failed($exception->getMessage());
         }
     }
 

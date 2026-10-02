@@ -3,6 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\controllers;
 
 use craft\web\Controller as BaseController;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Refused;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\web\Response;
 
@@ -21,6 +22,20 @@ abstract class Controller extends BaseController
         $this->requirePermission(Plugin::PERMISSION);
 
         return true;
+    }
+
+    /**
+     * A rule of core's that said no and wasn't answered more particularly
+     * by the action (someone else holding the lock, a conflict) is answered
+     * with its own status and message.
+     */
+    public function runAction($id, $params = []): mixed
+    {
+        try {
+            return parent::runAction($id, $params);
+        } catch (Refused $refused) {
+            return $this->refuse($refused->getMessage(), $refused->status());
+        }
     }
 
     /**
