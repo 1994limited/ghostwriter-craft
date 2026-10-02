@@ -15,6 +15,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\SessionAccess;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\SessionGuard;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Viewer;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
+use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
@@ -69,6 +70,18 @@ class Domain extends Component
         $sessions = Plugin::getInstance()->sessions;
 
         return $this->plan()->ideas(fn(int|string $id) => $sessions->find((string) $id) !== null);
+    }
+
+    /**
+     * Whether an idea's piece is finished (E6), for putting it back: a
+     * finished piece stays where it is (E8); one that isn't goes back to
+     * the ideas (E5).
+     */
+    public function finished(Idea $idea): bool
+    {
+        $session = $idea->session !== null ? Plugin::getInstance()->sessions->find((string) $idea->session) : null;
+
+        return $session !== null && (new Presenter())->finished($session);
     }
 
     public function images(): ImageRequests

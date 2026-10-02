@@ -133,8 +133,9 @@ class PlanController extends Controller
     }
 
     /**
-     * An idea's words changed, or the idea dismissed or put back. Only a
-     * dismissed idea is put back (E8): a started piece is resumed instead.
+     * An idea's words changed, or the idea dismissed or put back. A
+     * dismissed idea is put back, and so is a started piece that isn't
+     * finished (E5's "Back to ideas"); a finished piece is not (E8).
      */
     public function actionUpdate(): Response
     {
@@ -155,7 +156,7 @@ class PlanController extends Controller
         }
 
         match ($status) {
-            Idea::OPEN => $plan->putBack($id),
+            Idea::OPEN => $plan->putBack($id, fn(Idea $idea) => Plugin::getInstance()->domain->finished($idea)),
             Idea::DISMISSED => $plan->dismiss($id),
             default => null,
         };
