@@ -4,7 +4,7 @@ namespace nineteenninetyfour\ghostwriter\jobs;
 
 use Craft;
 use InvalidArgumentException;
-use nineteenninetyfour\ghostwriter\ai\Image;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Image;
 use nineteenninetyfour\ghostwriter\images\ImageRequests;
 use nineteenninetyfour\ghostwriter\images\ImageSlot;
 use nineteenninetyfour\ghostwriter\Plugin;

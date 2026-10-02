@@ -2,7 +2,7 @@
 
 On every image field in a section Ghostwriter writes for, a **Ghostwriter** button sits beside **Add an asset** and **Upload a file**. When the field is full, it sits just below the field instead.
 
-It isn't shown on fields that only accept other kinds of file (for example PDFs), or on fields with no upload location.
+It isn't shown on fields that only accept other kinds of file (for example PDFs), on fields with no upload location, or when neither a photo library nor an OpenAI or Gemini key is available.
 
 Click it to choose an image for that one field.
 
@@ -17,8 +17,9 @@ Click it to choose an image for that one field.
 Searches free photo libraries: Openverse (no key needed) and Unsplash, Pexels and Pixabay when you've added their keys. See [API keys](api-keys.md#free-photo-libraries).
 
 1. Type what the picture should show, or leave it empty and Ghostwriter chooses three searches from the block and page. Separate your own searches with semicolons.
-2. **Search.** The model looks at the results beside the images already used there, and marks the best ones **Best match**. The rest follow.
-3. **Use this** on the one you want.
+2. **Search.** The model looks at the results beside the images already used there, and marks the best ones **Best match**. When there is nothing to compare with (no image there on other entries yet, or no writing model), nothing is marked, and a line says the results are in search order.
+3. The best three show first; **View N more** shows the rest.
+4. Click the photo, or **Use this**, on the one you want.
 
 ## Make one
 
@@ -29,17 +30,7 @@ Needs an OpenAI or Gemini key (see [API keys](api-keys.md)).
 3. **Make the picture.** It takes a minute or two, matching the style of the images already in that place.
 4. **Use this**, or **Make another**.
 
-Ghostwriter never draws a real company's logo from memory. For logos, use a logo card.
-
-## Logo card
-
-For partner, client or technology tiles: your logo, centred on a flat colour or a gradient, drawn in code so it comes out exactly as it went in. Needs the Imagick PHP extension.
-
-1. Choose the **Logo**: a PNG, SVG or WebP with a transparent background. SVGs that refer to other files or contain scripts are refused.
-2. **Colour**: leave blank to use the logo's own main colour, or give a hex value such as `#2B3A64`.
-3. **Second colour, for a gradient** (optional).
-4. **Make the logo white** is on by default, as on a coloured ground it usually should be.
-5. **Make the card and use it.** The card is sized to match the images in that place.
+Ghostwriter never draws a real company's logo from memory. To put a real logo or product in a picture, add it as **an image of your own**.
 
 ## What happens when you choose one
 

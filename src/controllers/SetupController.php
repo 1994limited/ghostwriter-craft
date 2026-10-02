@@ -15,7 +15,7 @@ class SetupController extends Controller
     {
         $this->view->registerAssetBundle(GhostwriterAsset::class);
 
-        return $this->renderTemplate('ghostwriter/setup', ['state' => $this->payload()]);
+        return $this->renderTemplate('ghostwriter/setup', ['state' => $this->payload(), 'canHide' => Plugin::getInstance()->onboarding->canToggle()]);
     }
 
     public function actionStatus(): Response
@@ -58,9 +58,16 @@ class SetupController extends Controller
         return $this->asJson($this->payload());
     }
 
+    /**
+     * Hide or show Get started, for the whole site: a manager's call.
+     */
     public function actionHide(): Response
     {
         $this->requirePostRequest();
+
+        if (!Plugin::getInstance()->onboarding->canToggle()) {
+            throw new \yii\web\ForbiddenHttpException('Only an admin can hide or show Get started.');
+        }
 
         Plugin::getInstance()->onboarding->hide((bool) $this->request->getBodyParam('hidden', true));
 

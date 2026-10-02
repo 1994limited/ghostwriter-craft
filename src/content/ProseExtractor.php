@@ -3,7 +3,7 @@
 namespace nineteenninetyfour\ghostwriter\content;
 
 use craft\base\ElementInterface;
-use nineteenninetyfour\ghostwriter\drafts\HtmlToMarkdown;
+use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use yii\base\Component;
 
 /**

@@ -206,6 +206,7 @@ class Plugin extends BasePlugin
             'sections' => Craft::$app->getEntries()->getAllSections(),
             'keys' => $this->providers->keyStatus(),
             'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('ghostwriter')),
+            'modelDefaults' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::TEXT_DEFAULTS,
         ]);
     }
 }

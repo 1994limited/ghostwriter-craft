@@ -93,6 +93,36 @@ class PlanTest extends TestCase
         $this->assertFileDoesNotExist($this->workspace . '/guides/ideas.yaml');
     }
 
+    public function testIdeasComeNewestFirst(): void
+    {
+        $this->signIn();
+
+        foreach (['First', 'Second', 'Third'] as $title) {
+            $this->plugin->ideas->add(['title' => $title, 'section' => 'articles']);
+        }
+
+        $this->assertSame(['Third', 'Second', 'First'], array_column($this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'], 'title'));
+    }
+
+    public function testSuggestionsWaitUntilTheyAreDecided(): void
+    {
+        $this->signIn();
+        $this->plugin->planState->update(['pending' => [
+            ['title' => 'Rebuild or repair?', 'section' => 'articles', 'type' => null, 'why' => 'Asked often.', 'notes' => ''],
+            ['title' => 'Our office dog', 'section' => 'articles', 'type' => null, 'why' => '', 'notes' => ''],
+        ]]);
+
+        // Still there on the next visit: the screen has them to show.
+        $screen = $this->action('ghostwriter/plan/show', method: 'GET')['data']['variables'];
+        $this->assertCount(2, $screen['config']['plan']['pending']);
+        $this->assertCount(2, $this->action('ghostwriter/plan/status', method: 'GET')['data']['pending']);
+
+        // None ticked: every one is kept as dismissed, so not suggested again.
+        $data = $this->action('ghostwriter/plan/accept', ['chosen' => []])['data'];
+        $this->assertSame([], $data['pending']);
+        $this->assertSame(['dismissed', 'dismissed'], array_column($data['ideas'], 'status'));
+    }
+
     public function testTheListCanBeClearedWithoutTouchingStartedPieces(): void
     {
         $this->signIn();

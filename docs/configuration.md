@@ -11,7 +11,7 @@
 | **Show Get started** | The setup steps on the dashboard and in the menu. |
 | **Suggest kinds of content automatically** | Look at each section for kinds without being asked. |
 | **Provider** | Anthropic, OpenAI or Gemini, for writing. |
-| **Model** | Leave blank for the provider's default. |
+| **Model** | Leave blank for the provider's default, shown as the placeholder. A model name that doesn't look like the chosen provider's (a `gpt-…` model with Claude, say) gets a warning; it is still saved. |
 | **Image provider** | OpenAI or Gemini, for making images. Blank uses whichever has a key. |
 | **Image model** | Leave blank for the provider's default. |
 | **Mark images still to choose** | Striped placeholders in empty image fields on new entries. |
@@ -21,7 +21,7 @@ The settings page also shows which API keys are set, never the keys themselves.
 
 ## config/ghostwriter.php
 
-To set any of these in code, or differently per environment, copy `vendor/1994/ghostwriter-craft/src/config.php` to `config/ghostwriter.php`. Values there override the settings page, which then shows a note beside the setting.
+To set any of these in code, or differently per environment, copy `vendor/1994/ghostwriter-craft/src/config.php` to `config/ghostwriter.php`. Values there win over the settings page. A setting set there is shown locked on the settings page, with a note saying where it is set.
 
 ```php
 <?php
@@ -79,7 +79,7 @@ Early builds kept guides, kinds and the plan as files in `config/ghostwriter/`, 
 
 ## Overriding prompts
 
-Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-craft/src/prompts/`:
+Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-core/resources/prompts/`. They come with ghostwriter-core, the package Ghostwriter shares with its Statamic and Filament versions:
 
 | Prompt | Used for |
 | --- | --- |
@@ -93,7 +93,9 @@ Every prompt Ghostwriter uses is a markdown file in `vendor/1994/ghostwriter-cra
 | `photo-researcher.md`, `photo-picker.md` | Choosing photo searches, and picking the best results |
 | `image.md` | Making an image |
 
-To change one for your project, copy it to `config/ghostwriter/prompts/` with the same name and edit the copy. Ghostwriter uses your copy from then on. Keep any `{{ placeholders }}` that are in the original.
+To change one for your project, copy it from `vendor/1994/ghostwriter-core/resources/prompts/` to `config/ghostwriter/prompts/` with the same name and edit the copy. Ghostwriter uses your copy from then on. Keep any `{{ placeholders }}` that are in the original.
+
+The originals also have `[[...]]` placeholders, such as `[[items]]` and `[[place]]`. Ghostwriter fills these in with Craft's words (entries, website), in your copy as well, so you can leave them or write the words out yourself.
 
 ## Permissions
 

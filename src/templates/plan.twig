@@ -22,7 +22,7 @@
 {% block details %}
     <div class="meta gw-meta">
         <h2 class="gw-meta-heading">{{ 'Ask what is missing'|t('ghostwriter') }}</h2>
-        <p class="light">{{ 'Ghostwriter reads everything in the sections you tick, and what is already on the plan, and suggests entries the site does not have. Ideas you turn down tell it what not to suggest again.'|t('ghostwriter') }}</p>
+        <p class="light">{{ 'Ghostwriter reads everything in the sections you tick, and what is already on the plan, and suggests entries the site does not have. Ideas you dismiss tell it what not to suggest again.'|t('ghostwriter') }}</p>
         <fieldset id="gw-plan-sections" class="gw-checks">
             <legend class="visually-hidden">{{ 'Sections to plan for'|t('ghostwriter') }}</legend>
             {% for section in config.sections %}

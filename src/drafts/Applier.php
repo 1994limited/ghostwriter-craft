@@ -7,6 +7,8 @@ use craft\base\Element;
 use craft\elements\Entry;
 use craft\elements\User;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
+use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
 use nineteenninetyfour\ghostwriter\images\Placeholders;
 use nineteenninetyfour\ghostwriter\layouts\EntryData;
 use nineteenninetyfour\ghostwriter\layouts\HouseStyle;

@@ -2,9 +2,14 @@
 <div class="gw-widget">
     {% if not configured %}
         <p class="warning with-icon smalltext">{{ 'Ghostwriter has no API key yet.'|t('ghostwriter') }}</p>
-    {% elseif not setup.complete and not setup.hidden %}
-        <a class="gw-widget__setup" href="{{ cpUrl('ghostwriter/setup') }}">
-            <span>{{ 'Get started · {done} of {total} done'|t('ghostwriter', {done: setup.done, total: setup.total}) }}</span>
+    {% endif %}
+
+    {% if not setup.complete and not setup.hidden %}
+        <a class="gw-widget__setup" href="{{ cpUrl('ghostwriter/setup') }}{{ nextStep ? '#step-' ~ nextStep.number }}">
+            <span>
+                {{ 'Get started · {done} of {total} done'|t('ghostwriter', {done: setup.done, total: setup.total}) }}
+                {% if nextStep %}<span class="gw-widget__next light">{{ 'Next: {title}'|t('ghostwriter', {title: nextStep.title}) }}</span>{% endif %}
+            </span>
             <span class="gw-progress gw-progress--wide" aria-hidden="true"><span style="width: {{ (setup.done / setup.total * 100)|round }}%"></span></span>
         </a>
     {% endif %}
@@ -36,17 +41,22 @@
         <p class="light smalltext">{{ 'Nothing being written right now.'|t('ghostwriter') }}</p>
     {% endif %}
 
-    {% if sections|length and configured %}
-        <div class="gw-widget__write">
-            <button type="button" class="btn small submit menubtn">{{ 'Write something'|t('ghostwriter') }}</button>
-            <div class="menu">
-                <ul>
-                    {% for section in sections %}
-                        <li><a href="{{ cpUrl('ghostwriter/write/' ~ section.handle) }}">{{ section.name }}</a></li>
-                    {% endfor %}
-                </ul>
-            </div>
-            <a class="btn small" href="{{ cpUrl('ghostwriter') }}">{{ 'Open Ghostwriter'|t('ghostwriter') }}</a>
-        </div>
-    {% endif %}
+    {# Without a key, Write something stays in view but switched off, so it is clear what Ghostwriter does once it has one. #}
+    <div class="gw-widget__write">
+        {% if sections|length %}
+            {% if configured %}
+                <button type="button" class="btn small submit menubtn">{{ 'Write something'|t('ghostwriter') }}</button>
+                <div class="menu">
+                    <ul>
+                        {% for section in sections %}
+                            <li><a href="{{ cpUrl('ghostwriter/write/' ~ section.handle) }}">{{ section.name }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <button type="button" class="btn small submit disabled" disabled title="{{ 'Add the API key first.'|t('ghostwriter') }}">{{ 'Write something'|t('ghostwriter') }}</button>
+            {% endif %}
+        {% endif %}
+        <a class="btn small" href="{{ cpUrl('ghostwriter') }}">{{ 'Open Ghostwriter'|t('ghostwriter') }}</a>
+    </div>
 </div>

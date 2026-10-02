@@ -105,9 +105,14 @@ class VoiceTest extends TestCase
 
         $this->assertSame(['failed', 'The provider is overloaded.'], array_values(array_intersect_key($this->plugin->voiceState->get(), ['status' => 1, 'error' => 1])));
 
-        // Reported once: the next visit starts clean.
-        $this->plugin->voiceState->forgetFailure();
-        $this->assertSame(VoiceState::IDLE, $this->plugin->voiceState->get()['status']);
+        // Still explained on the next visit, and the one after: it stays
+        // until the next run starts.
+        $this->signIn();
+        $this->action('ghostwriter/voice/show', method: 'GET');
+        $this->assertSame('The provider is overloaded.', $this->action('ghostwriter/voice/show', method: 'GET')['data']['variables']['state']['error']);
+
+        $this->action('ghostwriter/voice/scan', ['sections' => ['articles']]);
+        $this->assertSame([VoiceState::WORKING, null], array_values(array_intersect_key($this->plugin->voiceState->get(), ['status' => 1, 'error' => 1])));
     }
 
     public function testRefiningAppliesTheChangeAndRecordsTheReply(): void
@@ -167,6 +172,19 @@ class VoiceTest extends TestCase
         $this->assertSame(VoiceState::IDLE, $status['status']);
         $this->assertTrue($status['exists']);
         $this->assertStringContainsString('We, to you.', $status['document']);
+    }
+
+    public function testWithNoSectionTickedNothingIsRead(): void
+    {
+        $this->signIn();
+
+        $response = $this->action('ghostwriter/voice/scan', ['sections' => []]);
+
+        // Not every section on the site, which is what an empty setting means.
+        $this->assertSame(422, $response['status']);
+        $this->assertSame('Choose at least one section to read.', $response['data']['message']);
+        $this->assertSame([], $this->queued(GenerateVoiceGuide::class));
+        $this->assertSame([], $this->plugin->scanner->samples([]));
     }
 
     public function testNothingIsSentWithoutAnApiKey(): void

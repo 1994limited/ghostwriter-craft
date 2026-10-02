@@ -9,7 +9,7 @@
 Optional:
 
 - An OpenAI or Gemini key, to make images. Claude does not make images.
-- The **Imagick** PHP extension, for logo cards and for sending smaller copies of images to the model. Without it, logo cards are not offered and images are sent at their original size up to 1 MB.
+- The **Imagick** PHP extension, for sending smaller copies of images to the model. Without it, images are sent at their original size up to 1 MB.
 - The **GD** extension, which Craft already requires, draws the striped image placeholders.
 
 ## Install the plugin
@@ -49,7 +49,7 @@ Writing a draft or a guide can take a minute or more, which is longer than a web
 
 - **No setup needed.** By default Craft runs its queue from control panel requests, so jobs start as soon as you ask.
 - **With a queue worker.** If your site sets `runQueueAutomatically` to `false` and runs a worker (`php craft queue/listen`, Supervisor, or your host's daemon), the jobs run there instead. Make sure the worker is running, or nothing will happen.
-- **Job time limit.** Each job is allowed the configured timeout (300 seconds by default) plus two minutes.
+- **Job time limit.** Each job is allowed three times the configured timeout plus a minute (960 seconds with the default 300), because a busy or rate-limited provider is tried up to three times.
 
 ## Updating
 
@@ -67,6 +67,6 @@ php craft plugin/uninstall ghostwriter
 composer remove 1994/ghostwriter-craft
 ```
 
-Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan and conversations. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, logo cards, the striped placeholder) stay in your volumes.
+Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan and conversations. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, the striped placeholder) stay in your volumes.
 
 Next: [API keys](api-keys.md).

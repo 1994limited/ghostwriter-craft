@@ -32,8 +32,7 @@ Ghostwriter looks through each section and suggests the kinds of content you wri
 A Ghostwriter button sits beside **Add an asset** on image fields. It reads the block the field is in, and the page around it, then:
 
 - **Finds a photo** from free libraries (Openverse with no key; Unsplash, Pexels and Pixabay with yours), with the best matches for the images you already use picked out
-- **Makes one** in your site's style, with an OpenAI or Gemini key
-- **Makes a logo card**: your logo, exactly as it is, on a flat colour or gradient
+- **Makes one** in your site's style, with an OpenAI or Gemini key, with your own product shot or logo in it if you like
 
 The image you choose is saved to the field's upload folder, with its credit, and dropped straight into the field.
 
@@ -62,4 +61,4 @@ The **content plan** reads what each section has and what it lacks, and suggests
 - PHP 8.2 or later
 - An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
 - Optional: an OpenAI or Gemini key to make images
-- Optional: the Imagick PHP extension, for logo cards
+- Optional: the Imagick PHP extension, to send smaller copies of images to the model

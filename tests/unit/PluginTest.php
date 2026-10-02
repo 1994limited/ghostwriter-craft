@@ -80,5 +80,10 @@ class PluginTest extends TestCase
         \craft\helpers\FileHelper::writeToFile($this->plugin->paths->guides('prompts/voice-analyst.md'), "Our own instructions.\n");
 
         $this->assertSame('Our own instructions.', $this->plugin->paths->prompt('voice-analyst'));
+
+        // An override copied from core keeps its placeholders, filled in with Craft's words.
+        \craft\helpers\FileHelper::writeToFile($this->plugin->paths->guides('prompts/planner.md'), "Plan new [[items]] for the [[place]].\n");
+
+        $this->assertSame('Plan new entries for the website.', $this->plugin->paths->prompt('planner'));
     }
 }

@@ -7,7 +7,7 @@ use craft\elements\db\ElementQueryInterface;
 use craft\fields\Matrix;
 use craft\fields\PlainText;
 use Illuminate\Support\Collection;
-use nineteenninetyfour\ghostwriter\drafts\HtmlToMarkdown;
+use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use Throwable;
 
 /**

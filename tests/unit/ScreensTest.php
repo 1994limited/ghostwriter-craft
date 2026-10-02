@@ -33,6 +33,55 @@ class ScreensTest extends TestCase
         $this->assertStringContainsString('We, to you.', $html);
         $this->assertStringContainsString('new Ghostwriter.GuideScreen', $html);
         $this->assertStringContainsString('Rescan and rewrite', $html);
+        $this->assertStringContainsString('Read the site again', $html);
+    }
+
+    public function testEachGuideSaysWhatItsButtonDoes(): void
+    {
+        $this->signIn();
+
+        $voice = $this->render('ghostwriter/voice/show');
+        $this->assertStringContainsString('Write the voice guide', $voice);
+        $this->assertStringContainsString('Generate from your content', $voice);
+
+        $imagery = $this->render('ghostwriter/imagery/show');
+        $this->assertStringContainsString('Describe the images', $imagery);
+        $this->assertStringContainsString('Look again and rewrite', $imagery);
+        $this->assertStringContainsString('Look at the images again and replace the current guide?', $imagery);
+    }
+
+    public function testTheModelIsCheckedAgainstTheProvider(): void
+    {
+        $settings = $this->plugin->getSettings();
+
+        foreach (['claude-sonnet-5-5' => null, '' => null, 'gpt-6.1-sol' => 'does not look like a Claude (Anthropic) model'] as $model => $warning) {
+            $settings->model = $model ?: null;
+            $warning === null ? $this->assertNull($settings->modelWarning()) : $this->assertStringContainsString($warning, (string) $settings->modelWarning());
+        }
+
+        $settings->provider = 'openai';
+        $this->assertNull($settings->modelWarning());
+
+        $settings->provider = 'gemini';
+        $html = (fn() => $this->settingsHtml())->call($this->plugin);
+        $this->assertStringContainsString('“gpt-6.1-sol” does not look like a Gemini (Google) model.', html_entity_decode($html));
+        // The placeholder is core's default for the provider.
+        $this->assertStringContainsString('placeholder="gemini-3.8-flash"', $html);
+    }
+
+    public function testTheKindEditorKeepsQuestionHandlesOutOfSight(): void
+    {
+        $this->plugin->types->save(\nineteenninetyfour\ghostwriter\types\ContentType::fromArray('story', ['title' => 'Story', 'section' => 'articles', 'questions' => [['handle' => 'who_for', 'label' => 'Who is it for?']]]));
+        $this->signIn();
+
+        $html = $this->render('ghostwriter/types/edit', ['handle' => 'story']);
+
+        $this->assertStringNotContainsString('>Handle<', $html);
+        $this->assertStringContainsString('value="who_for"', $html);
+
+        // Renaming the question keeps the handle it travels with.
+        $this->action('ghostwriter/types/save', ['handle' => 'story', 'title' => 'Story', 'questions' => [['label' => 'Who reads it?', 'handle' => 'who_for'], ['label' => 'Any numbers?']]]);
+        $this->assertSame(['who_for', 'any_numbers'], array_column($this->plugin->types->find('story')->questions, 'handle'));
     }
 
     public function testAMissingKeyIsExplainedOnEveryScreen(): void
@@ -57,9 +106,9 @@ class ScreensTest extends TestCase
         $this->assertStringContainsString('Articles', $html);
     }
 
-    private function render(string $route): string
+    private function render(string $route, array $params = []): string
     {
-        $response = $this->action($route, method: 'GET');
+        $response = $this->action($route, method: 'GET', params: $params);
 
         $this->assertSame(200, $response['status'], json_encode($response['data']));
 

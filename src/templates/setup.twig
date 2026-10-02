@@ -9,7 +9,9 @@
 {% set crumbs = [{label: 'Ghostwriter', url: cpUrl('ghostwriter')}] %}
 
 {% block actionButton %}
-    <button type="button" class="btn" data-hide-setup="leave">{{ 'Hide Get started'|t('ghostwriter') }}</button>
+    {% if canHide %}
+        <button type="button" class="btn" data-hide-setup="leave">{{ 'Hide Get started'|t('ghostwriter') }}</button>
+    {% endif %}
 {% endblock %}
 
 {% block content %}

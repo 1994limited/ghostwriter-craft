@@ -3,160 +3,26 @@
 namespace nineteenninetyfour\ghostwriter\tests\unit;
 
 use GuzzleHttp\Psr7\Response;
-use nineteenninetyfour\ghostwriter\ai\Image;
-use nineteenninetyfour\ghostwriter\ai\ImageRequest;
-use nineteenninetyfour\ghostwriter\ai\Message;
-use nineteenninetyfour\ghostwriter\ai\ProviderException;
-use nineteenninetyfour\ghostwriter\ai\providers\Anthropic;
-use nineteenninetyfour\ghostwriter\ai\providers\Gemini;
-use nineteenninetyfour\ghostwriter\ai\providers\OpenAi;
-use nineteenninetyfour\ghostwriter\ai\TextRequest;
-use nineteenninetyfour\ghostwriter\ai\TextResponse;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Effort;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\NotConfigured;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\Overloaded;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\Truncated;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers\Anthropic;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers\Gemini;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers\OpenAi;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\StopReason;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\TextResponse;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Usage;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 
 /**
- * The provider layer, over a mocked network: what each provider is sent, and
- * how its answer is read back.
+ * How Craft is wired into ghostwriter-core's providers: keys from the
+ * environment, choices from the settings, requests through Craft's Guzzle
+ * client, and Studio's handling of a cut-off answer. What each provider
+ * sends and reads back is tested in core.
  */
 class ProvidersTest extends TestCase
 {
-    private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-
-    public function testClaudeIsSentTheConversationImagesAndAFallback(): void
-    {
-        $this->http->append(new Response(200, [], json_encode([
-            'content' => [['type' => 'thinking', 'thinking' => ''], ['type' => 'text', 'text' => '<reply>Hi.</reply>']],
-            'stop_reason' => 'end_turn',
-            'usage' => ['input_tokens' => 120, 'cache_read_input_tokens' => 30, 'output_tokens' => 40],
-        ])));
-
-        $response = (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request(images: [new Image(base64_decode(self::PNG), 'image/png')], effort: 'low'));
-
-        $this->assertSame('<reply>Hi.</reply>', $response->text);
-        $this->assertSame([150, 40], [$response->inputTokens, $response->outputTokens]);
-
-        $request = $this->sent[0]['request'];
-        $body = json_decode((string) $request->getBody(), true);
-
-        $this->assertSame('https://api.anthropic.com/v1/messages', (string) $request->getUri());
-        $this->assertSame('secret', $request->getHeaderLine('x-api-key'));
-        $this->assertSame('2023-06-01', $request->getHeaderLine('anthropic-version'));
-        $this->assertSame('server-side-fallback-2026-07-01', $request->getHeaderLine('anthropic-beta'));
-        $this->assertSame('claude-opus-5-5', $body['model']);
-        $this->assertSame('default', $body['fallbacks']);
-        $this->assertSame(['effort' => 'low'], $body['output_config']);
-        $this->assertSame('Be brief.', $body['system']);
-        $this->assertSame(['user', 'assistant', 'user'], array_column($body['messages'], 'role'));
-        $this->assertSame(['image', 'text'], array_column($body['messages'][2]['content'], 'type'));
-        $this->assertSame(['type' => 'base64', 'media_type' => 'image/png', 'data' => self::PNG], $body['messages'][2]['content'][0]['source']);
-    }
-
-    public function testEveryModelWithRefusalClassifiersGetsTheFallback(): void
-    {
-        foreach (['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'] as $model) {
-            $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])));
-        }
-
-        foreach (['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'] as $i => $model) {
-            (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request(model: $model));
-
-            $body = json_decode((string) $this->sent[$i]['request']->getBody(), true);
-
-            $this->assertSame('default', $body['fallbacks'] ?? null, $model);
-        }
-    }
-
-    public function testAnOlderClaudeModelGetsThePlainRequest(): void
-    {
-        $this->http->append(new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])));
-
-        (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request(model: 'claude-haiku-4-5', effort: 'low'));
-
-        $body = json_decode((string) $this->sent[0]['request']->getBody(), true);
-
-        $this->assertArrayNotHasKey('fallbacks', $body);
-        $this->assertArrayNotHasKey('output_config', $body);
-        $this->assertFalse($this->sent[0]['request']->hasHeader('anthropic-beta'));
-    }
-
-    public function testARefusalAndAnErrorAreExplainedInPlainWords(): void
-    {
-        $this->http->append(
-            new Response(200, [], json_encode(['content' => [], 'stop_reason' => 'refusal'])),
-            // Overloaded every time it is tried.
-            ...array_fill(0, 3, new Response(529, [], json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]))),
-        );
-
-        $claude = new Anthropic('secret', $this->plugin->providers->http());
-
-        foreach (['Claude declined this request', 'Anthropic said no (529): Overloaded'] as $expected) {
-            try {
-                $claude->text($this->request());
-                $this->fail('Expected a ProviderException.');
-            } catch (ProviderException $exception) {
-                $this->assertStringContainsString($expected, $exception->getMessage());
-            }
-        }
-    }
-
-    public function testChatGptWritesAndMakesImagesFromReferences(): void
-    {
-        $this->http->append(
-            new Response(200, [], json_encode(['choices' => [['message' => ['content' => 'Written.']]], 'usage' => ['prompt_tokens' => 9, 'completion_tokens' => 3]])),
-            new Response(200, [], json_encode(['data' => [['b64_json' => self::PNG]]])),
-            new Response(200, [], json_encode(['data' => [['b64_json' => self::PNG]]])),
-        );
-
-        $openai = new OpenAi('secret', $this->plugin->providers->http());
-        $response = $openai->text($this->request(images: [new Image(base64_decode(self::PNG), 'image/png')]));
-
-        $this->assertSame(['Written.', 9, 3], [$response->text, $response->inputTokens, $response->outputTokens]);
-
-        $body = json_decode((string) $this->sent[0]['request']->getBody(), true);
-        $this->assertSame('Bearer secret', $this->sent[0]['request']->getHeaderLine('Authorization'));
-        $this->assertSame(['system', 'user', 'assistant', 'user'], array_column($body['messages'], 'role'));
-        $this->assertSame('data:image/png;base64,' . self::PNG, $body['messages'][3]['content'][1]['image_url']['url']);
-
-        // With nothing to match, a plain generation; with references, an edit of them.
-        $made = $openai->image(new ImageRequest('A lighthouse', shape: 'portrait'));
-        $this->assertSame('image/png', $made->mime);
-        $this->assertStringEndsWith('/images/generations', (string) $this->sent[1]['request']->getUri());
-        $this->assertSame('1024x1536', json_decode((string) $this->sent[1]['request']->getBody(), true)['size']);
-
-        $openai->image(new ImageRequest('A lighthouse', [new Image(base64_decode(self::PNG), 'image/png')]));
-        $this->assertStringEndsWith('/images/edits', (string) $this->sent[2]['request']->getUri());
-        $this->assertStringContainsString('name="image[]"; filename="reference-0.png"', (string) $this->sent[2]['request']->getBody());
-    }
-
-    public function testGeminiWritesAndMakesImages(): void
-    {
-        $this->http->append(
-            new Response(200, [], json_encode([
-                'candidates' => [['content' => ['parts' => [['text' => 'Thinking…', 'thought' => true], ['text' => 'Written.']]]]],
-                'usageMetadata' => ['promptTokenCount' => 7, 'candidatesTokenCount' => 2],
-            ])),
-            new Response(200, [], json_encode(['candidates' => [['content' => ['parts' => [['inlineData' => ['mimeType' => 'image/png', 'data' => self::PNG]]]]]]])),
-            new Response(200, [], json_encode(['promptFeedback' => ['blockReason' => 'SAFETY']])),
-        );
-
-        $gemini = new Gemini('secret', $this->plugin->providers->http());
-
-        $this->assertSame('Written.', $gemini->text($this->request())->text);
-
-        $request = $this->sent[0]['request'];
-        $body = json_decode((string) $request->getBody(), true);
-        $this->assertStringEndsWith('/models/gemini-3.8-flash:generateContent', (string) $request->getUri());
-        $this->assertSame('secret', $request->getHeaderLine('x-goog-api-key'));
-        $this->assertSame(['user', 'model', 'user'], array_column($body['contents'], 'role'));
-        $this->assertSame('Be brief.', $body['systemInstruction']['parts'][0]['text']);
-
-        $this->assertSame('image/png', $gemini->image(new ImageRequest('A lighthouse', shape: 'square'))->mime);
-        $this->assertSame('1:1', json_decode((string) $this->sent[1]['request']->getBody(), true)['generationConfig']['imageConfig']['aspectRatio']);
-
-        $this->expectExceptionMessage('Gemini declined this request (SAFETY)');
-        $gemini->text($this->request());
-    }
-
     public function testTheProviderIsChosenFromTheSettingsAndTheKeysInTheEnvironment(): void
     {
         $this->unfake();
@@ -172,8 +38,8 @@ class ProvidersTest extends TestCase
 
         try {
             $providers->text();
-            $this->fail('Expected a ProviderException.');
-        } catch (ProviderException $exception) {
+            $this->fail('Expected NotConfigured.');
+        } catch (NotConfigured $exception) {
             $this->assertStringContainsString('OPENAI_API_KEY', $exception->getMessage());
         }
 
@@ -194,98 +60,90 @@ class ProvidersTest extends TestCase
         $this->assertNotContains('g', $status);
     }
 
-    /**
-     * @param Image[] $images
-     */
-    public function testABusyOrRateLimitedProviderIsTriedAgain(): void
+    public function testACallGoesThroughCraftsClientWithTheKeyModelAndTimeoutFromTheSettings(): void
     {
-        $this->http->append(
-            new Response(429, ['retry-after' => '7'], json_encode(['error' => ['message' => 'Rate limited']])),
-            new Response(503, [], 'Service unavailable'),
-            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Hello.']]])),
-        );
+        $this->unfake();
+        $settings = $this->plugin->getSettings();
+        $settings->model = 'claude-sonnet-5-5';
+        $settings->timeout = 120;
 
-        $response = (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request());
+        $this->http->append(new Response(200, [], json_encode([
+            'content' => [['type' => 'text', 'text' => 'Hello.']],
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 12, 'output_tokens' => 3],
+        ])));
+
+        $response = $this->plugin->studio->ask('photo-researcher', 'Be brief.', 'Say hello.', [['role' => 'user', 'content' => 'Earlier.'], ['role' => 'assistant', 'content' => 'Noted.']]);
 
         $this->assertSame('Hello.', $response->text);
-        $this->assertCount(3, $this->sent);
-        // As long as the provider asked, then longer each time.
-        $this->assertSame(7.0, $this->waits[0]);
-        $this->assertGreaterThanOrEqual(4.0, $this->waits[1]);
+        $this->assertSame([12, 3], [$response->usage->input, $response->usage->output]);
+
+        $sent = $this->sent[0];
+        $body = json_decode((string) $sent['request']->getBody(), true);
+
+        $this->assertSame('https://api.anthropic.com/v1/messages', (string) $sent['request']->getUri());
+        $this->assertSame('test-key', $sent['request']->getHeaderLine('x-api-key'));
+        $this->assertSame('claude-sonnet-5-5', $body['model']);
+        $this->assertSame(['user', 'assistant', 'user'], array_column($body['messages'], 'role'));
+        $this->assertSame([120, 15], [$sent['options']['timeout'], $sent['options']['connect_timeout']]);
+
+        // The agent's own limit and effort, from core.
+        $this->assertSame(2000, $body['max_tokens']);
+        $this->assertSame(['effort' => 'low'], $body['output_config']);
     }
 
-    public function testARequestThatIsSimplyWrongIsNotTriedAgain(): void
+    public function testABusyProviderIsTriedAgainThenExplainedInPlainWords(): void
     {
-        $this->http->append(new Response(401, [], json_encode(['error' => ['message' => 'Invalid key']])));
+        $this->unfake();
+
+        $this->http->append(
+            new Response(429, ['retry-after' => '7'], json_encode(['error' => ['message' => 'Rate limited']])),
+            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Hello.']]])),
+            // Overloaded every time it is tried.
+            ...array_fill(0, 3, new Response(529, [], json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']]))),
+        );
+
+        $this->assertSame('Hello.', $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.')->text);
+        // As long as the provider asked, and recorded rather than waited.
+        $this->assertSame(7.0, $this->sleeper->waits[0]);
 
         try {
-            (new OpenAi('secret', $this->plugin->providers->http()))->text($this->request());
-            $this->fail('Expected a ProviderException.');
-        } catch (ProviderException $exception) {
-            $this->assertStringContainsString('(401): Invalid key', $exception->getMessage());
+            $this->plugin->studio->ask('writer', 'Be brief.', 'Say hello.');
+            $this->fail('Expected Overloaded.');
+        } catch (Overloaded $exception) {
+            $this->assertSame('Anthropic is busy right now. Try again shortly.', $exception->getMessage());
         }
 
-        $this->assertCount(1, $this->sent);
-        $this->assertSame([], $this->waits);
-    }
-
-    public function testShouldTheFallbackBetaBeRefusedTheRequestIsSentWithoutIt(): void
-    {
-        $this->http->append(
-            new Response(400, [], json_encode(['error' => ['type' => 'invalid_request_error', 'message' => 'Unknown anthropic-beta: server-side-fallback-2026-07-01']])),
-            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'OK']]])),
-        );
-
-        $this->assertSame('OK', (new Anthropic('secret', $this->plugin->providers->http()))->text($this->request())->text);
-
-        $retried = json_decode((string) $this->sent[1]['request']->getBody(), true);
-        $this->assertFalse($this->sent[1]['request']->hasHeader('anthropic-beta'));
-        $this->assertArrayNotHasKey('fallbacks', $retried);
-    }
-
-    public function testEachProviderSaysWhenAnAnswerWasCutOff(): void
-    {
-        $this->http->append(
-            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Half a']], 'stop_reason' => 'max_tokens'])),
-            new Response(200, [], json_encode(['choices' => [['message' => ['content' => 'Half a'], 'finish_reason' => 'length']]])),
-            new Response(200, [], json_encode(['candidates' => [['content' => ['parts' => [['text' => 'Half a']]], 'finishReason' => 'MAX_TOKENS']]])),
-            new Response(200, [], json_encode(['content' => [['type' => 'text', 'text' => 'Whole.']], 'stop_reason' => 'end_turn'])),
-        );
-
-        $http = $this->plugin->providers->http();
-
-        $this->assertTrue((new Anthropic('secret', $http))->text($this->request())->truncated);
-        $this->assertTrue((new OpenAi('secret', $http))->text($this->request())->truncated);
-        $this->assertTrue((new Gemini('secret', $http))->text($this->request())->truncated);
-        $this->assertFalse((new Anthropic('secret', $http))->text($this->request())->truncated);
+        $this->assertCount(5, $this->sent);
+        $this->assertCount(3, $this->sleeper->waits);
     }
 
     public function testACutOffAnswerIsAskedForAgainWithMoreRoomThenRefused(): void
     {
-        $cut = new TextResponse('title: Half', 100, 16000, true);
-        $this->fake->respond('writer', $cut, new TextResponse('title: Whole', 100, 20000));
+        $cut = new TextResponse('title: Half', StopReason::MaxTokens, new Usage(100, 16000));
+        $this->fake->respond('writer', $cut, new TextResponse('title: Whole', StopReason::End, new Usage(100, 20000)));
 
         $this->assertSame('title: Whole', $this->plugin->studio->ask('writer', 'Write.', 'Go.')->text);
         $this->assertSame([16000, 32000], array_map(fn($request) => $request->maxTokens, $this->fake->prompted('writer')));
 
         $this->fake->respond('brief-writer', $cut);
 
-        $this->expectException(ProviderException::class);
+        $this->expectException(Truncated::class);
         $this->expectExceptionMessage('cut off before it finished');
 
         $this->plugin->studio->ask('brief-writer', 'Write.', 'Go.');
     }
 
-    private function request(array $images = [], ?string $model = null, ?string $effort = null): TextRequest
+    public function testAnAgentsLimitAndEffortComeFromCoreUnlessGiven(): void
     {
-        return new TextRequest(
-            agent: 'writer',
-            instructions: 'Be brief.',
-            prompt: 'Say hello.',
-            history: [new Message('user', 'Earlier.'), new Message('assistant', 'Noted.')],
-            images: $images,
-            model: $model,
-            effort: $effort,
-        );
+        $this->fake->respond('photo-picker', '1, 2');
+
+        $this->plugin->studio->ask('photo-picker', 'Pick.', 'Go.');
+        $this->plugin->studio->ask('photo-picker', 'Pick.', 'Go.', maxTokens: 500, effort: 'high');
+
+        $sent = $this->fake->prompted('photo-picker');
+
+        $this->assertSame([2000, Effort::Low], [$sent[0]->maxTokens, $sent[0]->effort]);
+        $this->assertSame([500, Effort::High], [$sent[1]->maxTokens, $sent[1]->effort]);
     }
 }

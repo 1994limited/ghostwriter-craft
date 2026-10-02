@@ -61,6 +61,28 @@ class KindsTest extends TestCase
         $this->assertStringContainsString('- Recruitment', $request->instructions);
     }
 
+    public function testASuggestionSaysWhyAndWhereItWasSeen(): void
+    {
+        [$launch, $bed] = $this->news();
+        $this->plugin->kinds->store('news', [['title' => 'Product launch', 'description' => 'Announces something new.', 'why' => 'Two entries announce a product.', 'examples' => [$launch->id, $bed->id], 'entryType' => null]], 4);
+        $this->signIn();
+
+        $suggestion = $this->plugin->kinds->presented('news')[0];
+        $this->assertSame('Two entries announce a product.', $suggestion['why']);
+        $this->assertSame(['Launch of a fabric collection', 'A new day bed'], $suggestion['exampleTitles']);
+
+        $response = $this->action('ghostwriter/dashboard/index', method: 'GET');
+        \Craft::$app->getView()->setTemplateMode(\craft\web\View::TEMPLATE_MODE_CP);
+        $html = \Craft::$app->getView()->renderPageTemplate($response['data']['template'], $response['data']['variables'], \craft\web\View::TEMPLATE_MODE_CP);
+
+        $this->assertStringContainsString('Two entries announce a product.', $html);
+        $this->assertStringContainsString('For example: “Launch of a fabric collection”, “A new day bed”', $html);
+
+        // And on Get started.
+        $kinds = array_column($this->plugin->onboarding->details()['kinds'], null, 'handle');
+        $this->assertSame(['Launch of a fabric collection', 'A new day bed'], $kinds['news']['suggestions'][0]['exampleTitles']);
+    }
+
     public function testTextWithNonBreakingSpacesAndCurlyQuotesIsSentIntact(): void
     {
         // Pasted copy is full of these, and a byte-wise whitespace match

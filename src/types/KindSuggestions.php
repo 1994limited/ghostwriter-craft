@@ -47,6 +47,28 @@ class KindSuggestions extends Component
     }
 
     /**
+     * The suggestions as a person weighs them: each with why it is worth
+     * teaching and the titles of up to three entries it was seen in.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function presented(string $section): array
+    {
+        $suggestions = $this->get($section)['suggestions'];
+        $ids = array_values(array_unique(array_merge(...array_map(fn(array $kind) => array_slice(array_map('intval', (array) ($kind['examples'] ?? [])), 0, 3), $suggestions ?: [[]]))));
+        $titles = [];
+
+        foreach ($ids === [] ? [] : \craft\elements\Entry::find()->id($ids)->status(null)->all() as $entry) {
+            $titles[(int) $entry->id] = (string) $entry->title;
+        }
+
+        return array_map(fn(array $kind) => $kind + [
+            'why' => '',
+            'exampleTitles' => array_values(array_filter(array_map(fn($id) => $titles[(int) $id] ?? null, array_slice((array) ($kind['examples'] ?? []), 0, 3)))),
+        ], $suggestions);
+    }
+
+    /**
      * @param array<string, mixed> $changes
      */
     public function update(string $section, array $changes): void

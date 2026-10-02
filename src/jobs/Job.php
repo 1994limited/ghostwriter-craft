@@ -25,9 +25,13 @@ abstract class Job extends BaseJob implements RetryableJobInterface
         Craft::$app->getQueue()->push(new static($config));
     }
 
+    /**
+     * Core tries a busy or rate-limited call up to three times, so one job
+     * can take three timeouts plus the waits between them.
+     */
     public function getTtr(): int
     {
-        return Plugin::getInstance()->getSettings()->timeout + 120;
+        return Plugin::getInstance()->getSettings()->timeout * 3 + 60;
     }
 
     public function canRetry($attempt, $error): bool

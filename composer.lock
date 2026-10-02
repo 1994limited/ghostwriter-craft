@@ -4,8 +4,77 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "11d834c6350bbbf503d6a050f4a4f0c3",
+    "content-hash": "b5939036376e677ef0d0be41ac86035a",
     "packages": [
+        {
+            "name": "1994/ghostwriter-core",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/1994limited/ghostwriter-core.git",
+                "reference": "a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd",
+                "reference": "a6aa755963deffc42c0a3d7b1b8b6d2ffecc2dcd",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-mbstring": "*",
+                "league/commonmark": "^2.4",
+                "php": "^8.2",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.1",
+                "psr/http-message": "^1.1|^2.0",
+                "psr/log": "^1.1|^2.0|^3.0",
+                "symfony/yaml": "^6.4|^7.0|^8.0"
+            },
+            "require-dev": {
+                "guzzlehttp/guzzle": "^7.8|^8.0",
+                "laravel/pint": "^1.18",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^11.5|^12.0"
+            },
+            "suggest": {
+                "guzzlehttp/guzzle": "Required (^7.8 or ^8.0) to use Http\\GuzzleHttpClients, the ready-made HttpClients implementation."
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "0.1.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "NineteenNinetyFour\\Ghostwriter\\Core\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "1994",
+                    "homepage": "https://1994.co.uk"
+                }
+            ],
+            "description": "The framework-free core shared by the Ghostwriter addons for Statamic, Filament and Craft: draft text handling, prompts and the AI provider layer.",
+            "homepage": "https://github.com/1994limited/ghostwriter-core",
+            "keywords": [
+                "ai",
+                "content",
+                "ghostwriter",
+                "writing"
+            ],
+            "support": {
+                "issues": "https://github.com/1994limited/ghostwriter-core/issues",
+                "source": "https://github.com/1994limited/ghostwriter-core"
+            },
+            "time": "2026-10-01T22:52:24+00:00"
+        },
         {
             "name": "bacon/bacon-qr-code",
             "version": "v3.1.1",
