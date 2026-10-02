@@ -137,27 +137,44 @@ class PlanTest extends TestCase
         $this->assertSame(['Rebuild or repair?', 'How to brief a web agency'], array_column($plan->state()->pending, 'title'));
     }
 
-    public function testOnlyADismissedIdeaIsPutBack(): void
+    public function testADismissedIdeaOrAnUnfinishedPieceIsPutBack(): void
     {
         $this->signIn();
         $plan = $this->plugin->domain->plan();
+        $me = \Craft::$app->getUser()->getId();
         $open = $plan->add(['title' => 'Open', 'section' => 'articles']);
-        $piece = $this->plugin->sessions->save(Session::start(Format::Craft, 'guide', [], \Craft::$app->getUser()->getId()));
+        $dismissed = $plan->dismiss($plan->add(['title' => 'Dismissed', 'section' => 'articles'])->id);
+        $piece = $this->plugin->sessions->save(Session::start(Format::Craft, 'guide', [], $me));
         $started = $plan->start($plan->add(['title' => 'Started', 'section' => 'articles'])->id, $piece->id);
 
-        // A started piece is resumed, not put back (E8).
-        foreach ([$open, $started] as $idea) {
-            $refused = $this->action('ghostwriter/plan/update', ['id' => $idea->id, 'status' => 'open']);
-            $this->assertSame(409, $refused['status']);
-            $this->assertSame('Only a dismissed idea can be put back.', $refused['data']['message']);
-        }
+        // A finished piece: its entry has been saved (E6).
+        $done = Session::start(Format::Craft, 'guide', [], $me);
+        $done->recordId = $this->makeArticle('Written already', 'A paragraph that is long enough to count as the piece itself.')->id;
+        $done = $this->plugin->sessions->save($done);
+        $finished = $plan->start($plan->add(['title' => 'Finished', 'section' => 'articles'])->id, $done->id);
 
-        $this->assertSame(Idea::DRAFTED, $this->plugin->plans->find($started->id)->status);
+        $shown = array_column($this->action('ghostwriter/plan/status', method: 'GET')['data']['ideas'], 'finished', 'title');
+        $this->assertSame([false, true], [$shown['Started'], $shown['Finished']]);
+
+        // A finished piece stays where it is (E8), and an open idea is already back.
+        $refused = $this->action('ghostwriter/plan/update', ['id' => $finished->id, 'status' => 'open']);
+        $this->assertSame([409, "A finished piece can't be put back on the plan."], [$refused['status'], $refused['data']['message']]);
+        $this->assertSame(409, $this->action('ghostwriter/plan/update', ['id' => $open->id, 'status' => 'open'])['status']);
+        $this->assertSame([Idea::DRAFTED, $done->id], [$this->plugin->plans->find($finished->id)->status, (string) $this->plugin->plans->find($finished->id)->session]);
+
+        // Back to ideas (E5): a started piece that isn't finished.
+        $this->assertSame(200, $this->action('ghostwriter/plan/update', ['id' => $started->id, 'status' => 'open'])['status']);
+        $this->assertSame([Idea::OPEN, null], [$this->plugin->plans->find($started->id)->status, $this->plugin->plans->find($started->id)->session]);
+
+        // Put back: a dismissed idea.
+        $this->assertSame(200, $this->action('ghostwriter/plan/update', ['id' => $dismissed->id, 'status' => 'open'])['status']);
+        $this->assertSame(Idea::OPEN, $this->plugin->plans->find($dismissed->id)->status);
+
         $this->assertSame(404, $this->action('ghostwriter/plan/update', ['id' => 'nothing', 'title' => 'X'])['status']);
 
         // Words change without the state.
-        $this->action('ghostwriter/plan/update', ['id' => $started->id, 'title' => ' Started, renamed ']);
-        $this->assertSame(['Started, renamed', Idea::DRAFTED], [$this->plugin->plans->find($started->id)->title, $this->plugin->plans->find($started->id)->status]);
+        $this->action('ghostwriter/plan/update', ['id' => $finished->id, 'title' => ' Finished, renamed ']);
+        $this->assertSame(['Finished, renamed', Idea::DRAFTED], [$this->plugin->plans->find($finished->id)->title, $this->plugin->plans->find($finished->id)->status]);
     }
 
     public function testTheListCanBeClearedWithoutTouchingStartedPieces(): void

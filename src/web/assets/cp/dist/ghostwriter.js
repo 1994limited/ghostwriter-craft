@@ -1716,6 +1716,7 @@
                             <div class="gw-plan-item__text"><strong>${esc(idea.title)}</strong><span class="light">${esc([idea.sectionTitle, t(STAGES[idea.stage] ?? 'Started'), Ghostwriter.people(idea)].filter(Boolean).join(' · '))}</span></div>
                             <div class="gw-plan-item__actions">
                                 ${idea.resumeUrl ? `<a class="btn small submit" href="${esc(idea.resumeUrl)}">${esc(t('Resume'))}</a>` : ''}
+                                <button type="button" class="btn small" data-plan="reopen" data-id="${esc(idea.id)}">${esc(t('Back to ideas'))}</button>
                             </div>
                         </div>`).join('')}</div></section>`;
             }

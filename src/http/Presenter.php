@@ -74,6 +74,16 @@ class Presenter
     }
 
     /**
+     * Whether a piece is done with (E6): its draft has become a saved entry.
+     * The same rule moves it to Done on the plan, and stops it going back
+     * to the ideas.
+     */
+    public function finished(Session $session): bool
+    {
+        return Progress::of($session, $this->record($this->entryFor($session)), Plugin::getInstance()->domain->options())->finished;
+    }
+
+    /**
      * Who started a piece and who last did something to it, when
      * conversations are shared; and whether someone else is waiting on
      * Ghostwriter for it now.
