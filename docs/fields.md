@@ -1,6 +1,6 @@
 # How Ghostwriter reads your fields
 
-Ghostwriter works with any section because it reads the section's field layout, and the entries already in it, rather than assuming a shape.
+This page covers how Ghostwriter reads a section's fields, Matrix and Neo blocks, and the house style it copies into new entries. It works with any section because it reads the section's field layout, and the entries already in it, rather than assuming a shape.
 
 ## Field types
 
@@ -43,7 +43,7 @@ A link from a page to itself, such as the last breadcrumb, is recognised as one.
 
 ### Links it can't decide
 
-If a block should have a link (the field is required, or that kind of block usually has one), but the examples don't agree on where it goes, Ghostwriter points it at `https://example.com` with the text "Link to choose". The page still works, and the gap is easy to spot. The notes above the form list each one as "(links to example.com for now)". Set them before publishing.
+If a block should have a link (the field is required, or that kind of block usually has one), but the examples don't agree on where it goes, Ghostwriter points it at `https://example.com` with the text "Link to choose". The page still works, and the gap is easy to spot. The notification after **Use this draft** lists each one as "(links to example.com for now)". Set them before publishing.
 
 This works for Hyper and Craft's Link field. Fields that can only hold entries can't take a web address, so they're simply listed as still to set.
 

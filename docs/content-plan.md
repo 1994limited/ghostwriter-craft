@@ -1,32 +1,56 @@
-# The content plan
+# Content plan
 
-**Ghostwriter → Content plan** is a list of entries worth writing, grouped by section, newest first. Each idea has a title, why it is worth writing, and notes on the angle, who it is for and what it should say.
+This page covers the content plan: a list of entries the site doesn't have yet, some suggested by Ghostwriter and some added by hand. Each one opens a new entry with Ghostwriter beside it.
+
+Open it from **Ghostwriter → Content plan**.
 
 ## Asking what is missing
 
-Under **Ask what is missing**:
+Under **Ask what is missing**, tick the sections to plan for, add anything to steer it if you like ("More for owners." "Events."), then click **Suggest ideas**.
 
-1. Tick the sections to read.
-2. Optionally, steer it: "More for owners." "Events."
-3. **Suggest ideas.** Ghostwriter reads everything in those sections, and what is already on the plan, and suggests entries the site doesn't have. It takes a minute or so.
-4. The suggestions open in a box, all ticked. Untick any not worth writing, then **Add N to the plan** (or, with none ticked, **Add none, dismiss the rest**). Unticked ones are kept as dismissed.
+Ghostwriter reads everything in those sections, and what's already on the plan, and suggests entries the site doesn't have. Each idea comes with a working title, why it's worth writing, and notes on the angle, who it's for and what it should say. It asks for eight ideas each time (`planSuggestions`). It takes a minute or so, and you can leave the page meanwhile. If it finds nothing new, it says "Nothing new to suggest this time."
 
-Closing the box decides nothing: the suggestions wait, and a **N suggestions waiting** card at the top of the plan reopens them with **Review**. **Drop them all** throws the batch away without remembering anything.
+The suggestions open in a box, **Ghostwriter suggests**, all ticked. Untick any not worth writing, then:
 
-Ideas you dismiss tell it what not to suggest again. The number of ideas asked for each time is the `planSuggestions` setting (8 by default).
+- **Add N to the plan** adds the ticked ones. The unticked ones are kept as dismissed, so they aren't suggested again. With none ticked, the button reads **Add none, dismiss the rest**.
+- **Drop them all** throws the whole batch away without remembering any of it, so the same ideas may come up again.
+
+![The Ghostwriter suggests box with three ideas ticked, Drop them all and Add 3 to the plan](images/plan-suggestions.png)
+
+## Suggestions waiting
+
+Closing the box keeps the suggestions. A card at the top of the plan says "N suggestions waiting", and **Review** opens the box again. Only **Drop them all** throws a batch away.
+
+![The card at the top of the content plan saying 3 suggestions waiting, with Review](images/plan-waiting.png)
 
 ## Adding your own
 
-Under **Add your own**, give a working title, choose the section, and add notes if you like.
+Under **Add your own**, give a working title, choose the section, add notes if you like, and click **Add to the plan**.
 
-## Writing from an idea
+## The list
 
-**Draft this** opens a new entry in that section with Ghostwriter open, and the brief filled in from the idea. The idea moves to **In progress** once you start writing it, not when the entry opens.
+- **In progress** comes first ("Started, and not yet saved as an entry."): ideas whose piece has been started. Each shows where it has got to: **Ghostwriter is writing**, **Waiting on your answers**, **Draft ready to use**, **In the entry, not saved** or **Something went wrong last time**, with who started it, **Resume** and **Back to ideas**.
+- **Open ideas** follow, grouped by section, newest first, with how many there are to write. Ideas Ghostwriter suggested are marked **Suggested**, and an idea for one of your kinds shows the kind.
+- **Finished and dismissed** ideas are folded away at the bottom. **Show N finished and dismissed** opens them, and **Hide finished and dismissed** folds them again.
 
-Started pieces are under **In progress**, with where each has got to, **Resume** and **Back to ideas**. A piece counts as finished once its entry is saved.
+![The content plan, with a piece in progress, open ideas grouped by section with Suggested badges, Draft this and Not this one, and Ask what is missing beside them](images/plan.png)
 
-**Not this one** dismisses an idea. Dismissed ideas can be put back with **Put back**; finished ones can't, since that would duplicate a piece already written. **Hide finished and dismissed** tidies the list; **Delete all dismissed** and **Clear the list** remove them for good.
+## Writing an idea
+
+Click **Draft this** on an idea. A new entry in that section opens with Ghostwriter open, its title and notes in the [quick brief](writing.md#the-brief), and the brief filled in from them (one model call). Open ideas for a section are also offered in the panel itself, first, under **From the content plan**.
+
+Once you start writing it (not when the entry opens), the idea moves to **In progress**, and **Resume** reopens the piece. **Back to ideas** returns it to the list.
+
+A piece counts as finished once its entry is saved. A draft put into the entry but never saved stays in progress, so it can still be resumed.
+
+## Tidying up
+
+- **Not this one** dismisses an idea. It moves to the finished and dismissed list, and won't be suggested again.
+- **Put back** brings a dismissed idea back. Finished ideas can't be put back, since that would write the same piece twice; **Open entry** opens the entry that was written.
+- **Delete** removes an idea completely.
+- **Delete all dismissed**, with the finished and dismissed ideas, deletes every dismissed idea after asking. Ghostwriter then no longer knows not to suggest them.
+- **Clear the list**, at the top of the page, removes every open idea after asking. Started and dismissed ideas stay.
 
 ## Where the plan is kept
 
-The plan is kept in the database, one row per idea, with each environment's own plan.
+The plan is kept in the `ghostwriter_documents` table, one document per idea, with each environment's own plan. A batch of suggestions waiting for review is kept with Ghostwriter's working state. See [Where things are kept](configuration.md#where-things-are-kept).

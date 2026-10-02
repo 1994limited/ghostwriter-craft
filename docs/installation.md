@@ -1,47 +1,38 @@
 # Installation
 
+This page covers installing Ghostwriter on a Craft site, the queue it runs on, and updating and uninstalling it.
+
 ## Requirements
 
-- Craft CMS 5.6 or later
 - PHP 8.2 or later
-- An API key for one AI provider: Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini). See [API keys](api-keys.md).
+- Craft CMS 5.6 or later
+- An API key for one writing provider: Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini). See [API keys](api-keys.md).
 
 Optional:
 
-- An OpenAI or Gemini key, to make images. Claude does not make images.
-- The **Imagick** PHP extension, for sending smaller copies of images to the model. Without it, images are sent at their original size up to 1 MB.
-- The **GD** extension, which Craft already requires, draws the striped image placeholders.
+- An OpenAI or Gemini key, to make images. Claude doesn't make images.
+- The **Imagick** PHP extension, for sending smaller copies of images to the model. Without it, images are sent at their original size, up to 1 MB.
 
 ## Install the plugin
 
-From your project's root:
+Install Ghostwriter from the Plugin Store in the control panel, or from your project's root with Composer:
 
 ```bash
 composer require 1994/ghostwriter-craft
 php craft plugin/install ghostwriter
 ```
 
-Or, once it is required, install it from **Settings → Plugins** in the control panel.
+Composer also installs `1994/ghostwriter-core` from Packagist, the package Ghostwriter shares with its Statamic and Filament versions. It holds the providers, the prompts and the draft handling. No extra repository is needed.
+
+Once it's required, you can also install it from **Settings → Plugins**.
 
 ## Add your API key
 
-Add the key for your chosen provider to your project's `.env` file:
+Add the key for your writing provider to `.env`, for example `ANTHROPIC_API_KEY=sk-ant-...`. See [API keys](api-keys.md) for every key Ghostwriter can use.
 
-```dotenv
-ANTHROPIC_API_KEY=sk-ant-...
-```
+## Who can use it
 
-Ghostwriter reads keys from the environment each time it needs one. It never stores them, and they never appear in project config. See [API keys](api-keys.md) for every key it can use.
-
-On a server, add the same variable wherever your host keeps environment variables (Laravel Forge, Ploi, Servd and Craft Cloud all have a screen for this).
-
-## Permissions
-
-Ghostwriter adds one permission under **Settings → Users → User Groups**: **Use Ghostwriter**.
-
-- People with it see Ghostwriter in the navigation, the **Write with Ghostwriter** and **Edit with Ghostwriter** buttons, the image button on image fields, and the dashboard widget.
-- Writing into an entry also needs Craft's own permission to save entries in that section. Ghostwriter never lets anyone change an entry they could not change by hand.
-- Ghostwriter's settings page is for admins, on environments where admin changes are allowed.
+People need the **Use Ghostwriter** permission, and admins manage it. See [Permissions](permissions.md).
 
 ## The queue
 
@@ -49,7 +40,7 @@ Writing a draft or a guide can take a minute or more, which is longer than a web
 
 - **No setup needed.** By default Craft runs its queue from control panel requests, so jobs start as soon as you ask.
 - **With a queue worker.** If your site sets `runQueueAutomatically` to `false` and runs a worker (`php craft queue/listen`, Supervisor, or your host's daemon), the jobs run there instead. Make sure the worker is running, or nothing will happen.
-- **Job time limit.** Each job is allowed three times the configured timeout plus a minute (960 seconds with the default 300), because a busy or rate-limited provider is tried up to three times.
+- **The job time limit is set for you.** Each job is allowed the [time limit](configuration.md#the-time-limit) × 3 + 60 seconds: 960 seconds with the default 300. That's because a busy provider is tried up to three times (see [Busy providers and retries](api-keys.md#busy-providers-and-retries)). A worker with its own, shorter limit stops jobs early.
 
 ## Updating
 
@@ -57,6 +48,8 @@ Writing a draft or a guide can take a minute or more, which is longer than a web
 composer update 1994/ghostwriter-craft
 php craft up
 ```
+
+`php craft up` runs Ghostwriter's migrations. See [CHANGELOG.md](../CHANGELOG.md) for what changed. Updating from an early build, which kept its guides and plan in files, imports them into the database (see [Configuration](configuration.md#updating-from-an-early-build)).
 
 ## Uninstalling
 
@@ -69,4 +62,4 @@ composer remove 1994/ghostwriter-craft
 
 Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan and conversations. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, the striped placeholder) stay in your volumes.
 
-Next: [API keys](api-keys.md).
+Next: [Get started](getting-started.md).
