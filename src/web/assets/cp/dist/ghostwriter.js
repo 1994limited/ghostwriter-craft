@@ -2287,24 +2287,37 @@
             const $grid = $pane.find('.gw-image-grid').empty();
             const SHOWN = 3;
 
-            $pane.find('.gw-image-note, .gw-image-more').remove();
+            $pane.find('.gw-image-note, .gw-image-searched, .gw-image-more').remove();
 
             if (data.terms?.length) {
-                $pane.find('.gw-image-words').val(data.terms.join('; '));
+                $pane.find('.gw-image-words').val(data.terms.slice(0, 3).join('; '));
+                $grid.before(`<p class="light gw-image-searched">${Ghostwriter.escape(t('Searched for: {terms}', { terms: data.terms.join('; ') }))}</p>`);
             }
 
-            // Nothing was judged (no images here yet to compare with, or no
-            // writing model): say so, rather than calling any one the best.
-            if (data.options.length && !data.options.some((photo) => photo.picked)) {
-                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(t('These were not compared with images already used here, so they are in search order.'))}</p>`);
+            // Say how these were chosen. "Best match" is only ever on photos
+            // a model judged against the page.
+            let note = null;
+
+            if (!data.options.length) {
+                // The error says so.
+            } else if (data.noneFit) {
+                note = t('None of these quite fit the page, even after searching again. Try other words.');
+            } else if (!data.judged) {
+                note = t('These were not compared with the page, so they are in search order.');
+            } else if (!data.withReferences) {
+                note = t('Compared with the page; there are no other images here to match.');
+            }
+
+            if (note) {
+                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(note)}</p>`);
             }
 
             data.options.forEach((photo, i) => {
                 const $card = $(`
                     <figure class="gw-photo${photo.picked ? ' gw-photo--picked' : ''}${i >= SHOWN ? ' hidden' : ''}">
-                        <img src="${Ghostwriter.escape(photo.thumb)}" alt="" loading="lazy">
+                        <img src="${Ghostwriter.escape(photo.thumb)}" alt="${Ghostwriter.escape(photo.alt ?? '')}" loading="lazy"${photo.reason ? ` title="${Ghostwriter.escape(photo.reason)}"` : ''}>
                         <figcaption>
-                            ${photo.picked ? `<span class="gw-photo__badge">${t('Best match')}</span>` : ''}
+                            ${photo.picked && data.judged ? `<span class="gw-photo__badge">${t('Best match')}</span>` : ''}
                             <span class="light">${Ghostwriter.escape(photo.credit)} · ${Ghostwriter.escape(photo.licence)}</span>
                             <button type="button" class="btn small submit">${t('Use this')}</button>
                         </figcaption>

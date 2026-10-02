@@ -2,8 +2,6 @@
 
 namespace nineteenninetyfour\ghostwriter\ai;
 
-use Craft;
-use GuzzleHttp\ClientInterface;
 use GuzzleHttp\HandlerStack;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\Sleeper;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageProvider;
@@ -43,6 +41,8 @@ class Providers extends Component
 
     private ?Credentials $credentials = null;
 
+    private ?CraftHttpClients $httpClients = null;
+
     /**
      * Core's registry, built once and shared. The ports read the keys,
      * handler and settings each time, so changing them applies at once.
@@ -51,7 +51,7 @@ class Providers extends Component
     {
         return $this->registry ??= new Registry(
             $this->credentials(),
-            new CraftHttpClients(fn() => $this->handler ? ['handler' => $this->handler] : []),
+            $this->httpClients(),
             new SettingsProviderSettings(),
             new CraftLogger(),
         );
@@ -132,15 +132,14 @@ class Providers extends Component
     }
 
     /**
-     * A Guzzle client for everything that isn't a model call: photo
-     * libraries and the photographs they link to.
+     * Craft's HTTP clients, for model calls and the photo libraries alike.
      */
-    public function http(): ClientInterface
+    public function httpClients(): CraftHttpClients
     {
-        return Craft::createGuzzleClient($this->handler ? ['handler' => $this->handler] : []);
+        return $this->httpClients ??= new CraftHttpClients(fn() => $this->handler ? ['handler' => $this->handler] : []);
     }
 
-    private function credentials(): Credentials
+    public function credentials(): Credentials
     {
         return $this->credentials ??= new EnvironmentCredentials(fn() => $this->keys);
     }

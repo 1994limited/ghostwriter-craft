@@ -270,6 +270,7 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-image-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .gw-image-more { margin-top: 12px; }
 .gw-image-note { margin: 0 0 12px; }
+.gw-image-searched { margin: 0 0 6px; }
 .gw-photo img { cursor: pointer; }
 @media (max-width: 600px) { .gw-image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .gw-photo { margin: 0; display: flex; flex-direction: column; gap: 6px; }
