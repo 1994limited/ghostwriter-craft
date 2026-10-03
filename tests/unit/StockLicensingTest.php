@@ -226,6 +226,75 @@ class StockLicensingTest extends TestCase
         $this->assertSame($jpeg, (string) $after->getContents(), 'Byte for byte: the embedded credit stays.');
     }
 
+    public function testTheLicensedFilesTypeIsReadFromItsBytesNotTheLibrarysWord(): void
+    {
+        $this->signIn();
+        $asset = $this->makeAsset($this->volume, 'said-jpeg.png', 800, 600);
+        $png = $this->image('png');
+
+        (new CraftAssetReplacer())->replace(ImagePicker::ref($asset), new PhotoFile($png, 'image/jpeg', 'jpg', $this->demo->photoFor('x')), new ReplaceMeta('ledger'));
+
+        $after = Asset::find()->id($asset->id)->one();
+        $this->assertSame('said-jpeg.png', $after->filename, 'A PNG said to be a JPEG keeps a .png name.');
+        $this->assertSame($png, (string) $after->getContents());
+
+        $this->assertSame(['image/jpeg', 'jpg'], CraftAssetReplacer::imageType($this->image('jpeg')));
+        $this->assertSame(['image/png', 'png'], CraftAssetReplacer::imageType($png));
+        $this->assertSame(['image/webp', 'webp'], CraftAssetReplacer::imageType($this->image('webp')));
+    }
+
+    public function testWebpIsPutInPlaceByteForByte(): void
+    {
+        $this->signIn();
+        $asset = $this->makeAsset($this->volume, 'hero.png', 800, 600);
+        $webp = $this->image('webp');
+
+        (new CraftAssetReplacer())->replace(ImagePicker::ref($asset), new PhotoFile($webp, 'image/webp', 'webp', $this->demo->photoFor('x')), new ReplaceMeta('ledger'));
+
+        $after = Asset::find()->id($asset->id)->one();
+        $this->assertSame('hero.webp', $after->filename);
+        $this->assertSame($webp, (string) $after->getContents());
+    }
+
+    #[\Codeception\Attribute\DataProvider('notAnImage')]
+    public function testAnythingButAJpegPngOrWebpIsRefusedAndTheStandInStays(string $bytes, string $mime, string $extension): void
+    {
+        $this->signIn();
+        $asset = $this->makeAsset($this->volume, 'stand-in.png', 800, 600);
+        $before = (string) $asset->getContents();
+
+        try {
+            (new CraftAssetReplacer())->replace(ImagePicker::ref($asset), new PhotoFile($bytes, $mime, $extension, $this->demo->photoFor('x')), new ReplaceMeta('ledger'));
+            $this->fail('A file that isn\'t a JPEG, PNG or WebP must be refused.');
+        } catch (\RuntimeException $refused) {
+            $this->assertSame('The file Demo stock sent isn’t a JPEG, PNG or WebP image, so it wasn’t put in place.', $refused->getMessage());
+        }
+
+        $after = Asset::find()->id($asset->id)->one();
+        $this->assertSame('stand-in.png', $after->filename, 'The stand-in stays.');
+        $this->assertSame($before, (string) $after->getContents());
+        $this->assertSame([], glob(Craft::$app->getPath()->getTempPath() . '/ghostwriter-licensed-*') ?: [], 'Nothing was written.');
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function notAnImage(): array
+    {
+        $svg = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><script>alert(document.cookie)</script><rect width="800" height="600"/></svg>';
+        $html = "<!DOCTYPE html>\n<html><head><title>Service unavailable</title></head><body><h1>503</h1><script>fetch('/admin')</script></body></html>";
+
+        return [
+            'an SVG said to be a JPEG' => [$svg, 'image/jpeg', 'jpg'],
+            'an SVG said to be an SVG' => [$svg, 'image/svg+xml', 'svg'],
+            'an HTML page said to be a JPEG' => [$html, 'image/jpeg', 'jpg'],
+            'an HTML page behind a JPEG signature' => ["\xFF\xD8\xFF" . $html, 'image/jpeg', 'jpg'],
+            'a PNG signature with nothing after it' => ["\x89PNG\r\n\x1A\n", 'image/png', 'png'],
+            'a GIF' => [base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), 'image/gif', 'gif'],
+            'nothing' => ['', 'image/jpeg', 'jpg'],
+        ];
+    }
+
     public function testFailuresAreSaidPlainlyAndNothingIsBoughtTwice(): void
     {
         $this->signIn(extra: [Plugin::LICENSE_PERMISSION]);
@@ -332,6 +401,20 @@ class StockLicensingTest extends TestCase
         preg_match('/data-ghostwriter-image="([^"]+)"/', $html, $match);
 
         return json_decode(html_entity_decode($match[1] ?? '{}'), true);
+    }
+
+    private function image(string $type): string
+    {
+        $image = imagecreatetruecolor(400, 300);
+        imagefill($image, 0, 0, imagecolorallocate($image, 60, 90, 140));
+        ob_start();
+        match ($type) {
+            'jpeg' => imagejpeg($image, null, 80),
+            'png' => imagepng($image),
+            'webp' => imagewebp($image, null, 80),
+        };
+
+        return (string) ob_get_clean();
     }
 
     private function jpegWithComment(string $comment): string

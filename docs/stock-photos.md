@@ -91,6 +91,7 @@ The asset's own page has a **Stock licence** panel in its sidebar, and the asset
 - the asset keeps its ID, so every entry using it shows the licensed photo;
 - its title, alt text and focal point stay as they were (editors may have changed them since the preview went in);
 - the file is kept exactly as the library sent it, never re-encoded, so its embedded copyright and image ID stay, as the licences require;
+- because nothing cleans it, the file must really be a JPEG, PNG or WebP image. Ghostwriter reads its type from the file itself, not from what the library said it was, and names it to match. Anything else (an SVG, a web page, a broken download) is refused and the preview stays where it is;
 - the credit goes into the volume's credit field, if it has one (see [Names, alt text and credits](images.md#names-alt-text-and-credits)).
 
 "Licensed. The preview has been replaced with the full image."
@@ -104,7 +105,7 @@ If it goes wrong:
 | The price changed | "The price has changed: it is now 3 credits. Check it and license again." The new price is shown. |
 | The library refused | Its reason, and "Nothing was charged." |
 | The answer was lost | "We couldn't confirm the purchase. Ghostwriter will check with Getty Images in a few minutes; don't buy it again." Ghostwriter asks the library which licences it has for the photo, and never buys it twice. |
-| Licensed, but the file couldn't be put in place | **Download again and replace** fetches it again without buying it again. |
+| Licensed, but the file couldn't be put in place | **Download again and replace** fetches it again without buying it again. If the library sent something other than an image: "The file Getty Images sent isn't a JPEG, PNG or WebP image, so it wasn't put in place." |
 
 ### Credits
 
