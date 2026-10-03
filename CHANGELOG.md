@@ -1,14 +1,16 @@
 # Release Notes for Ghostwriter
 
-## Unreleased
+## 1.1.0 - 2026-10-03
 
-Stock photos, from the stock images design, and "Finish this page", from the finish-this-page design, on `1994/ghostwriter-core` ^1.3.
+Stock photos, "Finish this page", and new entries that start unpublished, on `1994/ghostwriter-core` ^1.4.
+
+> {warning} Ghostwriter now requires **Craft CMS 5.8 or later**. 1.0.0 said Craft 5.6, but it could never be installed on Craft 5.6 or 5.7: `1994/ghostwriter-core` needs `symfony/yaml` ^6.4, which Craft allows only from 5.8. After updating, run `php craft up` (or apply the update in the control panel): it adds the stock image ledger's two tables.
 
 ### Added
 - **The stock image ledger:** a record of every stock photo Ghostwriter puts into the site, free or paid: its library and ID, its asset, its licence state, the credit and licence, who added it and an append-only history. Kept in two new tables, `ghostwriter_stock_images` and `ghostwriter_stock_usages` (schema 1.2.0). Records are never deleted: deleting an asset marks its record removed and keeps any licence.
 - **Use this** on a free library's photo records it in the ledger as licensed, with the entry and field it went into.
 - Where each ledger image is used is read from Craft's relations whenever an entry is saved, following drafts and Matrix and Neo blocks to the entry at the top.
-- **Photo libraries beyond the free four:** paid libraries are searched once their keys are in `.env` and they are switched on. A **demo library**, "Demo stock (no charge)" (core's `FakeLibrary`), is offered in dev mode or with `stockDemo` in config, and never when `CRAFT_ENVIRONMENT` is production. Getty Images (with iStock) and Shutterstock are listed with their keys' status (`GETTY_API_KEY`/`GETTY_API_SECRET`, `SHUTTERSTOCK_API_KEY`/`SHUTTERSTOCK_API_SECRET`) and marked as coming. Others can be added with `StockLibraries::EVENT_REGISTER_LIBRARIES`.
+- **Photo libraries beyond the free four:** paid libraries are searched once their keys are in `.env` and they are switched on. A **demo library**, "Demo stock (no charge)" (core's `FakeLibrary`), is offered in dev mode or with `stockDemo` in config, and never when `CRAFT_ENVIRONMENT` is production. Shutterstock is listed with its keys' status (`SHUTTERSTOCK_API_KEY`/`SHUTTERSTOCK_API_SECRET`); Getty Images (with iStock) is listed with its keys' status (`GETTY_API_KEY`/`GETTY_API_SECRET`) and marked as coming. Others can be added with `StockLibraries::EVENT_REGISTER_LIBRARIES`.
 - **Settings → Stock photos:** the free libraries' keys and the Openverse switch; each paid library's keys (read from `.env`, never stored or shown), **Check connection** (the account and what it has left), and an enabled switch; **Search in, by default**; **Include editorial images by default**; and **When a page with an unlicensed preview is published** (Block or Warn). New settings `stockLibraries`, `stockDefaultSource`, `stockIncludeEditorial`, `stockOnPublish`, `stockDemo` and `stockUnusedDays`.
 - **The image dialog searches stock libraries:** **Search in** (Free libraries, each paid library, or Everything) beside the search box, remembered for each person in their Craft user preferences. Each result has a source chip and a cost chip (**Free**, or the library's hint such as "1 download"), and an **Editorial** chip with its restrictions; editorial-only images are left out unless **Include editorial images** is ticked. A paid library's results are in its own order, never shown to a model; the intro says "Searches Demo stock for this part of the page. Results are in Demo stock's order." and a line above the results "Shown in Demo stock's order. Ghostwriter doesn't rank paid libraries." A preview the field holds now shows at the top under **In this field now**.
 - **Insert preview** on a paid photo: the field gets a stand-in asset (stripes at the photo's aspect ratio, labelled "Demo stock demo-01 · preview, not licensed", named, titled and described from the photo), the watermarked comp is kept privately in Ghostwriter's own files until the library's comp period ends, and the ledger records a preview. "Preview added. Only signed-in editors see the photo; license it before publishing."
@@ -19,13 +21,11 @@ Stock photos, from the stock images design, and "Finish this page", from the fin
 - **No page goes live holding a preview:** on `Entry::EVENT_BEFORE_SAVE`, a canonical entry enabled for its site, saved live or updated from a draft (applying a draft), is refused with "The hero image is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing." on the field, at any depth in Matrix and Neo blocks. Drafts and disabled entries always save. **Warn** (`stockOnPublish`) saves with a notice; global sets and categories are only warned.
 - **Ghostwriter → Stock images:** every stock photo in the site, by tab (Previews, with requested licences first; Licensed; Failed; All), with where each is used, its state, cost, licence and credit, and **License**, **Reconcile**, **Remove preview**, **Download licence record**, **Export CSV** and **Check where they're used**. An Overview tile, "N stock previews to license", and a line on the widget.
 - **Cleanup** with Craft's garbage collection and `php craft ghostwriter/stock/cleanup`: comps deleted when their period ends (the stand-in stays: "Preview expired"), previews no entry has used for `stockUnusedDays` removed, and licences whose answer was lost settled with `reconcile()` after ten minutes. `php craft ghostwriter/stock/usages` looks again at where each is used.
-- **Shutterstock** (core 1.2's adapter), from `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`: search with the app's key and secret; license with the account connected. Nothing of a preview is stored: editors see Shutterstock's own watermarked preview. **Shutterstock sandbox** (`shutterstockSandbox`) uses `api-sandbox.shutterstock.com`, by default in dev mode.
+- **Shutterstock (API plan required)** (core's adapter), from `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`: search with the app's key and secret; licensing needs a Shutterstock API plan and the account connected (a shutterstock.com web plan can't license through the API). Nothing of a preview is stored: editors see Shutterstock's own watermarked preview. **Shutterstock sandbox** (`shutterstockSandbox`) uses `api-sandbox.shutterstock.com`, by default in dev mode.
 - **Connect account / Disconnect** in the settings for libraries that license with a person's own sign-in, following core's `docs/connecting-accounts.md`: three control panel routes (`ghostwriter/libraries/<id>/connect`, `/callback`, `/disconnect`), admins only, a random single-use `state` kept in the session and checked with `hash_equals()`, the same absolute callback (built from the site's own URL, never the request's host) in both calls, and the host-and-path to register shown on the row. Tokens are kept through core's `LibraryTokens`, encrypted with Craft's security component (`DbLibraryTokens`).
 - **Docs:** [Stock photos](docs/stock-photos.md).
 - **`ghostwriter:license` permission** ("License stock images"), given to nobody by default; admins have it.
 - Uninstalling writes the ledger to `storage/ghostwriter-stock-ledger-<date>.json` before its tables are dropped, and says so.
-
-- **New entries start unpublished** (`draftsUnpublished`, on by default, matching Statamic's `drafts_unpublished`): when a draft goes into a new entry, its **Enabled** switch is turned off in the form (for the site too), so it can be saved straight away and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Existing entries are never changed.
 
 - **Finish this page, on the server** (core 1.3's `Gaps`, finish-this-page design phases 2, 4, 5 and 9):
   - **One publish guard** for unfinished pages and stock previews (core's `PublishReadiness`), on the existing `Entry::EVENT_BEFORE_SAVE` hook: a live save, or applying a draft (`updatingFromDerivative`), is refused while a fact to add (`[[ask: …]]`), a link to choose (`#gw-link:`), a link to a deleted entry, an image placeholder, template text or an unlicensed stock preview remains, with core's message on each top-level field, named by its block inside Matrix and Neo ("Feature: Heading: Add opening days before publishing."). In warn mode, one notice lists them all. Drafts, provisional drafts and disabled entries always save. In sections Ghostwriter doesn't write for, only stock previews are looked for.
@@ -38,7 +38,6 @@ Stock photos, from the stock images design, and "Finish this page", from the fin
   - **Links the house style can't settle** now point at core's sentinel, `https://example.com/#gw-link:<hint>` (`LayoutOptions::withLinkSentinels()`), and are noted as "(link still to choose)".
   - **Craft translations** for core's gap strings, in `src/translations/en/ghostwriter.php`, copied by `bin/sync-gap-strings` (a test fails when they drift from core).
   - Core's contract tests run against Craft: `PlaceholderAssetsContract`, `AssetRefsContract`, `MarkerRoundTripContract` (through the real Applier) and `PublishGuardContract` (live save, draft, warn mode, a preview with a marker, applying a draft).
-  - Reading an entry's Matrix and Neo blocks and relations now uses what was posted with the form (the query's cached result) before what is saved.
 - **Finish this page, the guide** (finish-this-page design §7 and §8.2, phases 6 to 8 and 10 for Craft), on every entry in a section Ghostwriter writes for, for anyone who may use Ghostwriter:
   - **A count beside Save** ("8 things to finish", then "Ready to publish"), shown on load only when something stops the page going live, so a new, empty entry isn't nagged.
   - **Highlights:** each field with a gap outlined (amber; purple for the current step; green once it had gaps and has none left), with a tag beside the field's name that jumps to its step: the current step and its kind ("7 · Oops"), or the field's steps ("4–7 · 4 to do"). Inside CKEditor the marker, the link's words or the template text itself is marked with CKEditor's own markers, so the highlight follows typing.
@@ -55,10 +54,16 @@ Stock photos, from the stock images design, and "Finish this page", from the fin
 - **Docs:** [Finish this page](docs/finish-this-page.md).
 
 ### Changed
-- Requires `1994/ghostwriter-core` ^1.3.
-- Requires Craft CMS 5.8 or later. Core needs `symfony/yaml` 6.4 or later, which Craft allows from 5.8, so earlier versions could never be installed.
+- **New entries start unpublished** (`draftsUnpublished`, on by default, matching Statamic's `drafts_unpublished`): when a draft goes into a new entry, its **Enabled** switch is turned off in the form (for the site too), so it can be saved straight away and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Existing entries are never changed.
+- Requires `1994/ghostwriter-core` ^1.4.
+- **Requires Craft CMS 5.8 or later** (was 5.6). Core needs `symfony/yaml` 6.4 or later, which Craft allows from 5.8, so Ghostwriter could never be installed on Craft 5.6 or 5.7.
+- Schema version 1.2.0: one new migration, `m261003_000000_stock_ledger`, adds `ghostwriter_stock_images` and `ghostwriter_stock_usages`.
 - Continuous integration: the test suite runs on GitHub Actions for every pull request, on PHP 8.2, 8.3 and 8.4, against the lowest Craft Composer will install and the newest.
 - Images a stock library's terms keep from AI (Getty Images and iStock) never go to a model: not as reference images for finding or making a picture, nor as samples for the image style guide. Files named `GettyImages-*` or `iStock-*`, or whose embedded credit names Getty Images or iStock, are left out too.
+
+### Fixed
+- The minimum Craft version in `composer.json` and the docs: 1.0.0 claimed Craft 5.6, which Composer could never satisfy alongside core.
+- Reading an entry's Matrix and Neo blocks and relations now uses what was posted with the form (the query's cached result) before what is saved.
 
 ## 1.0.0 - 2026-10-02
 

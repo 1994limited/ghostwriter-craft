@@ -40,10 +40,10 @@ An **image style guide** describes what your pictures look like, section by sect
 
 ## Stock photos, licensed properly
 
-Search **Shutterstock** from the same dialog as the free libraries, with your own API plan. Getty Images and iStock are coming.
+Search **Shutterstock (API plan required)** from the same dialog as the free libraries. Getty Images and iStock are coming. A demo library shows the whole flow on a test site, without an account or any charge.
 
 - **See it on the page first.** Insert a watermarked preview where the photo will go. Only signed-in editors see it, in the control panel and in Live Preview, in place; everyone else sees a striped stand-in.
-- **License & replace** buys the photo once, through your own account, and swaps the full image into the same asset. Every entry using it shows the licensed photo, and its alt text and focal point stay as they were. The file is kept exactly as the library sent it, embedded credit and all.
+- **License & replace** buys the photo once, through your own connected account, and swaps the full image into the same asset. Every entry using it shows the licensed photo, and its alt text and focal point stay as they were. The file is kept exactly as the library sent it, embedded credit and all, and only a real JPEG, PNG or WebP image is put in place.
 - **No preview goes live.** An entry can't be published while it holds one. Prefer a warning? Choose that in the settings.
 - **Every licence on record.** The **Stock images** screen lists every stock photo on the site: where it's used, who licensed it and when, and the credit line to show. Download a licence record, or export the lot as CSV.
 
@@ -53,9 +53,9 @@ Licensing has its own permission, so only the people you choose can buy photos. 
 
 Ghostwriter never makes up a price, a date or a name. Where a draft needs a fact it doesn't have, it marks the place, and a link it can't settle points nowhere until you choose.
 
-Every gap is highlighted in the entry form, and a guide with the Ghostwriter mark walks you through them one by one: type in the fact, link to the right page, swap the placeholder image, license the preview. **The page can't go live while a gap remains.** Prefer a warning? Choose that in the settings.
+Every gap is highlighted in the entry form, and a guide with the Ghostwriter mark walks you through them one by one: type in the fact, link to the right page, swap the placeholder image, license the preview. **The page can't go live while one of them remains.** Prefer a warning? Choose that in the settings.
 
-
+## Know what to write next
 
 The **content plan** reads what each section has and what it lacks, and suggests what's missing. Turn any idea into a new entry in one click.
 
@@ -71,7 +71,7 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 
 - **Your keys stay yours.** They're read from your `.env` and never stored. A gateway or proxy can be set per provider.
 - **No invented facts.** The writer uses only what's in the brief and the conversation: no made-up figures, quotes or client names.
-- **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save, and new entries Ghostwriter fills start disabled.
+- **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save, and new entries Ghostwriter fills start disabled (a setting, on by default).
 - **Nothing sent until you ask.** Content goes to your chosen provider only when someone in the control panel starts something.
 - **Works on any host.** Everything is kept in the database, so it works on read-only and load-balanced hosts, including Craft Cloud, and survives deploys. Every prompt can be overridden in your project.
 - **Two permissions:** *Use Ghostwriter*, and *License stock images* for whoever may buy stock photos. Writing into an entry still needs Craft's own permission to save it.
