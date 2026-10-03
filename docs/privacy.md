@@ -32,6 +32,8 @@ Nothing is sent anywhere until someone in the control panel asks for it: by star
 
 How long a provider keeps what it's sent, and whether it may train on it, depends on its terms and your account. On paid API plans, Anthropic, OpenAI and Google don't train on API data by default. **Gemini's free tier is different**: Google may use what's sent to improve its products. For client sites, use a paid account. See [Google (Gemini, and images)](api-keys.md#google-gemini-and-images).
 
+**With OpenRouter**, requests, including images, pass through OpenRouter on their way to the model's company: the instructions, the prompt and any images (photo ranking, alt text, references for image making). OpenRouter's own [privacy policy](https://openrouter.ai/privacy) and data settings apply, as well as those of the company whose model answers. A key from **Connect with OpenRouter** is kept in `ghostwriter_state`, encrypted with your site's security key.
+
 ## What is kept, and where
 
 Everything is kept in your database, in Ghostwriter's own tables (see [Where things are kept](configuration.md#where-things-are-kept)):

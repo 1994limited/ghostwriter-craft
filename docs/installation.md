@@ -6,7 +6,7 @@ This page covers installing Ghostwriter on a Craft site, the queue it runs on, a
 
 - PHP 8.2 or later
 - Craft CMS 5.8 or later
-- An API key for one writing provider: Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini). See [API keys](api-keys.md).
+- An API key for one writing provider: Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini), or an OpenRouter account (connect it from the settings). See [API keys](api-keys.md).
 
 Optional:
 

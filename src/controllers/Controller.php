@@ -48,6 +48,19 @@ abstract class Controller extends BaseController
         return $this->asJson(['message' => $message]);
     }
 
+    /**
+     * An absolute control panel address, built from the control panel's
+     * configured base URL, or the primary site's; never from the request's
+     * Host header. For OAuth callbacks, which must match exactly.
+     */
+    public static function cpAddress(string $path): string
+    {
+        $general = \Craft::$app->getConfig()->getGeneral();
+        $base = $general->baseCpUrl ? rtrim((string) \craft\helpers\App::parseEnv($general->baseCpUrl), '/') : rtrim((string) \Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), '/');
+
+        return $base . '/' . trim((string) $general->cpTrigger, '/') . '/' . ltrim($path, '/');
+    }
+
     protected function notConfigured(): ?Response
     {
         $plugin = Plugin::getInstance();

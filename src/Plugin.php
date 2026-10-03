@@ -40,6 +40,7 @@ use nineteenninetyfour\ghostwriter\domain\DbKindStore;
 use nineteenninetyfour\ghostwriter\domain\DbPlanStore;
 use nineteenninetyfour\ghostwriter\domain\DbSessionStore;
 use nineteenninetyfour\ghostwriter\domain\DbLibraryTokens;
+use nineteenninetyfour\ghostwriter\domain\DbProviderKeys;
 use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
@@ -81,6 +82,7 @@ use yii\base\Event;
  * @property-read StockComps $stockComps
  * @property-read StockCleanup $stockCleanup
  * @property-read DbLibraryTokens $libraryTokens
+ * @property-read DbProviderKeys $providerKeys
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -133,6 +135,8 @@ class Plugin extends BasePlugin
                 'stockCleanup' => StockCleanup::class,
                 // A connected library account's tokens, encrypted.
                 'libraryTokens' => DbLibraryTokens::class,
+                // A model provider's key from "Connect with OpenRouter", encrypted.
+                'providerKeys' => DbProviderKeys::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -174,6 +178,11 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/connect'] = 'ghostwriter/libraries/connect';
             $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/callback'] = 'ghostwriter/libraries/callback';
             $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/disconnect'] = 'ghostwriter/libraries/disconnect';
+            // Connect with OpenRouter (core's docs/connecting-accounts.md).
+            $event->rules['ghostwriter/providers/<id:openrouter>/connect'] = 'ghostwriter/providers/connect';
+            $event->rules['ghostwriter/providers/<id:openrouter>/callback'] = 'ghostwriter/providers/callback';
+            $event->rules['ghostwriter/providers/<id:openrouter>/disconnect'] = 'ghostwriter/providers/disconnect';
+            $event->rules['ghostwriter/providers/<id:openrouter>/check'] = 'ghostwriter/providers/check';
             // A paid photo's comp, for signed-in editors only (§7.0).
             $event->rules['ghostwriter/stock/<id:[0-9a-f]{26}>/comp'] = 'ghostwriter/stock/comp';
         });
@@ -328,6 +337,11 @@ class Plugin extends BasePlugin
             'keys' => $this->providers->keyStatus(),
             'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('ghostwriter')),
             'modelDefaults' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::TEXT_DEFAULTS,
+            'providerNames' => Settings::providerNames(),
+            'openrouter' => \nineteenninetyfour\ghostwriter\controllers\ProvidersController::status(),
+            'openrouterTiers' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::OPENROUTER_TIERS,
+            'openrouterChoices' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::OPENROUTER_TEXT_CHOICES,
+            'canManage' => self::canManage(Craft::$app->getUser()->getIdentity()),
             'stock' => $this->stockSettings(),
         ]);
     }

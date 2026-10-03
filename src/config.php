@@ -7,18 +7,23 @@
  * settings page, and can differ per environment.
  *
  * API keys are never set here. Ghostwriter reads them from the environment:
- * ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, and for photo libraries
+ * ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY (or
+ * Connect with OpenRouter in the settings; .env wins), and for photo libraries
  * UNSPLASH_ACCESS_KEY, PEXELS_API_KEY and PIXABAY_API_KEY, and for paid ones
  * GETTY_API_KEY/GETTY_API_SECRET and SHUTTERSTOCK_API_KEY/SHUTTERSTOCK_API_SECRET.
  */
 
 return [
     '*' => [
-        // The provider that writes: 'anthropic', 'openai' or 'gemini'.
+        // The provider that writes: 'anthropic', 'openai', 'gemini' or 'openrouter'.
         // 'provider' => 'anthropic',
 
         // The model to write with. Null uses the provider's default.
         // 'model' => null,
+
+        // With OpenRouter, a model per tier of work, by OpenRouter model id.
+        // Blank uses core's default (Claude Opus for writing, Sonnet for quick jobs).
+        // 'openrouterModels' => ['writing' => '', 'quick' => ''],
 
         // A gateway or proxy that speaks the provider's own API, per provider.
         // Blank calls the provider at its own address. Must be https://, except
@@ -27,6 +32,7 @@ return [
         //     'anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL',
         //     'openai' => '',
         //     'gemini' => '',
+        //     'openrouter' => '',
         // ],
 
         // Seconds to wait for one model response. Queue jobs are given
@@ -39,7 +45,7 @@ return [
         // Section handles read to learn the voice. Empty means every section.
         // 'voiceSections' => [],
 
-        // 'openai' or 'gemini' to make images with. Null uses whichever has a key.
+        // 'openai', 'gemini' or 'openrouter' to make images with. Null uses whichever has a key.
         // 'imageProvider' => null,
         // 'imageModel' => null,
 
