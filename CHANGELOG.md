@@ -1,5 +1,14 @@
 # Release Notes for Ghostwriter
 
+## 1.1.1 - 2026-10-03
+
+### Fixed
+- Finish this page: **Link to …** on a Link field showed the chosen entry but saved nothing, so the field was empty after the next autosave. The guide now reports the choice the way Craft's own picker does, and the link is saved.
+- A fix counts only when the field reads back different. Otherwise the guide says "That didn't change the field" and stays on the step. Craft's own pickers are checked the same way when they close.
+- Cancelling a picker opened by the guide leaves the field as it was: no pending replacement, and a Link field switched to Entry goes back to URL.
+- The guide and the flying mark step aside while a slideout is open, and come back with a fresh check when it closes.
+- **Remove it** in CKEditor no longer leaves a double space.
+
 ## 1.1.0 - 2026-10-03
 
 Stock photos, "Finish this page", and new entries that start unpublished, on `1994/ghostwriter-core` ^1.4.
