@@ -33,7 +33,7 @@ Answer the questions. Short answers are fine; Ghostwriter asks for anything it s
 
 Without a [voice guide](guides.md), a notice says Ghostwriter will still write, but in a plain voice rather than yours.
 
-**Quick brief.** If you'd rather not fill in every question, give a **Working title** and a few notes, then click **Fill in the brief**. Ghostwriter fills in the questions from them, and the button becomes **Guess again**. Check them over: anything in `[square brackets]` needs you.
+**Quick brief.** If you'd rather not fill in every question, give a **Working title** and a few notes, then click **Fill in the brief**. Ghostwriter fills in the questions from them, and the button becomes **Try again**. Check them over: anything in `[square brackets]` needs you.
 
 Then click **Start writing**.
 

@@ -62,7 +62,7 @@ Everything else is in the [documentation](docs/README.md), including [Finish thi
 
 ## Providers and privacy
 
-Ghostwriter writes with Claude, ChatGPT or Gemini, on your own account, and finds photos on Openverse, Unsplash, Pexels and Pixabay. Keys are read from `.env` and never stored. Nothing is sent until someone in the control panel asks for something, and then only to the provider you chose. See [API keys](docs/api-keys.md) and [Privacy](docs/privacy.md).
+Ghostwriter writes with Claude, ChatGPT or Gemini, on your own account, and finds photos on Openverse, Unsplash, Pexels and Pixabay. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us. Nothing is sent until someone in the control panel asks for something, and then only to the provider you chose. See [API keys](docs/api-keys.md) and [Privacy](docs/privacy.md).
 
 ## Support
 

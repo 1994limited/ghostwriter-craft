@@ -139,7 +139,7 @@ class Applier
         }
 
         // What the draft left for a person, so "Finish this page" can say
-        // why ("I didn't want to guess"). The content stays the truth.
+        // why ("Only you know this"). The content stays the truth.
         return ['draft' => $entry, 'notes' => $notes, 'gaps' => SessionGaps::fromDraft($built, $housePlaces, $placed)];
     }
 

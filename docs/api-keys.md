@@ -1,6 +1,6 @@
 # API keys
 
-This page covers the keys Ghostwriter needs, where to get each one, how to send calls through a gateway, and what happens when a provider is busy. Ghostwriter writes with one provider, on your own account. It can also make images with a second provider, and search free photo libraries. Every key goes in your `.env` file, and Ghostwriter never stores any of them.
+This page covers the keys Ghostwriter needs, where to get each one, how to send calls through a gateway, and what happens when a provider is busy. Ghostwriter writes with one provider, on your own account. It can also make images with a second provider, and search free photo libraries. Every key goes in your `.env` file, and Ghostwriter reads it there each time it needs it. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us.
 
 | Variable | Service | What for | Free? |
 | --- | --- | --- | --- |

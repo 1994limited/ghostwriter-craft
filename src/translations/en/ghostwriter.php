@@ -7,8 +7,8 @@
  */
 
 return [
-    'gaps.ask' => 'I left a gap in {label}: {hint}. I didn\'t want to guess. What should it say?',
-    'gaps.ask-value' => '{label} is empty: {hint}. I didn\'t want to guess it.',
+    'gaps.ask' => 'I left a gap in {label}: {hint}. Only you know this. What should it say?',
+    'gaps.ask-value' => '{label} is empty: {hint}. This one needs you.',
     'gaps.link' => 'The “{words}” link in {label} doesn\'t go anywhere yet.',
     'gaps.link-field' => '{label} doesn\'t link anywhere yet.',
     'gaps.link-empty' => '{label} is empty. Pages like this usually link somewhere here.',
@@ -65,7 +65,7 @@ return [
     'gaps.guide.done' => 'All done. Nothing left to fill in, so this page is ready to publish.',
     'gaps.guide.skipped' => 'That\'s everything I could help with. {count} still need you; they stay highlighted until they\'re filled in.',
     'gaps.guide.skipped-one' => 'That\'s everything I could help with. 1 still needs you; it stays highlighted until it\'s filled in.',
-    'gaps.guide.reason.draft' => 'I didn\'t want to guess.',
+    'gaps.guide.reason.draft' => 'Only you know this.',
     'gaps.publish.ready' => 'Ready to publish.',
     'gaps.publish.blocked' => '{count} things to finish before this page goes live: {items}.',
     'gaps.publish.blocked-one' => '1 thing to finish before this page goes live: {items}.',

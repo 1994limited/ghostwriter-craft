@@ -42,4 +42,4 @@ Everything is kept in your database, in Ghostwriter's own tables (see [Where thi
 
 Logs hold the provider, model, tokens and time of each call, and any retries and failures, never the words sent or the keys (see [Logging](configuration.md#logging)). A model's reply is only logged if you turn on **Log replies that can't be read**, and then only a reply Ghostwriter couldn't read.
 
-API keys are read from the environment when they're needed. Ghostwriter never stores them, never shows them, and never sends them anywhere but the service they belong to.
+API keys are read from the environment when they're needed, and never shown. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us.

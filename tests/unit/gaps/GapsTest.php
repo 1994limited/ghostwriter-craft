@@ -113,14 +113,14 @@ class GapsTest extends TestCase
 
         // Translated, with the speech label and the fixes' labels.
         $ask = $byKind['ask'];
-        $this->assertSame('I left a gap in Body: adult ticket price. I didn\'t want to guess. What should it say?', $ask['message']);
+        $this->assertSame('I left a gap in Body: adult ticket price. Only you know this. What should it say?', $ask['message']);
         $this->assertSame('Fill this in', $ask['speech']);
         $this->assertSame(['Type it in', 'Write around it'], array_column($ask['fixes'], 'label'));
         $this->assertSame(['elementId' => (int) $entry->id, 'handle' => 'body', 'blocks' => [], 'field' => 'body'], $ask['location']);
 
         // A fact for the number field, from the session: the reason is the writer's.
-        $this->assertSame('Price is empty: adult ticket price. I didn\'t want to guess it.', $byKind['ask-value']['message']);
-        $this->assertSame('I didn\'t want to guess.', $byKind['ask-value']['reason']);
+        $this->assertSame('Price is empty: adult ticket price. This one needs you.', $byKind['ask-value']['message']);
+        $this->assertSame('Only you know this.', $byKind['ask-value']['reason']);
 
         // "Link to Contact us", from the hint, as a CKEditor link.
         $link = array_values(array_filter($data['gaps'], fn(array $gap) => $gap['kind'] === 'link' && $gap['meta']['inline']))[0];
@@ -138,7 +138,7 @@ class GapsTest extends TestCase
         $block = $entry->getFieldValue('blocks')->status(null)->one();
         $this->assertSame(['elementId' => (int) $block->id, 'handle' => 'heading', 'blocks' => [(int) $block->id], 'field' => 'blocks'], $heading['location']);
         $this->assertSame('Heading (in the Feature block)', $heading['label']);
-        $this->assertSame('I left a gap in Heading (in the Feature block): opening days. I didn\'t want to guess. What should it say?', $heading['message']);
+        $this->assertSame('I left a gap in Heading (in the Feature block): opening days. Only you know this. What should it say?', $heading['message']);
     }
 
     public function testTheCheckReadsTheDraftTheFormIsEditing(): void
@@ -268,7 +268,7 @@ class GapsTest extends TestCase
 
         // The block and its field are both "Text": said once, not "Text: Text".
         $this->assertSame('Some template text slipped into the Text block: “[[item]]”.', $gaps['leftover-token']);
-        $this->assertSame('I left a gap in the Text block: the fee. I didn\'t want to guess. What should it say?', $gaps['ask']);
+        $this->assertSame('I left a gap in the Text block: the fee. Only you know this. What should it say?', $gaps['ask']);
 
         // And the guard says it the same way, starting with a capital.
         $entry->enabled = true;
@@ -306,9 +306,10 @@ class GapsTest extends TestCase
     public function testEveryCoreStringIsInCraftsTranslationsAsCoreHasIt(): void
     {
         $craft = require dirname(__DIR__, 3) . '/src/translations/en/ghostwriter.php';
+        $wording = require dirname(__DIR__, 3) . '/src/translations/wording.php';
 
         foreach (Message::strings() as $key => $english) {
-            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-gap-strings.");
+            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $wording[$key] ?? $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-gap-strings.");
         }
 
         $this->assertSame('Finish this page', Craft::t('ghostwriter', 'gaps.guide.title'));
