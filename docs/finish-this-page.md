@@ -10,7 +10,7 @@ It also notices links to entries that have been deleted, template text such as `
 
 Finding them never calls a model. It works on any entry in a section Ghostwriter writes for, whoever wrote it.
 
-![The guide on a page-builder entry: the count beside Save, the current field outlined in purple with its tag, the fact to add highlighted in CKEditor, the Ghostwriter mark beside it saying "Fill this in", and the guide in the corner asking what it should say](images/finish-this-page.png)
+![The guide on a page-builder entry: the count beside Save, the current field outlined in purple with its tag, the fact to add highlighted in CKEditor, the Ghostwriter mark beside it saying "Fill this in", and the guide in the corner asking what it should say, and a stock preview still to license below](images/finish-this-page.png)
 
 ## The guide
 

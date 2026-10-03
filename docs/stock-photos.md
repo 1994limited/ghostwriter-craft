@@ -56,6 +56,8 @@ If the field already holds a preview, it's shown at the top of the dialog under 
 
 ## Previews
 
+![A Demo stock preview in an Image block's Assets field, marked "3 · License me", with Preview · not licensed, the library and photo ID, and License along its foot](images/stock-photos.png)
+
 **Insert preview** on a paid photo:
 
 - puts a **stand-in** in the field: grey stripes at the photo's shape, labelled with the library and photo ID, "preview, not licensed". It holds nothing of the provider's, so it's safe at a public address;
