@@ -82,9 +82,13 @@ If a turn fails (the provider was busy, say), the panel says **That didn’t wor
 
 ## The draft
 
-The draft sits on the right, laid out the way the entry is built: its fields, and its Matrix or Neo blocks in order.
+The draft sits on the right, in three tabs:
 
-- **Blocks / Text** switches between the full layout and just the words.
+- **Preview** (the default once there's a draft) shows it as the page it would make, rendered by the section's own template. See [Preview](#preview).
+- **Blocks** lays it out the way the entry is built: its fields, and its Matrix or Neo blocks in order.
+- **Text** shows just the words.
+
+The arrow keys move between the tabs.
 - **Change any writing where it's shown.** The draft says "Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back." Click it, or press **Tab** to reach it, and type. It's saved when you leave it. **Esc** puts it back as it was, and **Enter** finishes a one-line piece such as a heading.
 - **Edit YAML** opens the whole draft as text, to add, move or remove blocks. Most people never need it.
 
@@ -93,6 +97,41 @@ While Ghostwriter is working, the draft can't be changed, since what it writes w
 The word count is shown at the top. A block type the section doesn't allow is flagged, and left out when the draft is used. A block with nothing to write says "Uses its usual settings."
 
 ![The draft of a page in Blocks view, with one piece of writing being changed in place, the word count, Edit YAML and Use this draft](images/writing-draft.png)
+
+### Preview
+
+**Preview** renders the draft through the section's own page template, as Craft's own preview does, so you see the page as it would look. "Rendered with the site’s own templates. Hover to see the blocks. Nothing is saved until you use the draft." The frame's bar reads **Preview · not saved**.
+
+- **Nothing is saved.** Ghostwriter builds exactly what **Use this draft** would put in, and renders it without saving any draft, entry or nested entry. Image fields show what **Use this draft** would put there: an image you've chosen, a stock photo's preview (to editors, as in Live Preview), or the striped placeholder once Ghostwriter has made one in that volume.
+- **Hover to see the blocks.** Each block of the page builder, each section of rich text and each top-level field is outlined with its name as the pointer moves over it ("Where to put one · in Body"). The outlines follow the page as it resizes and loads.
+- **Desktop / Phone** switches the width: the panel's width, or 390 px. On a phone, Desktop shows the page laid out at 1280 px, scaled to fit.
+- **After a change** (a new draft, a change in the conversation, or writing changed in Blocks or Text), the preview renders again once the changes stop. "Updating preview…" shows in the bar while it does, and the last version stays in view.
+- **Links in the preview do nothing**, so you stay on the draft. Forms can't be sent from it.
+- **Edits** of an existing entry are previewed the same way: the entry with the changes, unsaved.
+
+When there's no page to show, the tab says why and offers **Show blocks instead**:
+
+- the section has no URLs, or no template, for this site;
+- the template couldn't render the draft ("The page template couldn’t render this draft: …"; admins also see the error and the template);
+- the page took more than 8 seconds (with a page already showing, it stays: "This page is slow to render; showing the last version").
+
+Turn the tab off with `preview` in [configuration](configuration.md).
+
+#### For template authors
+
+A preview is a normal page request with a token, so your templates run as they do in Craft's Live Preview. `craft.app.request.isPreview` is true for any preview, and `ghostwriterPreview` is true only for Ghostwriter's:
+
+```twig
+{# Analytics and embeds: not in any preview #}
+{% if not craft.app.request.isPreview %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXX"></script>
+{% endif %}
+
+{# Something only for Ghostwriter's preview #}
+{% if ghostwriterPreview ?? false %}…{% endif %}
+```
+
+Even without that, third-party scripts (tag managers, analytics, chat widgets) and their requests are blocked in the preview; your site's own scripts run. If your templates load scripts from a CDN, allow it with `previewScriptHosts`. The page is shown in a frame on the control panel's own domain, so a server that sends `X-Frame-Options: DENY` for every page stops the preview, as it stops Live Preview. CKEditor nested entries render through their entry type's partial template (`_partials/entry/<type handle>.twig`); one with no partial shows as a plain box with its text.
 
 ## Use this draft
 

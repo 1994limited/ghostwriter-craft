@@ -5,6 +5,8 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 use Craft;
 use craft\helpers\Html;
 use craft\web\Controller as CraftController;
+use craft\web\TemplateResponseBehavior;
+use craft\web\TemplateResponseFormatter;
 use craft\web\View;
 use InvalidArgumentException;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
@@ -139,6 +141,13 @@ class PreviewController extends Controller
             $urlManager->setMatchedElement(null);
 
             $response = Craft::$app->handleRequest($this->request, true);
+
+            // Craft renders a template as the response is sent: render it
+            // now, so a template that fails is answered here.
+            if ($response->getBehavior(TemplateResponseBehavior::NAME)) {
+                (new TemplateResponseFormatter())->format($response);
+                $response->format = Response::FORMAT_RAW;
+            }
         } catch (Throwable $exception) {
             return $this->failed($exception);
         }

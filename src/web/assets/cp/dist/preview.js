@@ -1,0 +1,674 @@
+/**
+ * The writing panel's Preview tab: the draft rendered as the page it would
+ * make, through the section's own template, with nothing saved (page
+ * preview design §3, §7.3, §8, §12, §13).
+ *
+ * The server prepares a token URL and a map of the page's blocks; the page
+ * loads into a sandboxed, same-origin frame; core's locator (locator.js,
+ * copied from ghostwriter-core) finds each block by the invisible markers in
+ * its text and strips them; an overlay in the frame outlines the block under
+ * the pointer with its name, and follows the page as it resizes, scrolls and
+ * loads its images and fonts. Links in the frame do nothing: Craft adds the
+ * preview token to every one.
+ */
+(function () {
+    window.Ghostwriter = window.Ghostwriter || {};
+
+    // Where locator.js is, beside this file wherever Craft published it.
+    const LOCATOR = new URL('locator.js', document.currentScript?.src ?? window.location.href).toString();
+
+    /** A new render waits this long after the last change (§12). */
+    const DEBOUNCE = 800;
+
+    /** A render that takes longer is abandoned (§12). */
+    const TIMEOUT = 8000;
+
+    /** The phone preview's width, and the width a desktop render is laid out at when the panel is narrower. */
+    const PHONE = 390;
+    const DESKTOP = 1280;
+    const NARROW = 640;
+
+    const t = (message, params) => (window.Craft?.t ? Craft.t('ghostwriter', message, params) : message.replace(/\{(\w+)\}/g, (m, name) => params?.[name] ?? m));
+    const esc = (text) => Ghostwriter.escape(text);
+
+    let locatorModule = null;
+    const locator = () => (locatorModule ??= (Ghostwriter.previewLocator?.() ?? import(LOCATOR)));
+
+    /**
+     * Helpers with no page, for the tests.
+     */
+    const Helpers = {
+        /**
+         * Which markers to use. A page-level field (the title) can be
+         * printed outside the page's content too: Craft's preview puts the
+         * unsaved entry in every query, so a new page's title is in the
+         * nav. Inside the content area wins; failing that, anywhere but
+         * the page's furniture.
+         */
+        pickMarks(marks, map, content, isFurniture) {
+            const fields = new Set(map.filter((block) => block.kind === 'field').map((block) => block.key));
+            const inContent = (mark) => content && (content === mark.element || content.contains?.(mark.element));
+            const byKey = new Map();
+
+            marks.forEach((mark) => {
+                if (fields.has(mark.key)) {
+                    byKey.set(mark.key, [...(byKey.get(mark.key) ?? []), mark]);
+                }
+            });
+
+            const dropped = new Set();
+
+            byKey.forEach((list) => {
+                const inside = list.filter(inContent);
+                const keep = inside.length ? inside : list.filter((mark) => !isFurniture(mark.element));
+                list.filter((mark) => !keep.includes(mark)).forEach((mark) => dropped.add(mark));
+            });
+
+            return marks.filter((mark) => !dropped.has(mark));
+        },
+
+        /**
+         * What a loaded frame holds: the page, a refusal (§8.6), or the
+         * render's own error page, with its reason.
+         */
+        readFrame(doc, status) {
+            if (!doc || !doc.body || !doc.body.childNodes || doc.body.childNodes.length === 0) {
+                return { ok: false, kind: 'refused' };
+            }
+
+            const error = doc.body.getAttribute?.('data-ghostwriter-preview-error');
+
+            if (error !== null && error !== undefined) {
+                return {
+                    ok: false,
+                    kind: 'error',
+                    message: error,
+                    detail: [doc.body.getAttribute('data-ghostwriter-preview-class'), doc.body.getAttribute('data-ghostwriter-preview-template')].filter(Boolean).join(' · '),
+                };
+            }
+
+            if (status >= 400) {
+                return { ok: false, kind: 'error', message: '', detail: String(status) };
+            }
+
+            return { ok: true };
+        },
+
+        /** The innermost region an element is in. */
+        regionAt(regions, depth, element) {
+            let best = null;
+
+            for (const region of regions) {
+                if (region.elements.some((el) => el === element || el.contains?.(element)) && (!best || depth(region) > depth(best))) {
+                    best = region;
+                }
+            }
+
+            return best;
+        },
+
+        /** A region's label: "Text", or "Why waiting rooms · in Text" for a block inside another. */
+        label(region, byKey) {
+            const parent = region.parent ? byKey[region.parent] : null;
+
+            return parent ? t('{label} · in {parent}', { label: region.label || region.key, parent: parent.label || parent.key }) : (region.label || region.key);
+        },
+
+        /** How a desktop render fits a narrow panel. */
+        fit(width, stageWidth) {
+            if (width === 'phone') {
+                return { width: Math.min(PHONE, stageWidth), scale: 1 };
+            }
+
+            return stageWidth < NARROW ? { width: DESKTOP, scale: stageWidth / DESKTOP } : { width: stageWidth, scale: 1 };
+        },
+    };
+
+    Ghostwriter.PreviewHelpers = Helpers;
+
+    const FURNITURE = 'header, footer, nav, aside, [role=banner], [role=contentinfo], [role=navigation], [role=complementary]';
+
+    class PagePreview {
+        /**
+         * @param {object} options
+         * @param {() => ({id: string, elementId: number, siteId: number})} options.target What to render.
+         * @param {(view: string) => void} options.showBlocks
+         * @param {(text: string) => void} options.announce
+         */
+        constructor(options) {
+            this.options = options;
+            this.width = 'desktop';
+            this.frame = null;
+            this.pending = null;
+            this.timer = null;
+            this.slow = null;
+            this.sequence = 0;
+            this.rendered = null;
+            this.wanted = null;
+            this.overlay = null;
+            this.timing = {};
+
+            this.root = document.createElement('div');
+            this.root.className = 'gw-page';
+            this.root.hidden = true;
+            this.root.innerHTML = `
+                <p class="gw-page__hint light" data-hint>${esc(t('Rendered with the site’s own templates. Hover to see the blocks. Nothing is saved until you use the draft.'))}</p>
+                <div class="gw-page__window" role="region" aria-label="${esc(t('Page preview'))}" aria-busy="false" data-window>
+                    <div class="gw-page__bar">
+                        <span class="gw-page__address" data-address></span>
+                        <span class="gw-page__status" data-status hidden><span class="gw-page__busy" aria-hidden="true"></span>${esc(t('Updating preview…'))}</span>
+                        <span class="gw-page__tag">${esc(t('Preview · not saved'))}</span>
+                    </div>
+                    <div class="gw-page__stage" data-stage>
+                        <div class="gw-page__message" data-message hidden></div>
+                    </div>
+                </div>`;
+            this.stage = this.root.querySelector('[data-stage]');
+            this.message = this.root.querySelector('[data-message]');
+
+            this.resizer = new ResizeObserver(() => this.fit());
+            this.resizer.observe(this.stage);
+        }
+
+        /**
+         * Shows the tab, rendering the draft if it changed since the last
+         * render, unless a render is on its way or Ghostwriter is still
+         * working on it (the last render stays until then).
+         */
+        show(draft, paused = false) {
+            this.root.hidden = false;
+            this.wanted = draft;
+            this.fit();
+
+            if (draft && draft !== this.rendered && !this.pending && !this.timer && !(paused && this.frame)) {
+                this.render(draft);
+            }
+        }
+
+        /** Another piece: forget this one's render. */
+        reset() {
+            clearTimeout(this.timer);
+            this.timer = null;
+            this.sequence += 1;
+            this.rendered = null;
+            this.pending?.remove();
+            this.pending = null;
+            this.overlay?.stop();
+            this.overlay = null;
+            this.frame?.remove();
+            this.frame = null;
+            this.message.hidden = true;
+            this.address('');
+            this.busy(false, false);
+        }
+
+        hide() {
+            this.root.hidden = true;
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+
+        get visible() {
+            return !this.root.hidden;
+        }
+
+        /**
+         * The draft changed. While the tab shows, render again once the
+         * changes stop (§12); otherwise when it's next shown.
+         */
+        changed(draft, immediately = false) {
+            this.wanted = draft;
+            clearTimeout(this.timer);
+            this.timer = null;
+
+            if (!this.visible || draft === this.rendered) {
+                return;
+            }
+
+            this.timer = setTimeout(() => {
+                this.timer = null;
+                this.render(this.wanted);
+            }, immediately ? 0 : DEBOUNCE);
+        }
+
+        setWidth(width) {
+            this.width = width === 'phone' ? 'phone' : 'desktop';
+            this.fit();
+        }
+
+        destroy() {
+            clearTimeout(this.timer);
+            clearTimeout(this.slow);
+            this.resizer.disconnect();
+            this.overlay?.stop();
+            this.root.remove();
+        }
+
+        // ---- Rendering ----------------------------------------------------
+
+        async render(draft) {
+            const sequence = ++this.sequence;
+            const target = this.options.target();
+
+            this.busy(true);
+
+            let data;
+            const started = performance.now();
+
+            try {
+                const response = await Craft.sendActionRequest('POST', 'ghostwriter/preview/prepare', { data: { id: target.id, elementId: target.elementId, siteId: target.siteId } });
+                data = response.data;
+            } catch (error) {
+                if (sequence !== this.sequence) return;
+
+                this.rendered = draft;
+
+                return this.fail({ kind: 'error', message: error?.response?.data?.message ?? '' });
+            }
+
+            if (sequence !== this.sequence) return;
+
+            this.timing = { prepare: Math.round(performance.now() - started), prepareServer: data.ms, reused: data.reused };
+
+            if (!data.preview) {
+                this.rendered = draft;
+
+                return this.fail({ kind: 'unavailable', message: data.message });
+            }
+
+            this.load(data, draft, sequence);
+        }
+
+        /**
+         * The next render loads in a hidden frame and replaces the shown one
+         * once it has loaded (double buffering, §12).
+         */
+        load(data, draft, sequence) {
+            this.pending?.remove();
+
+            const frame = document.createElement('iframe');
+            frame.className = 'gw-page__frame is-loading';
+            frame.title = t('Preview of the draft as a page');
+            // Same origin so the blocks can be found, scripts for the site's
+            // own; no forms, popups, modals or top navigation (§13).
+            frame.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+            frame.setAttribute('referrerpolicy', 'no-referrer');
+            frame.setAttribute('allow', '');
+            frame.tabIndex = -1;
+            this.pending = frame;
+
+            const loadStarted = performance.now();
+
+            clearTimeout(this.slow);
+            this.slow = setTimeout(() => {
+                if (this.pending !== frame) return;
+
+                frame.remove();
+                this.pending = null;
+                this.rendered = draft;
+                this.fail(this.frame
+                    ? { kind: 'slow', message: t('This page is slow to render; showing the last version.') }
+                    : { kind: 'error', message: t('The page took too long to render.') });
+            }, TIMEOUT);
+
+            frame.addEventListener('load', () => {
+                if (this.pending !== frame || sequence !== this.sequence) return;
+
+                clearTimeout(this.slow);
+                this.pending = null;
+                this.rendered = draft;
+
+                let doc = null;
+                let status = 0;
+
+                try {
+                    doc = frame.contentDocument;
+                    const navigation = frame.contentWindow.performance.getEntriesByType('navigation')[0];
+                    status = navigation?.responseStatus ?? 0;
+                    this.timing.render = navigation?.serverTiming?.find((entry) => entry.name === 'render')?.duration ?? null;
+                } catch (error) {}
+
+                this.timing.load = Math.round(performance.now() - loadStarted);
+
+                const read = Helpers.readFrame(doc, status);
+
+                if (!read.ok) {
+                    frame.remove();
+
+                    return this.fail(read);
+                }
+
+                this.swap(frame, data);
+            });
+
+            frame.src = data.url;
+            this.stage.appendChild(frame);
+            this.fit();
+        }
+
+        swap(frame, data) {
+            const old = this.frame;
+            const scroll = old ? this.scrollOf(old) : null;
+
+            this.overlay?.stop();
+            old?.remove();
+
+            this.frame = frame;
+            frame.classList.remove('is-loading');
+            this.message.hidden = true;
+            this.address(data.url);
+
+            const win = frame.contentWindow;
+
+            if (scroll && win) {
+                win.scrollTo(0, scroll);
+            }
+
+            const overlay = new Overlay(frame, data.map, (text) => this.note(text));
+            this.overlay = overlay;
+
+            // Done once the blocks are found (or couldn't be: the page still shows).
+            overlay.start().then(() => {
+                this.root.dataset.located = String(overlay.located);
+                this.root.dataset.missing = overlay.missing.join(' ');
+                this.root.dataset.timing = JSON.stringify(this.timing);
+            }, () => {}).finally(() => {
+                if (this.overlay === overlay && !this.pending) this.busy(false);
+            });
+        }
+
+        fail(state) {
+            // The reason is announced instead.
+            this.busy(false, false);
+
+            // Too slow with a page showing: keep it, and say so.
+            if (state.kind === 'slow') {
+                this.note(state.message);
+                this.options.announce?.(state.message);
+
+                return;
+            }
+
+            this.overlay?.stop();
+            this.overlay = null;
+            this.frame?.remove();
+            this.frame = null;
+            this.address('');
+
+            let text;
+
+            if (state.kind === 'unavailable') {
+                text = state.message;
+            } else if (state.kind === 'refused') {
+                text = t('Your server stops pages showing in a frame, so the preview can’t show here.');
+            } else {
+                text = state.message ? t('The page template couldn’t render this draft: {reason}', { reason: state.message }) : t('The page template couldn’t render this draft.');
+            }
+
+            this.message.innerHTML = `<p>${esc(text)}</p>`
+                + (state.kind === 'error' && state.detail ? `<p class="light gw-page__detail">${esc(state.detail)}</p>` : '')
+                + `<button type="button" class="btn" data-action="view" data-view="blocks">${esc(t('Show blocks instead'))}</button>`;
+            this.message.hidden = false;
+            this.root.dataset.state = state.kind;
+            this.options.announce?.(text);
+        }
+
+        note(text) {
+            const hint = this.root.querySelector('[data-hint]');
+
+            hint.textContent = text || t('Rendered with the site’s own templates. Hover to see the blocks. Nothing is saved until you use the draft.');
+        }
+
+        /**
+         * "Updating preview…" in the address bar, only while a render is on
+         * its way: from asking for it until its page has loaded and its
+         * blocks are found, or it failed, or a newer one replaced it.
+         */
+        busy(on, announce = true) {
+            const was = this.root.classList.contains('is-rendering');
+
+            this.root.querySelector('[data-status]').hidden = !on;
+            this.root.querySelector('[data-window]').setAttribute('aria-busy', on ? 'true' : 'false');
+            this.root.classList.toggle('is-rendering', on);
+
+            if (on) {
+                delete this.root.dataset.state;
+                this.note('');
+            }
+
+            if (on !== was && announce) {
+                this.options.announce?.(on ? t('Updating preview…') : t('Preview updated.'));
+            }
+        }
+
+        address(url) {
+            let text = '';
+
+            try {
+                const parsed = new URL(url);
+                text = parsed.host + parsed.pathname;
+            } catch (error) {}
+
+            this.root.querySelector('[data-address]').textContent = text;
+        }
+
+        scrollOf(frame) {
+            try {
+                return frame.contentWindow.scrollY;
+            } catch (error) {
+                return 0;
+            }
+        }
+
+        /**
+         * Desktop fills the panel, laid out at 1280 px and scaled down when
+         * the panel is narrow; Phone is 390 px wide.
+         */
+        fit() {
+            const stageWidth = this.stage.clientWidth;
+
+            if (!stageWidth) return;
+
+            const { width, scale } = Helpers.fit(this.width, stageWidth);
+            const height = this.stage.clientHeight / scale;
+
+            this.root.dataset.width = this.width;
+
+            this.stage.querySelectorAll('iframe').forEach((frame) => {
+                frame.style.width = `${width}px`;
+                frame.style.height = `${height}px`;
+                frame.style.transform = scale === 1 ? '' : `scale(${scale})`;
+            });
+        }
+    }
+
+    /**
+     * The outlines, drawn inside the frame in a closed shadow root that the
+     * site's CSS and scripts can't reach (§8.5). Each block is outlined, with
+     * its name, while the pointer is over it. Boxes are in document
+     * coordinates, so they scroll with the page; they're measured again
+     * when the page resizes or scrolls, and when its images and fonts load.
+     */
+    class Overlay {
+        constructor(frame, map, note) {
+            this.frame = frame;
+            this.map = map ?? [];
+            this.note = note;
+            this.regions = [];
+            this.byKey = {};
+            this.boxes = new Map();
+            this.hovered = null;
+            this.located = 0;
+            this.missing = [];
+            this.stops = [];
+            this.queued = false;
+        }
+
+        async start() {
+            const doc = this.frame.contentDocument;
+            const win = this.frame.contentWindow;
+            const { findMarkers, locate, measure, watch, contentArea } = await locator();
+
+            this.measureBox = measure;
+            this.doc = doc;
+            this.win = win;
+
+            // Links carry the preview token and would leave the preview: they
+            // do nothing here (§13). Forms are stopped by the sandbox too.
+            const cancel = (event) => {
+                if (event.target?.closest?.('a[href], area[href]')) {
+                    event.preventDefault();
+                }
+            };
+            this.listen(doc, 'click', cancel, true);
+            this.listen(doc, 'auxclick', cancel, true);
+            this.listen(doc, 'submit', (event) => event.preventDefault(), true);
+
+            const content = contentArea(doc);
+            const isFurniture = (element) => Boolean(element?.closest?.(FURNITURE));
+            let marks = Helpers.pickMarks(findMarkers(doc).marks, this.map, content === doc.body ? null : content, isFurniture);
+
+            const place = () => {
+                const result = locate(doc, this.map, { marks });
+
+                this.regions = result.regions;
+                this.byKey = result.byKey;
+                this.located = result.regions.length;
+                this.missing = result.missing;
+                this.note(result.partial ? t('Some blocks couldn’t be matched on this page.') : '');
+                this.measure();
+            };
+
+            place();
+
+            // Scripts that add marked text later: find it, and place again.
+            const watcher = watch(doc, (more) => {
+                marks = [...marks, ...Helpers.pickMarks(more, this.map, content === doc.body ? null : content, isFurniture)];
+                place();
+            });
+            this.stops.push(() => watcher.stop());
+
+            this.draw();
+
+            // Re-measure: size changes (Desktop/Phone, the panel), scrolling,
+            // and images, frames and fonts as they load.
+            const again = () => this.again();
+            const observer = new win.ResizeObserver(again);
+            observer.observe(doc.documentElement);
+            this.regions.forEach((region) => region.elements.forEach((element) => observer.observe(element)));
+            this.stops.push(() => observer.disconnect());
+            this.listen(win, 'resize', again);
+            this.listen(win, 'scroll', again, { passive: true });
+            this.listen(doc, 'load', again, true);
+            doc.fonts?.ready.then(again);
+            this.listen(doc.fonts, 'loadingdone', again);
+
+            // Hover: the innermost block under the pointer.
+            this.listen(doc, 'mouseover', (event) => this.hover(event.target));
+            this.listen(doc.documentElement, 'mouseleave', () => this.hover(null));
+        }
+
+        listen(target, type, handler, options) {
+            if (!target?.addEventListener) return;
+
+            target.addEventListener(type, handler, options);
+            this.stops.push(() => target.removeEventListener(type, handler, options));
+        }
+
+        again() {
+            if (this.queued) return;
+
+            this.queued = true;
+            (this.win.requestAnimationFrame ?? setTimeout).call(this.win, () => {
+                this.queued = false;
+                this.measure();
+            });
+        }
+
+        measure() {
+            this.boxes = new Map(this.regions.map((region) => [region.key, this.measureBox(region, this.win)]));
+            this.paint();
+        }
+
+        depth(region) {
+            let depth = 0;
+
+            for (let parent = region.parent; parent; parent = this.byKey[parent]?.parent) {
+                depth += 1;
+            }
+
+            return depth;
+        }
+
+        hover(element) {
+            const region = element ? Helpers.regionAt(this.regions, (r) => this.depth(r), element) : null;
+
+            if (region === this.hovered) return;
+
+            this.hovered = region;
+            this.paint();
+        }
+
+        draw() {
+            const doc = this.doc;
+
+            this.host = doc.createElement('div');
+            this.host.setAttribute('aria-hidden', 'true');
+            this.host.setAttribute('data-ghostwriter-overlay', '');
+            this.host.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;margin:0;padding:0;border:0;z-index:2147483647;pointer-events:none';
+
+            const shadow = this.host.attachShadow({ mode: 'closed' });
+            const style = doc.createElement('style');
+            style.textContent = `
+                :host { all: initial; }
+                .outline { position: absolute; box-sizing: border-box; border: 2px solid #5b4cf0; border-radius: 3px; pointer-events: none; display: none; }
+                .outline.child { border-style: dashed; }
+                .outline.inside .label { bottom: auto; top: 2px; left: 2px; }
+                .label { position: absolute; left: -2px; bottom: 100%; background: #5b4cf0; color: #fff; font: 500 11px/1.6 system-ui, -apple-system, sans-serif; padding: 0 7px; border-radius: 4px 4px 4px 0; white-space: nowrap; max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; }
+                @media (forced-colors: active) { .outline { border-color: Highlight; } .label { background: Highlight; color: HighlightText; forced-color-adjust: none; } }
+            `;
+            this.outline = doc.createElement('div');
+            this.outline.className = 'outline';
+            this.labelEl = doc.createElement('div');
+            this.labelEl.className = 'label';
+            this.outline.appendChild(this.labelEl);
+            shadow.append(style, this.outline);
+            doc.documentElement.appendChild(this.host);
+            this.stops.push(() => this.host.remove());
+        }
+
+        paint() {
+            if (!this.outline) return;
+
+            const region = this.hovered;
+            const box = region ? this.boxes.get(region.key) : null;
+
+            if (!box) {
+                this.outline.style.display = 'none';
+
+                return;
+            }
+
+            this.outline.style.display = 'block';
+            this.outline.style.left = `${box.left}px`;
+            this.outline.style.top = `${box.top}px`;
+            this.outline.style.width = `${box.width}px`;
+            this.outline.style.height = `${box.height}px`;
+            this.outline.classList.toggle('child', Boolean(region.parent));
+            // The name sits above the block, or inside it at the very top of the page.
+            this.outline.classList.toggle('inside', box.top < 20);
+            // From the map: text, never markup.
+            this.labelEl.textContent = Helpers.label(region, this.byKey);
+        }
+
+        stop() {
+            this.stops.splice(0).forEach((stop) => {
+                try {
+                    stop();
+                } catch (error) {}
+            });
+        }
+    }
+
+    Ghostwriter.PagePreview = PagePreview;
+})();

@@ -63,6 +63,8 @@ class Launcher
             'dashboardUrl' => UrlHelper::cpUrl('ghostwriter'),
             'icon' => (string) file_get_contents(__DIR__ . '/mark.svg'),
             'editing' => $editing,
+            // The Preview tab: the draft as the page it makes.
+            'preview' => $plugin->getSettings()->preview,
         ];
 
         // The brief in the conversation's words, by key (core's brief.php).

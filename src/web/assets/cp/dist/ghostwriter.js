@@ -418,12 +418,21 @@
             this.learn = { title: '', picked: [] };
             // The content plan idea this piece is being written from, if any.
             this.planned = null;
-            // How the draft is shown: its blocks, or just its words.
+            // How the draft is shown: as the page it makes (the default,
+            // where the site can show it), its blocks, or just its words.
+            this.view = this.config.preview ? 'preview' : 'blocks';
+            // On a phone, the phone layout, unless the person chose otherwise.
+            this.width = window.innerWidth < 640 ? 'phone' : 'desktop';
+            this.page = null;
+
             try {
-                this.view = localStorage.getItem('ghostwriter:view') === 'text' ? 'text' : 'blocks';
-            } catch (error) {
-                this.view = 'blocks';
-            }
+                const view = localStorage.getItem('ghostwriter:draft-view');
+
+                if (['blocks', 'text'].includes(view) || (view === 'preview' && this.config.preview)) this.view = view;
+                const width = localStorage.getItem('ghostwriter:preview-width');
+
+                if (['desktop', 'phone'].includes(width)) this.width = width;
+            } catch (error) {}
 
             this.addListener(this.$container, 'click', 'onClick');
             this.addListener(this.$container, 'input', 'onInput');
@@ -505,6 +514,14 @@
             const changed = data.draft !== this.session?.draft;
             const stepChanged = !this.session;
             const filled = data.stage === 'proposed' && this.session?.stage === 'filling';
+
+            // Another piece: its own preview. The same one: render the new
+            // draft once the changes stop, or at once for the first draft.
+            if (this.page && data.id !== this.session?.id) {
+                this.page.reset();
+            } else if (this.page && changed && data.draft) {
+                this.page.changed(data.draft, !this.session?.draft);
+            }
 
             this.session = data;
             this.config.current = data.id;
@@ -710,6 +727,17 @@
 
         onKeydown(event) {
             const model = $(event.target).data('model');
+
+            // The draft's tabs: arrows, Home and End move between them.
+            if (event.target.getAttribute?.('role') === 'tab' && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                const tabs = $(event.target).closest('[role=tablist]').find('[role=tab]').toArray();
+                const at = tabs.indexOf(event.target);
+                const next = { ArrowLeft: at - 1, ArrowRight: at + 1, Home: 0, End: tabs.length - 1 }[event.key];
+
+                event.preventDefault();
+
+                return this.switchView(tabs[(next + tabs.length) % tabs.length].dataset.view, true);
+            }
             const $field = $(event.target).closest('[data-edit-path]');
 
             // Writing edited in place: Escape puts it back as it was (and
@@ -779,7 +807,12 @@
                 case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); return this.send();
                 case 'reload-entry': return this.reloadEntry();
                 case 'edit': this.editing = true; return this.renderDraft();
-                case 'view': this.view = $target.data('view'); try { localStorage.setItem('ghostwriter:view', this.view); } catch (error) {} return this.renderDraft();
+                case 'view': return this.switchView($target.data('view'), $target.is('[role=tab]'));
+                case 'width':
+                    this.width = $target.data('width');
+                    try { localStorage.setItem('ghostwriter:preview-width', this.width); } catch (error) {}
+
+                    return this.renderDraft();
                 case 'cancel-edit': this.editing = false; this.raw = this.session.draft; return this.renderDraft();
                 case 'save-draft': return this.saveDraft();
                 case 'apply': return this.apply();
@@ -894,6 +927,7 @@
 
                 this.session = data;
                 this.raw = data.draft ?? '';
+                this.page?.changed(data.draft);
 
                 // Redrawn only when nothing else is being typed in.
                 if (!this.$container.find('[data-edit-path]:focus').length) {
@@ -952,6 +986,7 @@
             try {
                 const data = await Ghostwriter.request('POST', 'sessions/draft', { id: this.session.id, draft: this.raw });
 
+                this.page?.changed(data.draft);
                 this.session = data;
                 this.editing = false;
                 this.renderDraft();
@@ -1341,11 +1376,21 @@
             const working = this.working();
             let toolbar = `<span class="light" data-words>${esc(session.draft ? t('{count} words', { count: session.words.toLocaleString() }) : t('Draft'))}</span>`;
 
+            const view = this.currentView();
+
             if (session.draft && !this.editing && !session.draftProblem) {
-                toolbar += `<div class="btngroup gw-view-switch" role="group" aria-label="${esc(t('Show the draft as'))}">
-                    <button type="button" class="btn small ${this.view === 'blocks' ? 'active' : ''}" data-action="view" data-view="blocks" aria-pressed="${this.view === 'blocks'}">${esc(t('Blocks'))}</button>
-                    <button type="button" class="btn small ${this.view === 'text' ? 'active' : ''}" data-action="view" data-view="text" aria-pressed="${this.view === 'text'}">${esc(t('Text'))}</button>
+                const tab = (name, label) => `<button type="button" role="tab" id="gw-tab-${name}" class="btn small ${view === name ? 'active' : ''}" data-action="view" data-view="${name}" aria-selected="${view === name}" aria-controls="gw-draft-panel" tabindex="${view === name ? 0 : -1}">${esc(label)}</button>`;
+
+                toolbar += `<div class="btngroup gw-view-switch" role="tablist" aria-label="${esc(t('Show the draft as'))}">
+                    ${this.config.preview ? tab('preview', t('Preview')) : ''}${tab('blocks', t('Blocks'))}${tab('text', t('Text'))}
                 </div>`;
+
+                if (view === 'preview') {
+                    toolbar += `<div class="btngroup gw-width-switch" role="group" aria-label="${esc(t('Preview width'))}">
+                        <button type="button" class="btn small ${this.width === 'desktop' ? 'active' : ''}" data-action="width" data-width="desktop" aria-pressed="${this.width === 'desktop'}">${esc(t('Desktop'))}</button>
+                        <button type="button" class="btn small ${this.width === 'phone' ? 'active' : ''}" data-action="width" data-width="phone" aria-pressed="${this.width === 'phone'}">${esc(t('Phone'))}</button>
+                    </div>`;
+                }
             }
             let body = '';
 
@@ -1372,9 +1417,9 @@
                 body = (session.draftProblem ? `<p class="warning with-icon">${esc(session.draftProblem)}</p>` : '')
                     + (this.editing || session.draftProblem
                         ? `<textarea class="text fullwidth code gw-raw" rows="28" data-model="raw">${esc(this.raw)}</textarea>`
-                        : (this.view === 'text' ? this.textView(session.preview) : this.preview(session.preview)));
+                        : (view === 'text' ? this.textView(session.preview) : (view === 'preview' ? '' : this.preview(session.preview))));
 
-                if (!this.editing && !session.draftProblem && !working) {
+                if (!this.editing && !session.draftProblem && !working && view !== 'preview') {
                     body = `<p class="light gw-edit-hint">${esc(t('Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back.'))}</p>` + body;
                 }
             }
@@ -1383,9 +1428,64 @@
                 body = `<p class="light gw-applied">${esc(t('This draft has been put into the entry. Using it again replaces what is in the form.'))}</p>` + body;
             }
 
-            this.$container.find('.gw-draft').html(`<div class="gw-draft__toolbar">${toolbar}</div><div class="gw-draft__body">${body}</div>`);
+            // The preview's frame is kept between redraws: moving or
+            // rebuilding a frame loads its page again.
+            const $draft = this.$container.find('.gw-draft');
 
-            Ghostwriter.prepareButtons(this.$container.find('.gw-draft'));
+            if (!$draft.children('.gw-draft__toolbar').length) {
+                $draft.html('<div class="gw-draft__toolbar"></div><div class="gw-draft__body"></div>');
+            }
+
+            $draft.children('.gw-draft__toolbar').html(toolbar);
+            $draft.children('.gw-draft__body')
+                .html(body)
+                .attr({ id: 'gw-draft-panel', role: session.draft && !this.editing ? 'tabpanel' : null, 'aria-labelledby': session.draft && !this.editing ? `gw-tab-${view}` : null })
+                .toggleClass('gw-draft__body--slim', view === 'preview');
+
+            if (view === 'preview') {
+                this.page ??= new Ghostwriter.PagePreview({
+                    target: () => ({ id: this.session.id, elementId: this.formElementId(), siteId: this.config.siteId }),
+                    announce: (text) => this.announce(text),
+                });
+
+                if (!$.contains($draft[0], this.page.root)) $draft.append(this.page.root);
+
+                this.page.setWidth(this.width);
+                this.page.show(session.draft, working);
+            } else {
+                this.page?.hide();
+            }
+
+            Ghostwriter.prepareButtons($draft.children('.gw-draft__toolbar, .gw-draft__body'));
+            Ghostwriter.prepareButtons(this.page?.root);
+        },
+
+        // Preview where it can show, otherwise the person's choice.
+        currentView() {
+            const session = this.session;
+
+            if (this.view === 'preview' && (!this.config.preview || !session?.draft || this.editing || session.draftProblem)) {
+                return 'blocks';
+            }
+
+            return this.view;
+        },
+
+        switchView(view, focus = false) {
+            this.view = view;
+
+            try { localStorage.setItem('ghostwriter:draft-view', view); } catch (error) {}
+
+            this.renderDraft();
+
+            if (focus) this.$container.find(`#gw-tab-${view}`).trigger('focus');
+        },
+
+        // The entry the form is on: its draft, once Craft has made one.
+        formElementId() {
+            const editor = $('form').toArray().map((form) => $(form).data('elementEditor')).find(Boolean);
+
+            return editor?.settings?.elementId ?? this.config.elementId;
         },
 
         // "Draft updated · 957 → 1,012 words (+55)"
