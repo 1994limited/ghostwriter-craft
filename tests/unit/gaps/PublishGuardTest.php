@@ -134,7 +134,37 @@ class PublishGuardTest extends TestCase
         $outcome = $this->guardPublish($entry);
 
         $this->assertFalse($outcome->saved);
-        $this->assertSame('Feature: Heading: Add opening days before publishing.', $entry->getFirstError('blocks'));
+        $this->assertSame('Heading (in the Feature block): Add opening days before publishing.', $entry->getFirstError('blocks'));
+    }
+
+    public function testSwitchingOnEnabledInADraftAndSavingIsGuardedToo(): void
+    {
+        // A disabled entry whose blocks hold a marker, as Ghostwriter leaves one.
+        $entry = $this->guardEntry('Finished.');
+        $entry->enabled = false;
+        $entry->setFieldValue('blocks', ['entries' => ['new1' => ['type' => 'feature', 'enabled' => true, 'fields' => ['heading' => 'Open [[ask: opening days]]']]], 'sortOrder' => ['new1']]);
+        $this->assertTrue(Craft::$app->getElements()->saveElement($entry), json_encode($entry->getErrors()));
+
+        // Enabled switched on in the form: Craft autosaves a provisional draft
+        // holding only that change, then Save applies it.
+        $draft = Craft::$app->getDrafts()->createDraft($entry, Craft::$app->getUser()->getId(), null, null, [], true);
+        $draft->enabled = true;
+        $draft->setEnabledForSite(true);
+        $draft->setScenario(Element::SCENARIO_ESSENTIALS);
+        $this->assertTrue(Craft::$app->getElements()->saveElement($draft));
+
+        $draft = Entry::find()->id($draft->id)->drafts(null)->provisionalDrafts(null)->status(null)->one();
+        $draft->setScenario(Element::SCENARIO_LIVE);
+
+        try {
+            Craft::$app->getDrafts()->applyDraft($draft);
+            $applied = true;
+        } catch (\Throwable) {
+            $applied = false;
+        }
+
+        $this->assertFalse($applied, 'Publishing by switching on Enabled must be refused while the blocks hold a marker.');
+        $this->assertFalse((bool) Entry::find()->id($entry->id)->status(null)->one()->enabled, 'The entry stays disabled.');
     }
 
     public function testAMarkerInASectionGhostwriterDoesntWriteForIsNotOurs(): void

@@ -129,6 +129,7 @@ class GapsTest extends TestCase
 
         // The stock step carries the stock feature's own badge, by library name.
         $this->assertSame('Image is still a Demo stock preview. License it before publishing.', $byKind['stock-preview']['message']);
+        $this->assertSame('I\'ll write it', $byKind['placeholder-text']['fixes'][0]['label']);
         $this->assertSame($byKind['stock-preview']['meta']['stockId'], $byKind['stock-preview']['stock']['id']);
         $this->assertSame('License me', $byKind['stock-preview']['speech']);
 
@@ -136,7 +137,8 @@ class GapsTest extends TestCase
         $heading = array_values(array_filter($data['gaps'], fn(array $gap) => $gap['field'] === 'blocks'))[0];
         $block = $entry->getFieldValue('blocks')->status(null)->one();
         $this->assertSame(['elementId' => (int) $block->id, 'handle' => 'heading', 'blocks' => [(int) $block->id], 'field' => 'blocks'], $heading['location']);
-        $this->assertSame('Feature: Heading', $heading['label']);
+        $this->assertSame('Heading (in the Feature block)', $heading['label']);
+        $this->assertSame('I left a gap in Heading (in the Feature block): opening days. I didn\'t want to guess. What should it say?', $heading['message']);
     }
 
     public function testTheCheckReadsTheDraftTheFormIsEditing(): void
@@ -250,6 +252,55 @@ class GapsTest extends TestCase
         $this->assertFalse($targets->exists('{entry:999999@1:url||https://example.test/gone}', $field));
         $this->assertNull($targets->exists('https://example.org/', $field));
         $this->assertNull($targets->exists(null, $field));
+    }
+
+    public function testAPlaceInABlockIsNamedOnce(): void
+    {
+        $this->signInToEdit();
+        $text = $this->makeEntryType('text', [$this->makeField(PlainText::class, 'text')], hasTitle: false);
+        $builder = $this->makeMatrix('page', [$text]);
+        $section = $this->makeSection('notes', [$this->makeEntryType('note', [$builder])]);
+        $entry = $this->makeEntry($section, 'Note', [
+            'page' => ['entries' => ['new1' => ['type' => 'text', 'enabled' => true, 'fields' => ['text' => 'Bring a [[item]] and pay [[ask: the fee]].']]], 'sortOrder' => ['new1']],
+        ], live: false);
+
+        $gaps = array_column($this->plugin->gaps->payload($entry)['gaps'], 'message', 'kind');
+
+        // The block and its field are both "Text": said once, not "Text: Text".
+        $this->assertSame('Some template text slipped into the Text block: “[[item]]”.', $gaps['leftover-token']);
+        $this->assertSame('I left a gap in the Text block: the fee. I didn\'t want to guess. What should it say?', $gaps['ask']);
+
+        // And the guard says it the same way, starting with a capital.
+        $entry->enabled = true;
+        $entry->setScenario(\craft\base\Element::SCENARIO_LIVE);
+        $this->assertFalse(Craft::$app->getElements()->saveElement($entry));
+        $this->assertSame('The Text block: Add the fee before publishing. The Text block: Remove the template text “[[item]]” before publishing.', $entry->getFirstError('page'));
+    }
+
+    public function testAGapInANeoChildBlockIsFoundInThatBlock(): void
+    {
+        $this->signInToEdit();
+        $neo = $this->makeNeo('body2', [
+            ['handle' => 'section', 'fields' => [$this->makeField(PlainText::class, 'sectionTitle')], 'children' => ['card']],
+            ['handle' => 'card', 'topLevel' => false, 'fields' => [$this->makeField(PlainText::class, 'cardText')]],
+        ]);
+        $section = $this->makeSection('guides', [$this->makeEntryType('guide', [$neo])]);
+        $entry = $this->makeEntry($section, 'Guide', [
+            'body2' => [
+                'blocks' => [
+                    'new1' => ['type' => 'section', 'enabled' => true, 'level' => 1, 'fields' => ['sectionTitle' => 'Prices']],
+                    'new2' => ['type' => 'card', 'enabled' => true, 'level' => 2, 'fields' => ['cardText' => 'Adults pay [[ask: adult ticket price]].']],
+                ],
+                'sortOrder' => ['new1', 'new2'],
+            ],
+        ], live: false);
+
+        $blocks = $entry->getFieldValue('body2')->status(null)->all();
+        $ask = array_values(array_filter($this->plugin->gaps->payload($entry)['gaps'], fn(array $gap) => $gap['kind'] === 'ask'))[0];
+
+        // The card's own field, inside the section block: both on the way down.
+        $this->assertSame(['elementId' => (int) $blocks[1]->id, 'handle' => 'cardText', 'blocks' => [(int) $blocks[0]->id, (int) $blocks[1]->id], 'field' => 'body2'], $ask['location']);
+        $this->assertSame('CardText (in the Card block)', $ask['label']);
     }
 
     public function testEveryCoreStringIsInCraftsTranslationsAsCoreHasIt(): void

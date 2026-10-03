@@ -66,7 +66,7 @@ class Gaps extends Component
      */
     public function report(Entry $entry): GapReport
     {
-        return $this->finder(self::writesHere($entry))->find($this->context($entry, rates: true));
+        return self::tidyReport($this->finder(self::writesHere($entry))->find($this->context($entry, rates: true)));
     }
 
     /**
@@ -77,7 +77,45 @@ class Gaps extends Component
     {
         $mode = Plugin::getInstance()->getSettings()->onPublish();
 
-        return (new PublishReadiness($this->finder(self::writesHere($entry)), $mode))->check($this->context($entry));
+        $readiness = (new PublishReadiness($this->finder(self::writesHere($entry)), $mode))->check($this->context($entry));
+
+        return new Readiness(array_map(fn(Gap $gap) => self::tidy($gap), $readiness->problems()), $readiness->mode, self::tidyReport($readiness->report()));
+    }
+
+    /**
+     * A gap named once for where it is. Core names a field in a block
+     * "Block: Field", which reads twice when they share a name ("Text:
+     * Text"): it becomes "the Text block", or "Subheading (in the Hero
+     * block)" when they differ. Top-level fields keep their name.
+     */
+    public static function tidy(Gap $gap): Gap
+    {
+        $inBlock = false;
+
+        foreach ($gap->path->segments as $segment) {
+            if ($segment instanceof BlockRef && $segment->type !== '') {
+                $inBlock = true;
+            }
+        }
+
+        $parts = explode(': ', $gap->label);
+
+        if (!$inBlock || count($parts) < 2) {
+            return $gap;
+        }
+
+        $field = (string) array_pop($parts);
+        $block = (string) array_pop($parts);
+        $label = mb_strtolower($field) === mb_strtolower($block)
+            ? Craft::t('ghostwriter', 'the {block} block', ['block' => $block])
+            : Craft::t('ghostwriter', '{field} (in the {block} block)', ['field' => $field, 'block' => $block]);
+
+        return new Gap($gap->id, $gap->kind, $gap->severity, $gap->path, $label, $gap->hint, $gap->excerpt, $gap->occurrence, $gap->fixes, $gap->meta);
+    }
+
+    public static function tidyReport(GapReport $report): GapReport
+    {
+        return new GapReport(array_map(fn(Gap $gap) => self::tidy($gap), $report->all()));
     }
 
     public function finder(bool $everything = true): GapFinder
@@ -169,9 +207,10 @@ class Gaps extends Component
 
     /**
      * A message in the editor's language: Ghostwriter's translation of the
-     * key, else core's English.
+     * key, else core's English; a sentence starts with a capital, a
+     * fragment ("and 1 suggestion") is left as it is.
      */
-    public static function translate(Message $message): string
+    public static function translate(Message $message, bool $sentence = true): string
     {
         $params = array_map(fn($value) => (string) $value, $message->params);
 
@@ -181,7 +220,10 @@ class Gaps extends Component
             $text = $message->key;
         }
 
-        return $text === $message->key ? $message->english() : $text;
+        $text = $text === $message->key ? $message->english() : $text;
+
+        // A sentence that starts with a place: "The Text block is…".
+        return $text === $message->key || !$sentence ? $text : mb_strtoupper(mb_substr($text, 0, 1)) . mb_substr($text, 1);
     }
 
     /**

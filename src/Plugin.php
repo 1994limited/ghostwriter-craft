@@ -184,6 +184,8 @@ class Plugin extends BasePlugin
             $entry = $event->sender;
 
             $event->html .= Launcher::buttonFor($entry);
+            // "Finish this page": the count pill, and the guide behind it.
+            $event->html .= \nineteenninetyfour\ghostwriter\gaps\FinishGuide::buttonFor($entry);
         });
 
         // And beside "New entry" on the entry index.

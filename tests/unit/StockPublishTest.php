@@ -121,7 +121,7 @@ class StockPublishTest extends TestCase
         $entry->setScenario(Element::SCENARIO_LIVE);
 
         $this->assertFalse(Craft::$app->getElements()->saveElement($entry));
-        $this->assertSame('Feature: Picture: This is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('blocks'));
+        $this->assertSame('Picture (in the Feature block): This is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('blocks'));
     }
 
     public function testWarnSavesAndSaysSo(): void

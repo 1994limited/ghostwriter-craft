@@ -1,0 +1,679 @@
+/*
+ * "Finish this page": the pill, the field highlights and tags, the guide,
+ * the dock and the flying mark, in Craft's control panel look. Craft 5's
+ * control panel has no dark mode, so these are light only. Every animation
+ * is off under prefers-reduced-motion.
+ */
+
+:root {
+    --gw-amber: #9a6400;
+    --gw-amber-fill: #fff4e0;
+    --gw-amber-line: #e0a83a;
+    --gw-amber-strong: #f5b445;
+    --gw-purple: #5b4cf0;
+    --gw-purple-fill: #efedfe;
+    --gw-green: #0d7a4b;
+    --gw-green-fill: #e7f6ee;
+    --gw-green-line: #4cc38a;
+    --gw-grey: #a3acb6;
+    --gw-ink: #1f2933;
+    --gw-surface: #fff;
+    --gw-cream: #f3eee4;
+    --gw-shadow: 0 0 0 1px rgba(31, 41, 51, 0.1), 0 6px 24px rgba(31, 41, 51, 0.22);
+}
+
+/* The pill, beside the entry's buttons */
+
+.gw-finish-pill.btn {
+    background: var(--gw-amber-fill);
+    color: var(--gw-amber);
+    box-shadow: inset 0 0 0 1px var(--gw-amber-line);
+    border-radius: 999px;
+}
+
+.gw-finish-pill.btn:hover {
+    background: #ffeccc;
+}
+
+.gw-finish-pill--ready.btn {
+    background: var(--gw-green-fill);
+    color: var(--gw-green);
+    box-shadow: inset 0 0 0 1px var(--gw-green-line);
+}
+
+.gw-finish-pill .gw-mark {
+    margin-inline-end: 6px;
+}
+
+/* Fields with a gap: an outline, a soft fill and a numbered tag */
+
+.gw-gap-host {
+    position: relative;
+    border-radius: 6px;
+    outline: 1px solid var(--gw-amber-line);
+    outline-offset: 4px;
+    background-color: color-mix(in srgb, var(--gw-amber-fill) 55%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gw-amber-fill) 55%, transparent);
+    transition: outline-color 0.25s, background-color 0.25s, box-shadow 0.25s;
+}
+
+.gw-gap-host--suggestion {
+    outline-style: dashed;
+}
+
+.gw-gap-host--skipped {
+    outline-color: var(--gw-grey);
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.gw-gap-host--current {
+    outline: 2px solid var(--gw-purple);
+    background-color: color-mix(in srgb, var(--gw-purple-fill) 70%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gw-purple-fill) 70%, transparent);
+}
+
+.gw-gap-host--fixed {
+    outline: 1px solid var(--gw-green-line);
+    background-color: color-mix(in srgb, var(--gw-green-fill) 70%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gw-green-fill) 70%, transparent);
+}
+
+.gw-gap-tag {
+    flex-shrink: 0;
+    margin-inline: 8px 0;
+    align-self: center;
+    border: 0;
+    border-radius: 999px;
+    padding: 1px 9px;
+    background: var(--gw-amber-strong);
+    color: #3a2600;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.gw-gap-host--current > .gw-gap-tag,
+.gw-gap-host--current > .heading > .gw-gap-tag {
+    background: var(--gw-purple);
+    color: #fff;
+}
+
+.gw-gap-host--fixed > .gw-gap-tag,
+.gw-gap-host--fixed > .heading > .gw-gap-tag {
+    background: var(--gw-green);
+    color: #fff;
+}
+
+.gw-gap-host--skipped > .gw-gap-tag,
+.gw-gap-host--skipped > .heading > .gw-gap-tag {
+    background: #e3e5e8;
+    color: var(--gw-ink);
+}
+
+.gw-gap-tag:focus-visible {
+    box-shadow: var(--focus-ring, 0 0 0 3px rgba(91, 76, 240, 0.45));
+    outline: none;
+}
+
+/* A block shown as a card: the tag in its corner, clear of its title */
+
+.element.card.gw-gap-host > .gw-gap-tag {
+    position: absolute;
+    top: 6px;
+    inset-inline-end: 6px;
+    margin: 0;
+}
+
+/* The gap inside CKEditor: a dashed underline on the words */
+
+.ck-content .gw-gap-mark {
+    background: rgba(245, 180, 69, 0.22);
+    border-bottom: 1px dashed var(--gw-amber);
+    border-radius: 2px;
+}
+
+/* An image inline in CKEditor */
+.ck-content .gw-gap-mark:is(figure, img, .image, .image-inline) {
+    outline: 2px dashed var(--gw-amber);
+    outline-offset: 2px;
+    background: none;
+    border-bottom: 0;
+}
+
+.ck-content .gw-gap-mark--current:is(figure, img, .image, .image-inline) {
+    outline-color: var(--gw-purple);
+}
+
+.ck-content .gw-gap-mark--suggestion {
+    background: none;
+}
+
+.ck-content .gw-gap-mark--current {
+    background: rgba(91, 76, 240, 0.18);
+    border-bottom-color: var(--gw-purple);
+}
+
+/* The guide */
+
+.gw-finish {
+    position: relative;
+    z-index: 1001;
+}
+
+.gw-finish-guide {
+    position: fixed;
+    inset-inline-end: 24px;
+    bottom: 24px;
+    z-index: 1001;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--gw-surface);
+    color: var(--gw-ink);
+    box-shadow: var(--gw-shadow);
+    transform-origin: bottom right;
+}
+
+[dir="rtl"] .gw-finish-guide {
+    transform-origin: bottom left;
+}
+
+.gw-finish--minimised .gw-finish-guide {
+    display: none;
+}
+
+.gw-finish-guide__handle,
+.gw-finish-guide__compact {
+    display: none;
+}
+
+.gw-finish-guide__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.gw-finish-guide__mark svg {
+    display: block;
+    width: 26px;
+    height: 26px;
+}
+
+.gw-finish-guide__title {
+    flex: 1;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.gw-finish-guide__step {
+    font-size: 12px;
+}
+
+.gw-finish-guide__min {
+    border: 0;
+    border-radius: 6px;
+    padding: 2px 7px;
+    background: none;
+    color: #606d7b;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gw-finish-guide__min:hover {
+    background: #f3f7fc;
+    color: var(--gw-ink);
+}
+
+.gw-finish-guide__bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.gw-finish-guide__seg {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e3e5e8;
+}
+
+.gw-finish-guide__seg--fixed { background: var(--gw-green-line); }
+.gw-finish-guide__seg--skipped { background: var(--gw-grey); }
+.gw-finish-guide__seg--current { background: var(--gw-purple); }
+
+.gw-finish-guide__message {
+    margin: 0 0 8px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.gw-finish-guide__message:focus {
+    outline: none;
+}
+
+.gw-finish-guide__note {
+    margin: 0 0 10px;
+    font-size: 12px;
+}
+
+.gw-finish-guide__answer {
+    margin-bottom: 10px;
+}
+
+.gw-finish-guide__answer .flex {
+    gap: 6px;
+}
+
+.gw-finish-guide__fixes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.gw-finish-guide__fixes .gw-mark {
+    margin-inline-end: 5px;
+}
+
+.gw-finish-fix__cost {
+    opacity: 0.75;
+    font-size: 11px;
+}
+
+.gw-finish-guide__foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e3e5e8;
+}
+
+.gw-finish-guide__nav {
+    border: 0;
+    border-radius: 4px;
+    padding: 2px 4px;
+    background: none;
+    color: #606d7b;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.gw-finish-guide__nav:hover:not([disabled]) {
+    color: var(--gw-ink);
+    text-decoration: underline;
+}
+
+.gw-finish-guide__nav[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.gw-finish-guide--done .gw-finish-guide__foot {
+    display: none;
+}
+
+/* The dock: the mark in a round button, with the count */
+
+.gw-finish-dock {
+    position: fixed;
+    inset-inline-end: 24px;
+    bottom: 24px;
+    z-index: 1001;
+    display: none;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--gw-surface);
+    box-shadow: var(--gw-shadow);
+    cursor: pointer;
+}
+
+.gw-finish--minimised .gw-finish-dock {
+    display: grid;
+}
+
+.gw-finish-dock__mark {
+    display: grid;
+    place-items: center;
+    animation: gw-peek 7s ease-in-out 1.5s infinite;
+}
+
+.gw-finish-dock__mark svg {
+    width: 30px;
+    height: 30px;
+}
+
+.gw-finish-dock:hover .gw-finish-dock__mark svg,
+.gw-finish-dock:focus-visible .gw-finish-dock__mark svg {
+    animation: gw-bob 1.2s ease-in-out infinite;
+}
+
+.gw-finish-dock__count {
+    position: absolute;
+    top: -4px;
+    inset-inline-end: -4px;
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--gw-amber-strong);
+    color: #3a2600;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.gw-finish-dock__count--ready {
+    background: var(--gw-green-line);
+    color: #06301c;
+}
+
+.gw-finish-dock__count--bump {
+    animation: gw-pulse 0.6s ease-out;
+}
+
+.gw-finish-dock__tip {
+    position: absolute;
+    inset-inline-end: 66px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--gw-ink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.gw-finish-dock:hover .gw-finish-dock__tip,
+.gw-finish-dock:focus-visible .gw-finish-dock__tip {
+    opacity: 1;
+}
+
+.gw-finish-dock:focus-visible {
+    box-shadow: var(--gw-shadow), 0 0 0 3px rgba(91, 76, 240, 0.45);
+    outline: none;
+}
+
+/* The flying mark */
+
+.gw-finish-flyer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1002;
+    width: 44px;
+    height: 44px;
+    pointer-events: none;
+    transition: transform 0.9s cubic-bezier(0.45, 0.05, 0.2, 1.15), opacity 0.2s;
+}
+
+.gw-finish-flyer--hidden,
+.gw-finish--minimised .gw-finish-flyer {
+    opacity: 0;
+}
+
+.gw-finish-flyer__tilt {
+    display: block;
+    transition: transform 0.9s ease;
+}
+
+.gw-finish-flyer__bob {
+    display: block;
+    filter: drop-shadow(0 6px 10px rgba(31, 41, 51, 0.3));
+    animation: gw-bob 2.4s ease-in-out infinite;
+}
+
+.gw-finish-flyer__bob svg {
+    display: block;
+    width: 44px;
+    height: 44px;
+}
+
+.gw-finish-flyer__trail {
+    position: absolute;
+    top: 32px;
+    left: 10px;
+    width: 24px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(43, 58, 100, 0.14);
+    filter: blur(3px);
+    animation: gw-bob 2.4s ease-in-out infinite reverse;
+}
+
+.gw-finish-flyer__say {
+    position: absolute;
+    top: 2px;
+    left: 46px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--gw-ink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+[dir="rtl"] .gw-finish-flyer__say {
+    left: auto;
+    right: 46px;
+}
+
+.gw-finish-flyer__say:empty {
+    display: none;
+}
+
+.gw-finish-flyer--arrived .gw-finish-flyer__say {
+    opacity: 1;
+    transform: none;
+}
+
+/* Minimise and restore */
+
+.gw-finish-guide--sucking {
+    animation: gw-suck 0.5s cubic-bezier(0.55, 0, 0.75, 0.2) forwards;
+    pointer-events: none;
+}
+
+.gw-finish-guide--unfurling {
+    animation: gw-unfurl 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards;
+}
+
+.gw-finish-dock--popping { animation: gw-pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.gw-finish-dock--waving .gw-finish-dock__mark { animation: gw-wave 0.7s ease-in-out; }
+.gw-finish-dock--leaping .gw-finish-dock__mark { animation: gw-leap 0.55s cubic-bezier(0.3, 0.7, 0.4, 1); }
+
+.gw-finish-wisp {
+    position: fixed;
+    z-index: 1003;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #8e99bc;
+    pointer-events: none;
+    animation: gw-wisp 0.6s ease-out forwards;
+}
+
+@keyframes gw-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+@keyframes gw-suck {
+    0% { opacity: 1; transform: none; border-radius: 12px; }
+    60% { opacity: 0.9; transform: translate(10px, 10px) scale(0.45, 0.3) skewX(-6deg); border-radius: 40px; }
+    100% { opacity: 0; transform: translate(150px, 90px) scale(0.05); border-radius: 50%; }
+}
+@keyframes gw-unfurl {
+    0% { opacity: 0; transform: translate(150px, 90px) scale(0.05); border-radius: 50%; }
+    55% { opacity: 1; transform: translate(-4px, -4px) scale(1.03); border-radius: 18px; }
+    100% { opacity: 1; transform: none; border-radius: 12px; }
+}
+@keyframes gw-pop { 0% { transform: scale(0.3); } 60% { transform: scale(1.18); } 80% { transform: scale(0.94); } 100% { transform: scale(1); } }
+@keyframes gw-wave { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-14deg); } 40% { transform: rotate(10deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(4deg); } }
+@keyframes gw-leap { 0% { transform: none; } 35% { transform: translateY(-16px) rotate(-12deg) scale(1.1); } 70% { transform: translateY(-6px) rotate(200deg) scale(0.9); } 100% { transform: translateY(0) rotate(360deg); } }
+@keyframes gw-peek { 0%, 88%, 100% { transform: none; } 91%, 95% { transform: translateX(-5px) rotate(-14deg); } }
+@keyframes gw-wisp { 0% { opacity: 0.9; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); } }
+@keyframes gw-pulse { 0% { box-shadow: 0 0 0 0 rgba(245, 180, 69, 0.7); } 100% { box-shadow: 0 0 0 10px rgba(245, 180, 69, 0); } }
+@keyframes gw-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Reduced motion: no flight, bob, peek or wisps; panels swap at once;
+   the badge gets a still ring instead of a pulse. */
+
+@media (prefers-reduced-motion: reduce) {
+    .gw-finish-flyer,
+    .gw-finish-flyer__tilt,
+    .gw-gap-host {
+        transition: none;
+    }
+
+    .gw-finish-flyer {
+        transition: opacity 0.15s;
+    }
+
+    .gw-finish-flyer__bob,
+    .gw-finish-flyer__trail,
+    .gw-finish-dock__mark,
+    .gw-finish-dock:hover .gw-finish-dock__mark svg,
+    .gw-finish-guide--sucking,
+    .gw-finish-guide--unfurling,
+    .gw-finish-dock--popping,
+    .gw-finish-dock--waving .gw-finish-dock__mark,
+    .gw-finish-dock--leaping .gw-finish-dock__mark {
+        animation: none;
+    }
+
+    .gw-finish-dock__count--bump {
+        animation: none;
+        box-shadow: 0 0 0 3px rgba(245, 180, 69, 0.6);
+    }
+
+    .gw-finish-wisp {
+        display: none;
+    }
+}
+
+.gw-finish--still .gw-finish-flyer {
+    transition: opacity 0.15s;
+}
+
+/* Windows high contrast: system colours, and the outline says it all */
+
+@media (forced-colors: active) {
+    .gw-gap-host,
+    .gw-gap-host--skipped {
+        outline: 2px solid Mark;
+        background: none;
+        box-shadow: none;
+    }
+
+    .gw-gap-host--current {
+        outline: 3px solid Highlight;
+    }
+
+    .gw-gap-host--fixed {
+        outline: 2px dashed CanvasText;
+    }
+
+    .gw-gap-tag,
+    .gw-finish-dock__count {
+        forced-color-adjust: none;
+        border: 1px solid CanvasText;
+        background: Canvas;
+        color: CanvasText;
+    }
+
+    .ck-content .gw-gap-mark {
+        border-bottom: 2px dashed Highlight;
+    }
+}
+
+/* Phones: a bottom sheet, which folds to a bar; no flying mark */
+
+@media (max-width: 639px) {
+    .gw-finish-guide {
+        inset-inline: 0;
+        bottom: 0;
+        width: auto;
+        max-width: none;
+        max-height: 60vh;
+        overflow: auto;
+        padding: 6px 16px calc(14px + env(safe-area-inset-bottom));
+        border-radius: 14px 14px 0 0;
+    }
+
+    .gw-finish-guide__handle {
+        display: block;
+        width: 40px;
+        height: 4px;
+        margin: 2px auto 8px;
+        border-radius: 2px;
+        background: #cdd3da;
+        cursor: pointer;
+    }
+
+    .gw-finish-guide--compact {
+        max-height: none;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .gw-finish-guide--compact > :not(.gw-finish-guide__handle):not(.gw-finish-guide__compact) {
+        display: none;
+    }
+
+    .gw-finish-guide--compact .gw-finish-guide__compact {
+        display: block;
+        width: 100%;
+        height: 44px;
+        border: 0;
+        background: none;
+        color: var(--gw-ink);
+        font-weight: 500;
+        text-align: start;
+        cursor: pointer;
+    }
+
+    .gw-finish-dock {
+        inset-inline-end: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+
+    .gw-finish-flyer {
+        display: none;
+    }
+
+    .gw-finish-pill .gw-finish-pill__text {
+        font-size: 12px;
+    }
+
+    .gw-gap-tag {
+        font-size: 10px;
+    }
+}
+
+/* Out of the way while one of Craft's modals is open (the asset picker,
+   License & replace): they come back when it closes. */
+
+body:has(> .modal-shade[style*="display: block"]) .gw-finish-guide,
+body:has(> .modal-shade[style*="display: block"]) .gw-finish-flyer {
+    visibility: hidden;
+}
+
+/* Above a slideout's Cancel and Save while one is open (a block opened from
+   cards view). */
+
+body:has(.slideout-container .slideout) .gw-finish-guide,
+body:has(.slideout-container .slideout) .gw-finish-dock {
+    bottom: 84px;
+}

@@ -150,7 +150,7 @@ class PublishGuard
                 'library' => is_scalar($gap->meta['library'] ?? null) ? $gap->meta['library'] : null,
             ], fn($value) => $value !== null)));
 
-            $fields[$gap->path->handle()][] = count($gap->path->segments) > 1 ? "{$gap->label}: {$text}" : $text;
+            $fields[$gap->path->handle()][] = count($gap->path->segments) > 1 ? Gaps::translate(new Message('{place}: {text}', ['place' => $gap->label, 'text' => $text])) : $text;
         }
 
         return array_map(fn(array $lines) => implode(' ', array_unique($lines)), $fields);
