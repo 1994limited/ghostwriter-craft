@@ -4,6 +4,11 @@
 
 Requires `1994/ghostwriter-core` ^1.6.
 
+### Added
+- **OpenRouter, a fourth provider (`openrouter`).** Claude, GPT or Gemini through one OpenRouter account, for writing and for making images, from `OPENROUTER_API_KEY` or **Connect with OpenRouter**. See [OpenRouter](docs/api-keys.md#openrouter).
+- **Connect with OpenRouter** in the settings (admins): sign in at openrouter.ai and come back with a key, kept encrypted with Craft's security component in `ghostwriter_state` (`provider-key:openrouter`). The state and PKCE verifier are kept together in the control panel session and used once. **Check connection** shows the credit left; **Disconnect** forgets the key. A key in `.env` always wins. New routes: `ghostwriter/providers/openrouter/connect`, `callback`, `disconnect` and `check`.
+- **OpenRouter model for writing** and **OpenRouter model for quick jobs** (`openrouterModels`), and a privacy note when OpenRouter is chosen. `provider`, `imageProvider` and `baseUrls` take `openrouter`.
+
 ### Changed
 - **The brief is in the conversation.** The separate brief screen is gone. After you choose what you're writing, Ghostwriter asks in one message for the quick details ("What’s it called, and what should it say? A line or two is plenty."), fills in the whole brief for that kind from your answer (one model call) and shows it in the conversation as an editable brief card: the working title, every question with its answer, and **Model it on** with the entries it will follow ticked. Anything only you know stays in `[square brackets]`; facts about your organisation are never made up. **Looks right, start writing** starts the writing; **Try again** fills it in again, keeping the answers you changed. The questions, **Just draft it with what you have**, the draft and changes work as before. Once agreed, the card folds away to **Show the brief** and stays editable (**Save the brief**). See [Writing a new entry](docs/writing.md#the-brief).
 - **Draft this** on the content plan skips the question: the brief card arrives already filled in from the idea. Pieces carried on, and shared conversations, show the card in the thread. Pieces started from the old brief screen still show their brief behind **Show the brief**.

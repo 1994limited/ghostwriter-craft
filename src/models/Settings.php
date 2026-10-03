@@ -14,19 +14,28 @@ use NineteenNinetyFour\Ghostwriter\Core\Gaps\OnPublish;
  * overrides whatever is saved there.
  *
  * API keys are never settings. They are read from the environment
- * (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY and the photo library
- * keys) each time they are needed, and never stored.
+ * (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY and
+ * the photo library keys) each time they are needed, and never stored. The
+ * one exception is a key from "Connect with OpenRouter", which is kept
+ * encrypted (DbProviderKeys) and loses to OPENROUTER_API_KEY when both are
+ * there.
  */
 class Settings extends Model
 {
-    /** The provider that writes: anthropic, openai or gemini. */
+    /** The provider that writes: anthropic, openai, gemini or openrouter. */
     public string $provider = 'anthropic';
 
     /** Leave null to use the provider's default model. */
     public ?string $model = null;
 
     /** The providers a base URL can be set for. */
-    public const BASE_URL_PROVIDERS = ['anthropic', 'openai', 'gemini'];
+    public const BASE_URL_PROVIDERS = ['anthropic', 'openai', 'gemini', 'openrouter'];
+
+    /** The providers that write. */
+    public const PROVIDERS = ['anthropic', 'openai', 'gemini', 'openrouter'];
+
+    /** The providers that make images. */
+    public const IMAGE_PROVIDERS = ['openai', 'gemini', 'openrouter'];
 
     /**
      * A gateway or proxy that speaks a provider's own API, per provider, in
@@ -36,7 +45,17 @@ class Settings extends Model
      *
      * @var array<string, string>
      */
-    public array $baseUrls = ['anthropic' => '', 'openai' => '', 'gemini' => ''];
+    public array $baseUrls = ['anthropic' => '', 'openai' => '', 'gemini' => '', 'openrouter' => ''];
+
+    /**
+     * With OpenRouter, the model for each tier of work, by OpenRouter model
+     * id ("anthropic/claude-opus-5.5"): `writing` for everything that
+     * writes, `quick` for the photo helpers and gap fixes. Blank for core's
+     * default. The Model setting, when set, still applies to every job.
+     *
+     * @var array<string, string>
+     */
+    public array $openrouterModels = ['writing' => '', 'quick' => ''];
 
     /** Seconds to wait for one response. Long drafts take a while. */
     public int $timeout = 300;
@@ -55,7 +74,7 @@ class Settings extends Model
      */
     public array $voiceSections = [];
 
-    /** openai or gemini; null uses whichever has an API key. Claude does not make images. */
+    /** openai, gemini or openrouter; null uses whichever has an API key. Claude does not make images. */
     public ?string $imageProvider = null;
 
     public ?string $imageModel = null;
@@ -205,8 +224,9 @@ class Settings extends Model
     protected function defineRules(): array
     {
         return [
-            [['provider'], 'in', 'range' => ['anthropic', 'openai', 'gemini']],
-            [['imageProvider'], 'in', 'range' => ['openai', 'gemini'], 'skipOnEmpty' => true],
+            [['provider'], 'in', 'range' => self::PROVIDERS],
+            [['imageProvider'], 'in', 'range' => self::IMAGE_PROVIDERS, 'skipOnEmpty' => true],
+            [['openrouterModels'], 'validateOpenrouterModels'],
             [['timeout'], 'integer', 'min' => 30, 'max' => 1800],
             [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions', 'stockUnusedDays'], 'integer', 'min' => 1],
             [['stockOnPublish'], 'in', 'range' => [self::STOCK_BLOCK, self::STOCK_WARN]],
@@ -326,7 +346,13 @@ class Settings extends Model
             'anthropic' => ['claude'],
             'openai' => ['gpt', 'chatgpt', 'o1', 'o3', 'o4', 'o5'],
             'gemini' => ['gemini', 'gemma'],
+            // OpenRouter names every model company/model.
+            'openrouter' => [],
         ];
+
+        if ($this->provider === 'openrouter') {
+            return str_contains($model, '/') ? null : \Craft::t('ghostwriter', '“{model}” does not look like an OpenRouter model. OpenRouter names them company/model, such as anthropic/claude-opus-5.5.', ['model' => $this->model]);
+        }
 
         foreach ($families[$this->provider] ?? [] as $prefix) {
             if (str_starts_with($model, $prefix)) {
@@ -334,12 +360,46 @@ class Settings extends Model
             }
         }
 
-        $names = ['anthropic' => 'Claude (Anthropic)', 'openai' => 'ChatGPT (OpenAI)', 'gemini' => 'Gemini (Google)'];
+        $names = self::providerNames();
 
         return \Craft::t('ghostwriter', '“{model}” does not look like a {provider} model. Check it matches the provider, or leave it blank for the default.', [
             'model' => $this->model,
             'provider' => $names[$this->provider] ?? $this->provider,
         ]);
+    }
+
+    /**
+     * The providers by name, as the settings and Get started show them.
+     *
+     * @return array<string, string>
+     */
+    public static function providerNames(): array
+    {
+        return ['anthropic' => 'Claude (Anthropic)', 'openai' => 'ChatGPT (OpenAI)', 'gemini' => 'Gemini (Google)', 'openrouter' => 'OpenRouter'];
+    }
+
+    /**
+     * An OpenRouter model id per tier: company/model, or blank.
+     */
+    public function validateOpenrouterModels(string $attribute): void
+    {
+        foreach ($this->openrouterModels as $tier => $model) {
+            if (!in_array($tier, ['writing', 'quick'], true)) {
+                $this->addError($attribute, \Craft::t('ghostwriter', 'Unknown tier “{tier}”.', ['tier' => $tier]));
+            } elseif ($model !== '' && !preg_match('#^[a-z0-9][a-z0-9._-]*/[a-zA-Z0-9][a-zA-Z0-9._:~-]*$#', $model)) {
+                $this->addError("$attribute.$tier", \Craft::t('ghostwriter', 'Use an OpenRouter model id, such as anthropic/claude-opus-5.5.'));
+            }
+        }
+    }
+
+    /**
+     * The OpenRouter model chosen for a tier, or null for core's default.
+     */
+    public function openrouterModel(string $tier): ?string
+    {
+        $model = trim((string) ($this->openrouterModels[$tier] ?? ''));
+
+        return $model === '' ? null : $model;
     }
 
     /**
@@ -373,6 +433,11 @@ class Settings extends Model
             foreach (self::BASE_URL_PROVIDERS as $provider) {
                 $values['baseUrls'][$provider] = is_string($given[$provider] ?? null) ? trim($given[$provider]) : '';
             }
+        }
+
+        if (array_key_exists('openrouterModels', $values)) {
+            $given = is_array($values['openrouterModels']) ? $values['openrouterModels'] : [];
+            $values['openrouterModels'] = ['writing' => is_string($given['writing'] ?? null) ? trim($given['writing']) : '', 'quick' => is_string($given['quick'] ?? null) ? trim($given['quick']) : ''];
         }
 
         // The settings form sends "1", "0" or an environment variable.

@@ -70,6 +70,7 @@ abstract class TestCase extends CraftTestCase
         $settings->sections = [];
         $settings->voiceSections = [];
         $settings->imageProvider = null;
+        $settings->openrouterModels = ['writing' => '', 'quick' => ''];
         $settings->sharedConversations = true;
         // The demo stock library is offered in dev mode, as tests run; off
         // unless a test is about stock photos.
@@ -90,6 +91,9 @@ abstract class TestCase extends CraftTestCase
         $providers->useSleeper($this->sleeper);
         $providers->keys = array_fill_keys(array_keys($providers::KEYS), null) + [];
         $providers->keys['anthropic'] = 'test-key';
+        // A connected key, if any, is kept in memory; Connect with OpenRouter is faked.
+        $providers->providerKeys = new \NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\InMemoryProviderKeys();
+        $providers->connection = null;
         $this->fake = $providers->fake();
     }
 

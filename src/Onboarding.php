@@ -297,7 +297,7 @@ class Onboarding extends Component
             return null;
         }
 
-        foreach (['anthropic', 'openai', 'gemini'] as $provider) {
+        foreach (\nineteenninetyfour\ghostwriter\models\Settings::PROVIDERS as $provider) {
             if ($provider !== $chosen && $plugin->providers->key($provider) !== null) {
                 return $this->providerName($provider);
             }
@@ -308,6 +308,6 @@ class Onboarding extends Component
 
     private function providerName(string $provider): string
     {
-        return ['anthropic' => 'Claude (Anthropic)', 'openai' => 'ChatGPT (OpenAI)', 'gemini' => 'Gemini (Google)'][$provider] ?? $provider;
+        return \nineteenninetyfour\ghostwriter\models\Settings::providerNames()[$provider] ?? $provider;
     }
 }

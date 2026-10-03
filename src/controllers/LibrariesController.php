@@ -108,10 +108,7 @@ class LibrariesController extends Controller
      */
     public static function callbackUrl(string $id): string
     {
-        $general = Craft::$app->getConfig()->getGeneral();
-        $base = $general->baseCpUrl ? rtrim((string) \craft\helpers\App::parseEnv($general->baseCpUrl), '/') : rtrim((string) Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), '/');
-
-        return $base . '/' . trim((string) $general->cpTrigger, '/') . "/ghostwriter/libraries/{$id}/callback";
+        return self::cpAddress("ghostwriter/libraries/{$id}/callback");
     }
 
     /**

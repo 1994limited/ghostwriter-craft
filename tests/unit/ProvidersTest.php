@@ -103,8 +103,8 @@ class ProvidersTest extends TestCase
         $settings->setAttributes(['baseUrls' => ['anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL']], false);
 
         try {
-            // Unknown and missing providers are tidied into the three known ones.
-            $this->assertSame(['anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL', 'openai' => '', 'gemini' => ''], $settings->baseUrls);
+            // Unknown and missing providers are tidied into the known ones.
+            $this->assertSame(['anthropic' => '$GHOSTWRITER_ANTHROPIC_BASE_URL', 'openai' => '', 'gemini' => '', 'openrouter' => ''], $settings->baseUrls);
             $this->assertSame('https://gateway.example.com/anthropic/', $settings->baseUrl('anthropic'));
             $this->assertNull($settings->baseUrl('openai'));
 

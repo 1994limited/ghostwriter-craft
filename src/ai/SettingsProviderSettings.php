@@ -2,6 +2,7 @@
 
 namespace nineteenninetyfour\ghostwriter\ai;
 
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\ModelTiers;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\ProviderSettings;
 use nineteenninetyfour\ghostwriter\models\Settings;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -10,7 +11,7 @@ use nineteenninetyfour\ghostwriter\Plugin;
  * The provider choices from the plugin's settings (and config/ghostwriter.php),
  * read each time so a change applies at once.
  */
-final class SettingsProviderSettings implements ProviderSettings
+final class SettingsProviderSettings implements ProviderSettings, ModelTiers
 {
     public function textProvider(): string
     {
@@ -45,6 +46,14 @@ final class SettingsProviderSettings implements ProviderSettings
     public function baseUrl(string $provider): ?string
     {
         return $this->settings()->baseUrl($provider);
+    }
+
+    /**
+     * With OpenRouter, the model chosen for a tier of work in the settings.
+     */
+    public function tierModel(string $provider, string $tier): ?string
+    {
+        return $provider === 'openrouter' ? $this->settings()->openrouterModel($tier) : null;
     }
 
     public function anthropicFallbacks(): bool

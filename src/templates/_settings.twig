@@ -13,6 +13,11 @@
     {{- 'Set by `{setting}` in config/ghostwriter.php, which wins over this screen.'|t('ghostwriter', {setting: setting})|md(inlineOnly=true) -}}
 {%- endmacro %}
 
+{% set providerNames = providerNames ?? {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)', openrouter: 'OpenRouter'} %}
+{% set openrouter = openrouter ?? {source: null, masked: null, connectUrl: cpUrl('ghostwriter/providers/openrouter/connect')} %}
+{% set openrouterTiers = openrouterTiers ?? {writing: '', quick: ''} %}
+{% set openrouterChoices = openrouterChoices ?? {} %}
+{% set canManage = canManage ?? false %}
 {% set stock = stock ?? {free: [], paid: [], sources: [{label: 'Free libraries'|t('ghostwriter'), value: 'free'}]} %}
 
 {% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
@@ -75,12 +80,13 @@
 
 <hr>
 
-<h2>{{ 'AI provider'|t('ghostwriter') }}</h2>
+<h2 id="ai-provider">{{ 'AI provider'|t('ghostwriter') }}</h2>
 
 {{ forms.selectField({
     label: 'Provider'|t('ghostwriter'),
+    instructions: 'OpenRouter gives Claude, GPT or Gemini through one account, paid for with OpenRouter credit.'|t('ghostwriter'),
     name: 'provider',
-    options: {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
+    options: providerNames,
     value: settings.provider,
     warning: 'provider' in overrides ? _self.overridden('provider', overrides) : null,
     disabled: 'provider' in overrides,
@@ -96,10 +102,60 @@
     disabled: 'model' in overrides,
 }) }}
 
+{# Connect with OpenRouter, per core's docs/connecting-accounts.md. #}
+<div class="field gw-openrouter" id="openrouter">
+    <div class="heading"><label id="gw-openrouter-label">OpenRouter</label></div>
+    <div class="input" role="group" aria-labelledby="gw-openrouter-label">
+        {% if openrouter.source == 'env' %}
+            <p><span class="status green" aria-hidden="true"></span>{{ 'Using OPENROUTER_API_KEY from .env'|t('ghostwriter') }}</p>
+        {% elseif openrouter.source == 'connected' %}
+            <p><span class="status green" aria-hidden="true"></span>{{ 'Connected to OpenRouter ({key})'|t('ghostwriter', {key: openrouter.masked}) }}</p>
+        {% else %}
+            <p><span class="status" aria-hidden="true"></span>{{ 'Not connected'|t('ghostwriter') }}</p>
+            <p class="light">{{ 'Sign in to OpenRouter to use Claude, GPT or Gemini with one account, paid for with OpenRouter credit.'|t('ghostwriter') }}</p>
+        {% endif %}
+        <div class="flex">
+            {% if openrouter.source is null %}
+                {% if canManage %}<a class="btn submit" href="{{ openrouter.connectUrl }}">{{ 'Connect with OpenRouter'|t('ghostwriter') }}</a>{% endif %}
+            {% else %}
+                <button type="button" class="btn gw-openrouter-check">{{ 'Check connection'|t('ghostwriter') }}</button>
+                {% if openrouter.source == 'connected' and canManage %}
+                    <button type="button" class="btn gw-openrouter-disconnect">{{ 'Disconnect'|t('ghostwriter') }}</button>
+                {% endif %}
+            {% endif %}
+        </div>
+        <div class="gw-openrouter-result light smalltext" aria-live="polite"></div>
+        {% if openrouter.source == 'connected' %}
+            <p class="light smalltext">{{ 'Disconnect only forgets the key here. To revoke it, delete the key at openrouter.ai/settings/keys.'|t('ghostwriter') }}</p>
+        {% endif %}
+        {% if settings.provider == 'openrouter' or settings.imageProvider == 'openrouter' %}
+            <p class="notice with-icon">{{ 'Requests, including images, pass through OpenRouter on their way to the model’s company.'|t('ghostwriter') }}</p>
+        {% endif %}
+    </div>
+</div>
+
+{% for tier, label in {writing: 'OpenRouter model for writing'|t('ghostwriter'), quick: 'OpenRouter model for quick jobs'|t('ghostwriter')} %}
+    {{ forms.selectField({
+        label: label,
+        instructions: tier == 'writing'
+            ? 'With OpenRouter: the brief, the drafts, the guides and the plan. The Model setting above, when set, wins.'|t('ghostwriter')
+            : 'With OpenRouter: finding and choosing photos, and quick fixes in Finish this page.'|t('ghostwriter'),
+        id: 'openrouterModels-' ~ tier,
+        name: 'openrouterModels[' ~ tier ~ ']',
+        options: [{label: 'Default ({model})'|t('ghostwriter', {model: openrouterTiers[tier]}), value: ''}]
+            |merge(openrouterChoices|map((name, id) => {label: name, value: id})|values)
+            |merge((settings.openrouterModels[tier] ?? '') is not empty and (settings.openrouterModels[tier]) not in openrouterChoices|keys ? [{label: settings.openrouterModels[tier], value: settings.openrouterModels[tier]}] : []),
+        value: settings.openrouterModels[tier] ?? '',
+        errors: settings.getErrors('openrouterModels.' ~ tier),
+        warning: 'openrouterModels' in overrides ? _self.overridden('openrouterModels', overrides) : null,
+        disabled: 'openrouterModels' in overrides,
+    }) }}
+{% endfor %}
+
 <h3>{{ 'Gateways and proxies'|t('ghostwriter') }}</h3>
 <p class="light">{{ 'Only if you send requests through a gateway or proxy that speaks the provider’s own API. Leave blank to call each provider at its own address. It must be an https:// address; http:// is allowed only for localhost.'|t('ghostwriter') }}</p>
 
-{% for handle, label in {anthropic: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'} %}
+{% for handle, label in providerNames %}
     {{ forms.autosuggestField({
         label: '{provider} base URL'|t('ghostwriter', {provider: label}),
         instructions: 'An address, or an environment variable such as `${name}`.'|t('ghostwriter', {name: 'GHOSTWRITER_' ~ handle|upper ~ '_BASE_URL'}),
@@ -117,13 +173,13 @@
 <hr>
 
 <h2>{{ 'Images'|t('ghostwriter') }}</h2>
-<p class="light">{{ 'Images are made by ChatGPT or Gemini; Claude cannot make them. Each image is modelled on the ones already used in the same field on your other entries. Without a key, free photographs can still be searched for: Openverse needs no key, and Unsplash, Pixabay and Pexels keys add those libraries.'|t('ghostwriter') }}</p>
+<p class="light">{{ 'Images are made by ChatGPT or Gemini, directly or through OpenRouter; Claude cannot make them. Each image is modelled on the ones already used in the same field on your other entries. Without a key, free photographs can still be searched for: Openverse needs no key, and Unsplash, Pixabay and Pexels keys add those libraries.'|t('ghostwriter') }}</p>
 
 {{ forms.selectField({
     label: 'Image provider'|t('ghostwriter'),
     instructions: 'Leave on “Whichever has a key” unless both do.'|t('ghostwriter'),
     name: 'imageProvider',
-    options: {'': 'Whichever has a key'|t('ghostwriter'), openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)'},
+    options: {'': 'Whichever has a key'|t('ghostwriter'), openai: 'ChatGPT (OpenAI)', gemini: 'Gemini (Google)', openrouter: 'OpenRouter'},
     value: settings.imageProvider ?? '',
     warning: 'imageProvider' in overrides ? _self.overridden('imageProvider', overrides) : null,
     disabled: 'imageProvider' in overrides,
@@ -310,6 +366,41 @@
 
 {% js %}
 (function () {
+    // Connect with OpenRouter: Check connection and Disconnect.
+    const openrouter = document.querySelector('.gw-openrouter');
+
+    openrouter?.querySelector('.gw-openrouter-check')?.addEventListener('click', async function (event) {
+        const button = event.currentTarget;
+        const result = openrouter.querySelector('.gw-openrouter-result');
+        button.classList.add('loading');
+        result.textContent = '';
+
+        try {
+            const response = await Craft.sendActionRequest('POST', 'ghostwriter/providers/check', { params: { id: 'openrouter' } });
+            result.textContent = response.data.message;
+            result.classList.toggle('error', Boolean(response.data.exhausted));
+        } catch (error) {
+            result.textContent = error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.');
+            result.classList.add('error');
+        } finally {
+            button.classList.remove('loading');
+        }
+    });
+
+    openrouter?.querySelector('.gw-openrouter-disconnect')?.addEventListener('click', async function (event) {
+        const button = event.currentTarget;
+        button.classList.add('loading');
+
+        try {
+            const response = await Craft.sendActionRequest('POST', 'ghostwriter/providers/disconnect', { params: { id: 'openrouter' } });
+            Craft.cp.displayNotice(response.data.message);
+            window.location.reload();
+        } catch (error) {
+            Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
+            button.classList.remove('loading');
+        }
+    });
+
     document.querySelectorAll('.gw-stock-disconnect').forEach(function (button) {
         button.addEventListener('click', async function () {
             button.classList.add('loading');

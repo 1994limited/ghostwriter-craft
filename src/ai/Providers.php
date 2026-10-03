@@ -5,7 +5,11 @@ namespace nineteenninetyfour\ghostwriter\ai;
 use GuzzleHttp\HandlerStack;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\Sleeper;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\ConnectedCredentials;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\ConnectsProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\OpenRouterConnection;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\Credentials;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\ProviderKeys;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers as Registry;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\TextProvider;
@@ -37,9 +41,17 @@ class Providers extends Component
     /** A Guzzle handler to send every request through, in place of the network. */
     public ?HandlerStack $handler = null;
 
+    /** Where a connected provider's key is kept; the site's encrypted store unless set. For tests. */
+    public ?ProviderKeys $providerKeys = null;
+
+    /** "Connect with OpenRouter"; core's OpenRouterConnection unless set (tests use FakeOpenRouter). */
+    public ?ConnectsProvider $connection = null;
+
     private ?Registry $registry = null;
 
     private ?Credentials $credentials = null;
+
+    private ?Credentials $environment = null;
 
     private ?CraftHttpClients $httpClients = null;
 
@@ -139,8 +151,77 @@ class Providers extends Component
         return $this->httpClients ??= new CraftHttpClients(fn() => $this->handler ? ['handler' => $this->handler] : []);
     }
 
+    /**
+     * The keys to write with: the environment's first (.env always wins),
+     * then a key connected with "Connect with OpenRouter".
+     */
     public function credentials(): Credentials
     {
-        return $this->credentials ??= new EnvironmentCredentials(fn() => $this->keys);
+        return $this->credentials ??= new ConnectedCredentials($this->environment(), new class($this) implements ProviderKeys {
+            public function __construct(private readonly Providers $providers)
+            {
+            }
+
+            public function get(string $provider): ?string
+            {
+                return $this->providers->providerKeys()->get($provider);
+            }
+
+            public function put(string $provider, #[\SensitiveParameter] string $key): void
+            {
+                $this->providers->providerKeys()->put($provider, $key);
+            }
+
+            public function forget(string $provider): void
+            {
+                $this->providers->providerKeys()->forget($provider);
+            }
+        });
+    }
+
+    /**
+     * The environment's keys alone.
+     */
+    public function environment(): Credentials
+    {
+        return $this->environment ??= new EnvironmentCredentials(fn() => $this->keys);
+    }
+
+    public function providerKeys(): ProviderKeys
+    {
+        return $this->providerKeys ?? Plugin::getInstance()->providerKeys;
+    }
+
+    /**
+     * Where a key in use for a provider comes from: 'env', 'connected', or null.
+     */
+    public function source(string $provider): ?string
+    {
+        $credentials = $this->credentials();
+
+        return $credentials instanceof ConnectedCredentials ? $credentials->source($provider) : ($this->key($provider) !== null ? 'env' : null);
+    }
+
+    /**
+     * "Connect with OpenRouter", per core's docs/connecting-accounts.md.
+     */
+    public function connection(): ConnectsProvider
+    {
+        if ($this->connection !== null) {
+            return $this->connection;
+        }
+
+        $settings = Plugin::getInstance()->getSettings();
+        $host = parse_url((string) \Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), PHP_URL_HOST) ?: 'Craft';
+
+        return new OpenRouterConnection(
+            $this->environment(),
+            $this->providerKeys(),
+            $this->httpClients(),
+            keyLabel: 'Ghostwriter (' . $host . ')',
+            timeout: min(60, $settings->timeout),
+            baseUrl: $settings->baseUrl('openrouter'),
+            logger: new CraftLogger(),
+        );
     }
 }

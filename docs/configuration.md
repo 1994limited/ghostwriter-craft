@@ -23,15 +23,17 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 
 | Setting | What it does |
 | --- | --- |
-| **Provider** | Claude (Anthropic), ChatGPT (OpenAI) or Gemini (Google), for writing. |
+| **Provider** | Claude (Anthropic), ChatGPT (OpenAI), Gemini (Google) or OpenRouter, for writing. |
 | **Model** | Leave blank for the provider's default, shown as the placeholder. A model name that doesn't look like the chosen provider's (a `gpt-…` model with Claude, say) gets a warning; it is still saved. |
-| **Claude (Anthropic) base URL**, **ChatGPT (OpenAI) base URL**, **Gemini (Google) base URL** | Under **Gateways and proxies**: a gateway to call instead of the provider. Leave blank for the provider itself. See [Gateways and proxies](api-keys.md#gateways-and-proxies). |
+| **OpenRouter** | **Connect with OpenRouter** (admins), **Check connection** and **Disconnect**. Says "Using OPENROUTER_API_KEY from .env" when that is set; it always wins. See [OpenRouter](api-keys.md#openrouter). |
+| **OpenRouter model for writing**, **OpenRouter model for quick jobs** | With OpenRouter, the model for each tier of work. **Default** uses Claude Opus for writing and Claude Sonnet for quick jobs. |
+| **Claude (Anthropic) base URL**, **ChatGPT (OpenAI) base URL**, **Gemini (Google) base URL**, **OpenRouter base URL** | Under **Gateways and proxies**: a gateway to call instead of the provider. Leave blank for the provider itself. See [Gateways and proxies](api-keys.md#gateways-and-proxies). |
 
 **Images**
 
 | Setting | What it does |
 | --- | --- |
-| **Image provider** | ChatGPT (OpenAI) or Gemini (Google), for making images. **Whichever has a key** uses OpenAI if its key is set, then Gemini. |
+| **Image provider** | ChatGPT (OpenAI), Gemini (Google) or OpenRouter, for making images. **Whichever has a key** uses OpenAI if its key is set, then Gemini, then OpenRouter. |
 | **Image model** | Leave blank for the provider's default. |
 | **Mark images still to choose** | Striped placeholders in empty image fields on new entries. See [Placeholders](images.md#placeholders). |
 
@@ -94,13 +96,14 @@ return [
 
 | Key | Default | |
 | --- | --- | --- |
-| `provider` | `anthropic` | `anthropic`, `openai` or `gemini` |
+| `provider` | `anthropic` | `anthropic`, `openai`, `gemini` or `openrouter` |
 | `model` | provider's default | `claude-opus-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash` |
-| `baseUrls` | all blank | A gateway per provider: `anthropic`, `openai`, `gemini`. An address or an environment variable. See [Gateways and proxies](api-keys.md#gateways-and-proxies) |
+| `baseUrls` | all blank | A gateway per provider: `anthropic`, `openai`, `gemini`, `openrouter`. An address or an environment variable. See [Gateways and proxies](api-keys.md#gateways-and-proxies) |
 | `timeout` | `300` | Seconds to wait for one response (30–1800). See [The time limit](#the-time-limit) |
 | `sections` | `[]` (all) | Section handles to write for |
 | `voiceSections` | `[]` (all) | Section handles read for the voice guide |
-| `imageProvider` | `null` | `openai` or `gemini`; `null` uses whichever has a key |
+| `imageProvider` | `null` | `openai`, `gemini` or `openrouter`; `null` uses whichever has a key |
+| `openrouterModels` | both blank | With OpenRouter, `['writing' => '…', 'quick' => '…']` by OpenRouter model id, such as `anthropic/claude-opus-5.5`; blank for the default |
 | `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
