@@ -1,12 +1,8 @@
-**Ghostwriter learns how your site writes, then drafts new entries and edits existing ones in that voice, right beside the entry form.**
+**Ghostwriter writes new entries in your site's voice and builds them into your own page layouts: the right blocks, in the right order, with your house style. It edits existing entries the same way, right beside the entry form.**
 
-Give it a short brief. It asks for anything it still needs, writes the draft, and puts it into the entry for you to check and save. Nothing is ever published for you.
+Tell it what you're writing in a line or two. It fills in the brief, asks for anything only you know, writes the draft and puts it into the entry for you to check and save. Nothing is ever published for you.
 
-It runs on Claude, ChatGPT or Gemini with your own API key, and works with whatever your sections already use: plain fields, CKEditor or Redactor, Tables, and Matrix or Neo page builders.
-
-## Your voice, written down
-
-Ghostwriter reads a sample of your published entries and writes a **voice guide**: who is talking and to whom, how pieces are shaped, the words you use and the ones you never do, with real examples from your site. Edit it by hand, or ask for changes in plain words: "We never say solutions."
+It runs on Claude, ChatGPT or Gemini with your own API key, or connect an OpenRouter account in one click instead. It works with whatever your sections already use: plain fields, CKEditor or Redactor, Tables, and Matrix or Neo page builders.
 
 ## Drafts that fit the page
 
@@ -18,6 +14,14 @@ Ghostwriter reads each section's field layout and the entries already in it, and
 - Image fields a page usually fills get a striped placeholder, so you can see where pictures go
 
 The writer only writes words. Everything else comes from your own pages, so a draft looks like it belongs.
+
+## The brief, in the conversation
+
+Choose what you're writing, and Ghostwriter asks: "What's it called, and what should it say?" From your reply it fills in the whole brief for that kind of content, as a card you can edit: every question answered, and the entries to model it on ticked. Anything it can't know stays in [square brackets] for you. **Looks right, start writing**, or **Try again**.
+
+## Your voice, written down
+
+Ghostwriter reads a sample of your published entries and writes a **voice guide**: who is talking and to whom, how pieces are shaped, the words you use and the ones you never do, with real examples from your site. Edit it by hand, or ask for changes in plain words: "We never say solutions."
 
 ## Kinds of content
 
@@ -43,11 +47,11 @@ An **image style guide** describes what your pictures look like, section by sect
 Search **Shutterstock (API plan required)** from the same dialog as the free libraries. Getty Images and iStock are coming. A demo library shows the whole flow on a test site, without an account or any charge.
 
 - **See it on the page first.** Insert a watermarked preview where the photo will go. Only signed-in editors see it, in the control panel and in Live Preview, in place; everyone else sees a striped stand-in.
-- **License & replace** buys the photo once, through your own connected account, and swaps the full image into the same asset. Every entry using it shows the licensed photo, and its alt text and focal point stay as they were. The file is kept exactly as the library sent it, embedded credit and all, and only a real JPEG, PNG or WebP image is put in place.
+- **License & replace** buys the photo once, through your own connected account, and swaps the full image into the same asset. Every entry using it shows the licensed photo, and its alt text and focal point stay as they were.
 - **No preview goes live.** An entry can't be published while it holds one. Prefer a warning? Choose that in the settings.
 - **Every licence on record.** The **Stock images** screen lists every stock photo on the site: where it's used, who licensed it and when, and the credit line to show. Download a licence record, or export the lot as CSV.
 
-Licensing has its own permission, so only the people you choose can buy photos. Anyone else can send a **Request licence**. A paid library's results come in its own order: they're never shown to a model to rank.
+Licensing has its own permission, so only the people you choose can buy photos. Anyone else can send a **Request licence**.
 
 ## Finish this page
 
@@ -57,7 +61,7 @@ Every gap is highlighted in the entry form, and a guide with the Ghostwriter mar
 
 ## Know what to write next
 
-The **content plan** reads what each section has and what it lacks, and suggests what's missing. Turn any idea into a new entry in one click.
+The **content plan** reads what each section has and what it lacks, and suggests what's missing. **Draft this** opens a new entry with the brief already filled in from the idea.
 
 ## Written together
 
@@ -80,7 +84,7 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 
 - Craft CMS 5.8 or later
 - PHP 8.2 or later
-- An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
+- An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini), or an OpenRouter account. Usage is billed to your own account by that provider.
 - Optional: an OpenAI or Gemini key to make images
 - Optional: the Imagick PHP extension, to send smaller copies of images to the model
 - Optional: a Shutterstock API plan, to license stock photos (a shutterstock.com web plan can't license through the API)
