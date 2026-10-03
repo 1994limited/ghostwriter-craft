@@ -29,7 +29,7 @@
     const REDUCED = '(prefers-reduced-motion: reduce)';
     const FLIGHT = 900;
     const ANSWER_KINDS = ['ask'];
-    const INLINE_KINDS = ['ask', 'link', 'link-broken', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
+    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
 
     /** A regular expression from core's patterns.json entry. */
     const pattern = (entry) => (entry ? new RegExp(entry.source, entry.flags.includes('g') ? entry.flags : entry.flags + 'g') : null);
@@ -257,6 +257,8 @@
             this.dismissed = this.loadDismissed();
             this.patterns = {
                 ask: pattern(config.patterns?.ask),
+                // A count Ghostwriter worked out, to confirm: [[check: 3 areas | from: …]].
+                check: pattern(config.patterns?.check),
                 leftover: pattern(config.patterns?.leftover),
                 placeholder: Object.values(config.patterns?.placeholderText ?? {}).map(pattern),
             };
@@ -771,6 +773,19 @@
                     return;
                 }
 
+                // "Change it": the count in a box to correct, put in on Enter.
+                if (fix.action === 'change') {
+                    const $change = $(`<button type="button" class="btn small${fix.primary ? ' submit' : ''}" aria-expanded="false">${esc(fix.label)}</button>`);
+
+                    $change.on('click', () => {
+                        $change.attr('aria-expanded', 'true');
+                        this.renderAnswer(gap, $answer.removeClass('hidden'), fix.value ?? gap.hint ?? '');
+                    });
+                    $fixes.append($change);
+
+                    return;
+                }
+
                 const cost = fix.cost === 'model' ? ` <span class="gw-finish-fix__cost">${esc(t('uses Ghostwriter'))}</span>` : '';
                 const $button = $(`<button type="button" class="btn small${fix.primary ? ' submit' : ''}">${fix.primary ? '<span class="gw-mark" aria-hidden="true"></span>' : ''}${esc(fix.label)}${cost}</button>`);
 
@@ -846,7 +861,7 @@
          * A fact to add: a box to type it into. Always editable; Enter, or
          * leaving the box, puts it in the field; Esc puts it back (C1).
          */
-        renderAnswer(gap, $answer) {
+        renderAnswer(gap, $answer, value = null) {
             const id = `gw-finish-answer-${Date.now()}`;
 
             $answer.html(`
@@ -859,6 +874,12 @@
             const $input = $answer.find('input');
             const $go = $answer.find('.gw-finish-answer__go');
             let put = false;
+
+            // Changing a count: the count as it stands, ready to correct.
+            if (value !== null) {
+                $input.attr('aria-label', t('What should it say instead?')).val(value);
+                setTimeout(() => $input.trigger('focus').trigger('select'));
+            }
 
             const commit = async () => {
                 const text = $input.val().trim();
@@ -1515,7 +1536,7 @@
                 let match;
 
                 while ((match = regex.exec(text)) !== null) {
-                    if (gap.kind === 'ask' && gap.hint && this.normalise(match[1]) !== this.normalise(gap.hint)) continue;
+                    if ((gap.kind === 'ask' || gap.kind === 'check') && gap.hint && this.normalise(match[1]) !== this.normalise(gap.hint)) continue;
                     if (gap.kind === 'leftover-token' && gap.hint && match[0] !== gap.hint && match[1] !== gap.hint) continue;
                     if (gap.kind === 'placeholder-text' && gap.hint && match[0] !== gap.hint) continue;
 
@@ -1538,6 +1559,7 @@
 
         regexFor(gap) {
             if (gap.kind === 'ask') return this.patterns.ask;
+            if (gap.kind === 'check') return this.patterns.check;
             if (gap.kind === 'leftover-token') return this.patterns.leftover;
 
             if (gap.kind === 'placeholder-text') {
@@ -1632,6 +1654,15 @@
                     if (await this.replaceMarker(gap, '')) this.fixed(gap);
 
                     return;
+                // "Looks right" (or "Use “4 areas”"): the count as the page will say it.
+                case 'confirm':
+                    if (await this.replaceMarker(gap, String(fix.value ?? gap.hint ?? ''))) {
+                        this.fixed(gap);
+                    } else {
+                        Craft.cp.displayError(t('Ghostwriter couldn’t find that gap in the field any more.'));
+                    }
+
+                    return;
                 case 'dismiss':
                     this.dismissed.push(gap.id);
                     this.saveDismissed();
@@ -1689,7 +1720,7 @@
             let match;
 
             while ((match = regex.exec(value)) !== null) {
-                const same = gap.kind === 'ask' ? !gap.hint || this.normalise(match[1]) === this.normalise(gap.hint) : !gap.hint || match[0] === gap.hint || match[1] === gap.hint;
+                const same = gap.kind === 'ask' || gap.kind === 'check' ? !gap.hint || this.normalise(match[1]) === this.normalise(gap.hint) : !gap.hint || match[0] === gap.hint || match[1] === gap.hint;
 
                 if (same) {
                     if (n === (gap.occurrence ?? 0)) return { index: match.index, length: match[0].length };

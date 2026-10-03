@@ -7,6 +7,8 @@ use craft\base\Component;
 use craft\elements\Entry;
 use craft\elements\User;
 use craft\fields\Link;
+use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\ExtraSources;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\BlockRef;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Detectors\UnlicensedStock;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\FieldPath;
@@ -147,7 +149,24 @@ class Gaps extends Component
             stock: $plugin->stockUsages->ledgerIsEmpty() ? null : $plugin->domain->stock(),
             pattern: $rates ? $this->rates($entry, $schema) : null,
             session: $this->sessionGaps($entry),
+            // What a count to check was counted from: the person's
+            // messages and answers, and the draft. A count whose list has
+            // changed since says so.
+            sources: $this->sources($entry),
         );
+    }
+
+    /**
+     * The texts the counts in this entry may have been counted from, from
+     * the piece that wrote it; none when Ghostwriter didn't.
+     *
+     * @return list<string>
+     */
+    public function sources(Entry $entry): array
+    {
+        $session = $this->session($entry);
+
+        return $session === null ? [] : ExtraSources::fromSession($session)->all();
     }
 
     public static function links(): CraftLinks
@@ -169,6 +188,24 @@ class Gaps extends Component
         }
 
         return new SessionGaps();
+    }
+
+    /**
+     * The piece that last put a draft into this entry (or is writing one
+     * for it), the most recently changed first.
+     */
+    private function session(Entry $entry): ?Session
+    {
+        $id = (int) ($entry->getCanonicalId() ?? $entry->id);
+        $sessions = Plugin::getInstance()->sessions->forElement($id);
+
+        foreach ($sessions as $session) {
+            if ($session->appliedAt !== null) {
+                return $session;
+            }
+        }
+
+        return $sessions[0] ?? null;
     }
 
     /**

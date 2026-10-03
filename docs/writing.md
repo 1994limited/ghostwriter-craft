@@ -154,7 +154,7 @@ They're at the foot of the **Text** tab: "Prepared with the draft, only from wha
 
 - Each extra says whether the chosen layout uses it (**Used in Sections apart**), and each item where it came from: *from your brief*, *from your answer · question 2*, *from the draft*, *from* one of your pages (linked), or *your words* once you've changed it.
 - **Nothing is made up.** An item whose facts aren't in what you gave Ghostwriter is dropped. One waiting on a fact only you know says **Needs your answer**.
-- **A count it worked out** ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, not the model, and says **Counted from your brief: “…”** and **Needs review**. It's a step in [Finish this page](finish-this-page.md) before the page can go live.
+- **A count it worked out** ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, not the model, and says **Counted from your brief: “…”** and **Needs review**. It's a step in [Finish this page](finish-this-page.md#counts-to-check) before the page can go live.
 - **Click an item to change it.** It's saved when you leave it.
 - **✕** deletes an extra (or one item of it). A layout that used it is arranged again without it.
 

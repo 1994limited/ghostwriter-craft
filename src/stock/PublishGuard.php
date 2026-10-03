@@ -86,10 +86,16 @@ class PublishGuard
      * for its site, saved in the live scenario (Save), or updated from a
      * draft (applying a draft, which Craft saves through duplicateElement()
      * in the essentials scenario, so it is told by `updatingFromDerivative`).
+     * Also a draft about to be applied: Craft saves it in the live scenario
+     * first, with `applyingDraft` (Craft 5.9+), and its errors stop it. That
+     * is how a new entry goes live ("Create entry" on its unpublished
+     * draft), where nothing else is saved in the live scenario.
      */
     public static function goesLive(Entry $entry): bool
     {
-        return !ElementHelper::isDraftOrRevision($entry)
+        $applying = property_exists($entry, 'applyingDraft') && $entry->applyingDraft && $entry->getIsDraft();
+
+        return (!ElementHelper::isDraftOrRevision($entry) || $applying)
             && !$entry->propagating
             && ($entry->getScenario() === Element::SCENARIO_LIVE || $entry->updatingFromDerivative)
             && $entry->enabled

@@ -4,6 +4,7 @@ Some things in an entry only a person can finish. Ghostwriter finds them, and it
 
 - **Facts to add.** Ghostwriter never invents a price, a date, a duration, a name or a quote. Where a draft needs one it doesn't have, it marks the place: `Tickets cost [[ask: adult ticket price]] for adults.`
 - **Links to choose.** A link whose page Ghostwriter doesn't know keeps its words, and points at `#gw-link:` with a hint: `[Talk to us](#gw-link:contact-page)`. A Link or Hyper field it can't settle holds `https://example.com/#gw-link:<hint>` with the text "Link to choose".
+- **Counts to check.** A number Ghostwriter worked out from a list you gave it ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, never the model, and marked for you to confirm: `Gardens across [[check: 3 counties | from: Northumberland, Durham and Cumbria]]`. See [Counts to check](#counts-to-check).
 - **Images to choose.** The striped placeholder in an image field, and a stock photo preview not licensed yet.
 
 It also notices links to entries that have been deleted, template text such as `[[item]]` left in a sentence, required fields left empty, and placeholder words such as "TBC".
@@ -22,6 +23,7 @@ On an entry with something that stops publishing, a count sits beside **Save**: 
   | What | Fixes |
   | --- | --- |
   | A fact to add | A box to type it into: **Enter**, or leaving the box, puts it in the field in place of the marker; **Esc** leaves it. **Write around it** rewrites the sentence without the fact. Ghostwriter never suggests the fact itself. |
+  | A count to check | **Looks right** (the count goes in as the page will say it), **Change it** (a box with the count, to correct), or **Remove it**. When the list has changed since, **Use “4 counties”** first |
   | A link to choose | **Link to Contact** where an entry's title or slug matches the hint, **Choose an entry** (Craft's own picker), or **Remove the link** (the words stay) |
   | An image placeholder | **Find a photo** (Ghostwriter's image dialog for that field), **Choose from Assets** (the field's own picker, replacing the placeholder), or **Leave it empty** when the field isn't required |
   | A stock photo preview | **License**, through the stock photos' own License & replace dialog, which shows what it costs; **Request licence** without the permission; **Choose another** |
@@ -59,6 +61,7 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | --- | --- | --- |
 | A fact to add | `[[ask: …]]` in any text | Yes |
 | A fact for a number or date field | The draft asked for it, and the field is still empty | Yes, if the field is required |
+| A count to check | `[[check: 3 counties \| from: …]]` in any text | Yes |
 | A link to choose | A link to `#gw-link:…`, or a Link or Hyper field holding `https://example.com/#gw-link:…` | Yes |
 | A link to a deleted entry | Its `{entry:…}` reference points at nothing | Yes |
 | An image placeholder | The striped `ghostwriter-image-placeholder.png` in an image field, or inline in CKEditor | Yes |
@@ -70,6 +73,19 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 
 In sections Ghostwriter doesn't write for, only stock photo previews are looked for.
 
+### Counts to check
+
+When the writer prepares an extra such as "Gardens across 3 counties" from a list in your brief, answers or the draft, Ghostwriter counts the list itself: commas with a final "and" or "or", or bullet points. Open lists ("such as", "etc."), ranges and prose are never counted. Whatever number the model proposed, the one that goes in is Ghostwriter's, marked to check: the extras list in the writing panel shows it as **Counted from your brief: “…”** and **Needs review**.
+
+The step says "I counted 3 counties from “Northumberland, Durham and Cumbria”. Is that right?", with the mark saying "Check me".
+
+- **Looks right** puts the count in as the page will say it ("Gardens across 3 counties").
+- **Change it** opens a box with the count in it; **Enter**, or leaving the box, puts your words in.
+- **Remove it** takes the count out.
+- **If the list has changed since** (you changed your answer, or the draft), the step says so: "…but that list has changed since. It now has 4. Use “4 counties” instead?", with **Use “4 counties”** first. If the list isn't in what you gave Ghostwriter any more, it asks whether the count is still right, with **Change it** first. A count edited by hand so it no longer matches its list is offered back as the list's count.
+
+Like a fact to add, a count to check stops the page going live until it's resolved.
+
 ## Publishing
 
 While anything that stops publishing is left, saving the live entry is refused, with a message on each field:
@@ -78,11 +94,11 @@ While anything that stops publishing is left, saving the live entry is refused, 
 
 Inside a Matrix or Neo block, the message names the block and field: "Hero: Intro: Add adult ticket price before publishing."
 
-- Applying a draft to a live entry is checked the same way.
+- Applying a draft to a live entry is checked the same way, and so is **Create entry** on a new one (Craft 5.9 and later), with the messages on the draft's fields.
 - **Drafts always save**, provisional drafts included, and so does a disabled entry. New entries Ghostwriter writes start disabled (see [Use this draft](writing.md#use-this-draft)).
 - Ghostwriter never takes a marker out for you. Removing `[[ask: …]]` from "Tickets cost [[ask: adult ticket price]] for adults." would leave "Tickets cost for adults."
 
-To publish anyway and be told what's left, set **Settings → Ghostwriter → Finish this page → When a page with things to finish is published** to **Warn** (`onUnfinishedPublish` = `warn`). The entry saves with one notice listing everything. Anything still marked goes live as it is: a `[[ask: …]]` shows as written, and a `#gw-link:` link goes nowhere.
+To publish anyway and be told what's left, set **Settings → Ghostwriter → Finish this page → When a page with things to finish is published** to **Warn** (`onUnfinishedPublish` = `warn`). The entry saves with one notice listing everything. Anything still marked goes live as it is: a `[[ask: …]]` or `[[check: …]]` shows as written, and a `#gw-link:` link goes nowhere.
 
 The older `stockOnPublish` setting is still read when `onUnfinishedPublish` isn't set.
 
