@@ -134,10 +134,11 @@ class Domain extends Component
 
     /**
      * @param array<string, float> $rates How often each field is filled, from the layout pattern.
+     * @param bool $readOnly Only placeholders already saved (the preview writes nothing).
      */
-    public function placeholders(array $rates = []): Placeholders
+    public function placeholders(array $rates = [], bool $readOnly = false): Placeholders
     {
-        return new Placeholders(new VolumeAssetSink(), $rates);
+        return new Placeholders(new VolumeAssetSink($readOnly), $rates);
     }
 
     /**

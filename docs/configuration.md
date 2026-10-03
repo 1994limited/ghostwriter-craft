@@ -119,6 +119,8 @@ return [
 | `suggestKindsAutomatically` | `true` | Suggest kinds when Get started's kinds step opens |
 | `draftsUnpublished` | `true` | A new entry Ghostwriter writes starts with **Enabled** off; existing entries are never changed |
 | `sharedConversations` | `true` | Share conversations with everyone who may use Ghostwriter; `false` keeps each to the person who started it |
+| `preview` | `true` | The **Preview** tab: the draft rendered by the section's own template, nothing saved. See [The draft](writing.md#preview) |
+| `previewScriptHosts` | `[]` | Hosts whose scripts may run in the Preview tab besides the site's own, such as a CDN: `['https://cdn.example.com']`. Other third-party scripts are blocked there |
 | `voiceMaxEntries` | `24` | Entries read for the voice guide |
 | `voiceMaxCharsPerEntry` | `6000` | Characters read from each |
 | `voiceMaxChars` | `90000` | Characters read in all |

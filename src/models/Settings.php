@@ -194,6 +194,21 @@ class Settings extends Model
      */
     public bool $sharedConversations = true;
 
+    /**
+     * The Preview tab in the writing panel: the draft rendered through the
+     * section's own page template, with nothing saved.
+     */
+    public bool $preview = true;
+
+    /**
+     * Hosts whose scripts may run in the Preview tab, besides the site's
+     * own (a CDN the templates load from). Third-party scripts such as tag
+     * managers and analytics are blocked there.
+     *
+     * @var array<int, string>
+     */
+    public array $previewScriptHosts = [];
+
     /** Ideas asked for each time the content plan looks for gaps. */
     public int $planSuggestions = 8;
 
@@ -237,7 +252,8 @@ class Settings extends Model
             [['shutterstockSandbox'], 'safe'],
             [['stockLibraries'], 'each', 'rule' => ['boolean']],
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
-            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished'], 'boolean'],
+            [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished', 'preview'], 'boolean'],
+            [['previewScriptHosts'], 'each', 'rule' => ['match', 'pattern' => '/^[a-z0-9*.:\/-]+$/i']],
             [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
             [['baseUrls'], 'validateBaseUrls'],
             [['logReplies'], 'validateLogReplies'],

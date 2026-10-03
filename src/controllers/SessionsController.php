@@ -33,6 +33,8 @@ use yii\web\Response;
  */
 class SessionsController extends Controller
 {
+    use FindsPieces;
+
     /**
      * Start a piece of the chosen kind for the entry the panel is open on,
      * with the person's reply to the quick-details question ("What's it
@@ -567,35 +569,6 @@ class SessionsController extends Controller
     }
 
     /**
-     * The entry the panel is open on, as the form holds it: a draft or the
-     * entry itself. It must be in the type's section, and the person must be
-     * allowed to save it.
-     */
-    private function target(ContentType $type): Entry
-    {
-        $id = $this->request->getRequiredBodyParam('elementId');
-        $siteId = $this->request->getBodyParam('siteId');
-
-        $entry = Entry::find()
-            ->id((int) $id)
-            ->drafts(null)
-            ->provisionalDrafts(null)
-            ->siteId($siteId ? (int) $siteId : null)
-            ->status(null)
-            ->one();
-
-        if (!$entry || $entry->getSection()?->handle !== $type->group) {
-            throw new NotFoundHttpException('That entry cannot be written into from here.');
-        }
-
-        if (!Craft::$app->getElements()->canSave($entry, Craft::$app->getUser()->getIdentity())) {
-            throw new ForbiddenHttpException('You are not allowed to edit that entry.');
-        }
-
-        return $entry;
-    }
-
-    /**
      * The entry to edit, as the form holds it: the person's provisional
      * draft, a named draft, or the entry itself.
      */
@@ -664,34 +637,6 @@ class SessionsController extends Controller
         }
 
         return false;
-    }
-
-    private function type(string $handle): ContentType
-    {
-        $plugin = Plugin::getInstance();
-        $type = $plugin->types->find($handle);
-
-        if (!$type || !$plugin->types->enabled($type->group)) {
-            throw new NotFoundHttpException('No such kind of content.');
-        }
-
-        return $type;
-    }
-
-    /**
-     * The piece named in the request, if the signed-in person may see it:
-     * anyone's when conversations are shared, otherwise only their own.
-     * One they may not see is treated as not there at all.
-     */
-    private function session(): Session
-    {
-        $domain = Plugin::getInstance()->domain;
-
-        try {
-            return $domain->sessions()->find((string) $this->request->getParam('id'), $domain->viewer());
-        } catch (NotFound|NotAllowed) {
-            throw new NotFoundHttpException('No such piece of writing.');
-        }
     }
 
     private function me(): ?int
