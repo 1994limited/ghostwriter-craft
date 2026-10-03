@@ -38,6 +38,17 @@ The image you choose is saved to the field's upload folder and dropped straight 
 
 An **image style guide** describes what your pictures look like, section by section, so every search and every new image is made to match.
 
+## Stock photos, licensed properly
+
+Search **Shutterstock** from the same dialog as the free libraries, with your own API plan. Getty Images and iStock are coming.
+
+- **See it on the page first.** Insert a watermarked preview where the photo will go. Only signed-in editors see it, in the control panel and in Live Preview, in place; everyone else sees a striped stand-in.
+- **License & replace** buys the photo once, through your own account, and swaps the full image into the same asset. Every entry using it shows the licensed photo, and its alt text and focal point stay as they were. The file is kept exactly as the library sent it, embedded credit and all.
+- **No preview goes live.** An entry can't be published while it holds one. Prefer a warning? Choose that in the settings.
+- **Every licence on record.** The **Stock images** screen lists every stock photo on the site: where it's used, who licensed it and when, and the credit line to show. Download a licence record, or export the lot as CSV.
+
+Licensing has its own permission, so only the people you choose can buy photos. Anyone else can send a **Request licence**. A paid library's results come in its own order: they're never shown to a model to rank.
+
 ## Know what to write next
 
 The **content plan** reads what each section has and what it lacks, and suggests what's missing. Turn any idea into a new entry in one click.
@@ -54,10 +65,10 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 
 - **Your keys stay yours.** They're read from your `.env` and never stored. A gateway or proxy can be set per provider.
 - **No invented facts.** The writer uses only what's in the brief and the conversation: no made-up figures, quotes or client names.
-- **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save.
+- **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save, and new entries Ghostwriter fills start disabled.
 - **Nothing sent until you ask.** Content goes to your chosen provider only when someone in the control panel starts something.
 - **Works on any host.** Everything is kept in the database, so it works on read-only and load-balanced hosts, including Craft Cloud, and survives deploys. Every prompt can be overridden in your project.
-- **One permission:** *Use Ghostwriter*. Writing into an entry still needs Craft's own permission to save it.
+- **Two permissions:** *Use Ghostwriter*, and *License stock images* for whoever may buy stock photos. Writing into an entry still needs Craft's own permission to save it.
 
 ## Requirements
 
@@ -66,3 +77,4 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 - An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
 - Optional: an OpenAI or Gemini key to make images
 - Optional: the Imagick PHP extension, to send smaller copies of images to the model
+- Optional: a Shutterstock API plan, to license stock photos (a shutterstock.com web plan can't license through the API)
