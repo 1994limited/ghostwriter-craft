@@ -26,7 +26,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 ## Requirements
 
 - PHP 8.2 or later
-- Craft CMS 5.6 or later
+- Craft CMS 5.8 or later
 - An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
 - Craft's queue, which runs by itself from the control panel unless your site uses a worker
 

@@ -28,6 +28,8 @@ Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.2.
 
 ### Changed
 - Requires `1994/ghostwriter-core` ^1.2.
+- Requires Craft CMS 5.8 or later. Core needs `symfony/yaml` 6.4 or later, which Craft allows from 5.8, so earlier versions could never be installed.
+- Continuous integration: the test suite runs on GitHub Actions for every pull request, on PHP 8.2, 8.3 and 8.4, against the lowest Craft Composer will install and the newest.
 - Images a stock library's terms keep from AI (Getty Images and iStock) never go to a model: not as reference images for finding or making a picture, nor as samples for the image style guide. Files named `GettyImages-*` or `iStock-*`, or whose embedded credit names Getty Images or iStock, are left out too.
 
 ## 1.0.0 - 2026-10-02
