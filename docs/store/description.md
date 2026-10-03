@@ -61,7 +61,7 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 
 ## Requirements
 
-- Craft CMS 5.6 or later
+- Craft CMS 5.8 or later
 - PHP 8.2 or later
 - An API key for Anthropic (Claude), OpenAI (ChatGPT) or Google (Gemini)
 - Optional: an OpenAI or Gemini key to make images
