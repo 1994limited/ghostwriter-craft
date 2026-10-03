@@ -1,6 +1,8 @@
 # Release Notes for Ghostwriter
 
-## Unreleased
+## 1.2.0 - 2026-10-03
+
+Requires `1994/ghostwriter-core` ^1.6.1, which no longer brackets quoted titles or figures you gave in a filled-in brief.
 
 Requires `1994/ghostwriter-core` ^1.6.
 
