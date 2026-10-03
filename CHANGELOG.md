@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Requires `1994/ghostwriter-core` ^1.8, for layouts, extras and counts to check (^1.7 brought the preview's markers and block map).
+Requires `1994/ghostwriter-core` ^1.8.2, for the gap chips (`resources/js/preview/markers.js`); ^1.8 brought layouts, extras and counts to check, and ^1.7 the preview's markers and block map.
 
 ### Added
 - **Layouts and extras, server side.** There is no setting: this is how drafting works now (page preview design, decisions 7 and 8). The writer prepares **extras** (numbers, a pull quote, FAQs, a call to action and so on, only for the block types the section has, and only from what you gave it, the draft or your pages) in the same call as the first draft. Then one more call, the **layout planner**, proposes up to two other layouts of the same words; the writer's draft is the first. The draft shows as soon as it's in, while the planner works. Later turns are the writer only. Wired through core's `Arrange\SessionLayouts` in the writing job (`afterWriter()`) and after every hand edit (`afterEdit()`: Edit YAML, click-to-edit, extras), which repairs the other layouts and marks any that no longer fit as needing a refresh. A planner that fails leaves the writer's layout, never an error.
@@ -21,10 +21,14 @@ Requires `1994/ghostwriter-core` ^1.8, for layouts, extras and counts to check (
 - **Counts to check in Finish this page.** A count Ghostwriter worked out from a list you gave it goes into the entry as `[[check: 3 counties | from: …]]` (core's `GapKind::Check`): a step that says "I counted 3 counties from “…”. Is that right?" with **Looks right**, **Change it** (a box with the count, to correct) and **Remove it**, highlighted in the form (in CKEditor too) with "Check me", and counted in the pill. When the list has changed since, the step says so and offers the new count first (**Use “4 counties”**). The gap finder is given the piece's brief, answers and draft (`GapContext::$sources`, from `ExtraSources::fromSession()`), so it can tell. Like a fact to add, it stops the page going live, or warns. See [Counts to check](docs/finish-this-page.md#counts-to-check).
 - The publish guard also checks a draft about to be applied, which Craft 5.9+ saves first in the live scenario with `applyingDraft`: so **Create entry** on a new entry's unpublished draft is stopped, with the messages on its fields, as Save on a live entry and applying a provisional draft (`updatingFromDerivative`) already were.
 
+- **Gap markers shown as chips, not raw text** (core's `markers.js`, copied beside `locator.js` in `src/web/assets/cp/dist/` with a checksum test, and loaded the same way). **In the Preview** and the layout cards' thumbnails, after the locator has placed the blocks, `[[ask: …]]` is an amber chip reading the hint ("Only you know this: add it before publishing"). A count to check is its value with a dotted amber underline ("Counted from '…'. Check it before publishing"), and a `#gw-link:` link has a dashed underline ("Link to choose"). Each chip has a hidden label for screen readers, and its styles go into the frame, never the site's CSS. **In the Extras list**, asks and counts to check are chips, and clicking one to edit shows the words as stored, markers included. **Under plain text boxes** on the entry form (Plain Text fields, and the cells of a Table field), a row of chips names each gap ("Add: adult ticket price", "Check: 3") and follows typing and the guide's fixes. The field keeps its outline and tag. All of it is display only: the draft, the extras and the saved entry keep their markers exactly. Clicking a chip in the preview doesn't open Finish this page, because the guide works on the entry's form, which doesn't hold the draft until **Use this draft**. See [Preview](docs/writing.md#preview).
+
 ### Changed
+- The session's `extras` carry each item's words as stored, markers included (they were as the page will say them), for the Extras list's chips. An edit that leaves an item as stored, or as the page says it, keeps its count to check.
 - `drafts\Applier` takes its values from the new `drafts\DraftValues`, which has no side effects, so the preview and **Use this draft** share one mapping. A preview never makes a striped placeholder: it uses one already in the volume, or leaves the image out.
 
 ### Fixed
+- In the Extras list, Enter now finishes an item and Esc puts it back, as they already did for the draft's own words.
 - `bin/sync-core-strings` turned camelCase parameters (`:newCount`) into `{new}Count`; it now keeps them whole (`{newCount}`).
 
 ## 1.2.0 - 2026-10-03

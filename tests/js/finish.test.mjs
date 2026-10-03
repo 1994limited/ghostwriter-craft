@@ -235,3 +235,26 @@ test('a fix that left the field as it was does not count, and says so', () => {
     assert.equal(said.length, 1);
     assert.match(said[0], /didn’t change the field/);
 });
+
+test('a chip row goes after the wrappers holding only the box, inside its field or cell', () => {
+    const node = (name, children = [], attrs = {}) => {
+        const element = { name, children, parentElement: null, hasAttribute: (key) => key in attrs, matches: (selector) => selector.split(',').map((part) => part.trim()).includes(name) };
+        children.forEach((child) => (child.parentElement = element));
+
+        return element;
+    };
+    const input = node('input');
+    const wrap = node('div', [input]);
+    node('.input', [wrap, node('p')]);
+    assert.equal(H.rowAnchor(input), wrap);
+
+    const cell = node('textarea');
+    node('td', [cell]);
+    assert.equal(H.rowAnchor(cell), cell, 'never the cell itself');
+
+    const withRow = node('input');
+    const box = node('div', [withRow, node('div', [], { 'data-gw-gap-row': '' })]);
+    node('.input', [box, node('p')]);
+    assert.equal(H.rowAnchor(withRow), box, 'its own row isn’t a sibling that counts');
+    assert.match(H.CHIP_CONTROLS, /table\.editable textarea/);
+});
