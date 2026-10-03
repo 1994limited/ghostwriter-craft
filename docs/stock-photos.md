@@ -2,7 +2,7 @@
 
 This page covers finding photos in stock libraries, free and paid: putting a paid photo in as a preview, licensing it from your own account, what stops a page going live with a preview, and the record Ghostwriter keeps of every stock photo it puts into your site.
 
-> Paid libraries: **Getty Images and iStock, and Shutterstock, are coming.** Their keys can already go in `.env`, and the settings show whether they are set, but Ghostwriter can't search or license with them yet. Until then, a **demo library** shows the whole flow on a test site, without an account or any charge. Free libraries work as before.
+> Paid libraries: **Shutterstock** works now, with your own API plan and your account connected. **Getty Images and iStock are coming**: their keys can already go in `.env`, and the settings show whether they are set, but Ghostwriter can't search or license with them yet. A **demo library** shows the whole flow on a test site, without an account or any charge. Free libraries work as before.
 
 ## How it works
 
@@ -21,9 +21,21 @@ Every stock photo, free or paid, is recorded in the [ledger](#the-stock-images-s
 | Openverse, Unsplash, Pexels, Pixabay | as on [Images](images.md#find-a-photo) | Free. **Use this** saves the photo. |
 | Demo stock (no charge) | dev mode, or `stockDemo` | A pretend paid library for trying the flow. It calls nobody and charges nothing. |
 | Getty Images and iStock | `GETTY_API_KEY`, `GETTY_API_SECRET` | **Coming.** A key and secret from your own Getty Images or iStock account rep, under your own agreement. An iStock key works here too. |
-| Shutterstock | `SHUTTERSTOCK_API_KEY`, `SHUTTERSTOCK_API_SECRET` | **Coming.** Needs a Shutterstock API plan (a shutterstock.com web plan can't license through the API) and an account connected in the settings. |
+| Shutterstock | `SHUTTERSTOCK_API_KEY`, `SHUTTERSTOCK_API_SECRET` | Your own app's consumer key and secret. Searching needs only those; licensing needs a Shutterstock **API plan** (a shutterstock.com web plan can't license through the API) and your account **connected** in the settings. See [Shutterstock](#shutterstock). |
 
 You always license from **your own account**, with your own key and secret. Ghostwriter never licenses on your behalf, never routes calls through 1994's servers, and keys are read from `.env` each time, never stored or shown.
+
+### Shutterstock
+
+1. Create an app at **shutterstock.com/account/developers/apps** and put its consumer key and secret in `.env` as `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`.
+2. In the app's **Callback URL** field, add the host name and path the settings show, such as `cms.example.com/admin/ghostwriter/libraries/shutterstock/callback`. Shutterstock takes host names and paths here, not whole URLs.
+3. In **Settings → Plugins → Ghostwriter → Stock photos**, click **Connect account** and sign in to Shutterstock. You come back to the settings with "Shutterstock is connected." **Disconnect** forgets the connection (Shutterstock has no way to revoke it from here; delete the app to do that). Licences already bought stay in the ledger.
+
+Only admins can connect or disconnect. The connection belongs to the site, not to whoever clicked: the licences are your company's. Its tokens are kept encrypted with your site's security key, last an hour and are renewed as needed. If the connection is lost (a changed password, a deleted app), licensing says so; connect again.
+
+Shutterstock's terms give still images no comp licence, so nothing of a preview is stored: editors see Shutterstock's own watermarked preview, and a 30-day limit applies to the preview as for the other libraries.
+
+**The sandbox.** Shutterstock's sandbox (`api-sandbox.shutterstock.com`) charges nothing for licences and gives a watermarked file. Ghostwriter uses it in dev mode by default, and the library shows as "Shutterstock (sandbox)". Set **Shutterstock sandbox** (`shutterstockSandbox`) to **Always** or **Never** to choose. Sign-in always goes to Shutterstock itself.
 
 ### The demo library
 
@@ -145,7 +157,8 @@ If your site uses other AI tools (for alt text, say), set them to skip these ima
 | Setting | Config key | |
 | --- | --- | --- |
 | Free libraries | | Each key's status, and **Search Openverse**. |
-| Paid libraries | `stockLibraries` | Each library's keys (**Set** or **Not set**), **Check connection** (who it's connected as and what's left), and an **Enabled** switch. Connecting an account (for Shutterstock) comes later. |
+| Paid libraries | `stockLibraries` | Each library's keys (**Set** or **Not set**), **Check connection** (who it's connected as and what's left), an **Enabled** switch, and for Shutterstock **Connect account** / **Disconnect** with the callback to register. |
+| **Shutterstock sandbox** | `shutterstockSandbox` | **In dev mode** (the default), **Always** or **Never**. |
 | **Search in, by default** | `stockDefaultSource` | `free`, `everything` or a library's ID, such as `demo`. |
 | **Include editorial images by default** | `stockIncludeEditorial` | Off. |
 | **When a page with an unlicensed preview is published** | `stockOnPublish` | `block` (the default) or `warn`. |

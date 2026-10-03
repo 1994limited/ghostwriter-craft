@@ -102,6 +102,7 @@ return [
 | `stockDefaultSource` | `free` | Where **Search in** starts: `free`, `everything` or a library's ID |
 | `stockIncludeEditorial` | `false` | Include editorial-only images in searches by default |
 | `stockOnPublish` | `block` | `block` or `warn` when an entry holding an unlicensed preview goes live |
+| `shutterstockSandbox` | `null` (dev mode) | Use Shutterstock's sandbox: `true`, `false`, or `null` for dev mode only |
 | `stockDemo` | `$GHOSTWRITER_STOCK_DEMO` | Offer the demo library outside dev mode; never in production |
 | `stockUnusedDays` | `30` | Days before a preview no entry uses is cleaned up |
 | `suggestKindsAutomatically` | `true` | Suggest kinds when Get started's kinds step opens |

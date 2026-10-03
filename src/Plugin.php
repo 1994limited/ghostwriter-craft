@@ -39,6 +39,7 @@ use nineteenninetyfour\ghostwriter\domain\DbImageRequestStore;
 use nineteenninetyfour\ghostwriter\domain\DbKindStore;
 use nineteenninetyfour\ghostwriter\domain\DbPlanStore;
 use nineteenninetyfour\ghostwriter\domain\DbSessionStore;
+use nineteenninetyfour\ghostwriter\domain\DbLibraryTokens;
 use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
@@ -78,6 +79,7 @@ use yii\base\Event;
  * @property-read StockLibraries $stockLibraries
  * @property-read StockComps $stockComps
  * @property-read StockCleanup $stockCleanup
+ * @property-read DbLibraryTokens $libraryTokens
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -128,6 +130,8 @@ class Plugin extends BasePlugin
                 'stockLibraries' => StockLibraries::class,
                 'stockComps' => StockComps::class,
                 'stockCleanup' => StockCleanup::class,
+                // A connected library account's tokens, encrypted.
+                'libraryTokens' => DbLibraryTokens::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -163,6 +167,10 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/teach/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/types/teach';
             $event->rules['ghostwriter/write/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/sections/new';
             $event->rules['ghostwriter/stock'] = 'ghostwriter/stock/index';
+            // "Connect account" for libraries that license with a person's own sign-in.
+            $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/connect'] = 'ghostwriter/libraries/connect';
+            $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/callback'] = 'ghostwriter/libraries/callback';
+            $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/disconnect'] = 'ghostwriter/libraries/disconnect';
             // A paid photo's comp, for signed-in editors only (§7.0).
             $event->rules['ghostwriter/stock/<id:[0-9a-f]{26}>/comp'] = 'ghostwriter/stock/comp';
         });
@@ -340,33 +348,41 @@ class Plugin extends BasePlugin
         $paid = [];
 
         foreach ($libraries->all() as $id => $library) {
+            $connects = $library instanceof \NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\ConnectsAccount;
             $paid[] = [
                 'id' => $id,
                 'label' => $library->label(),
-                'keys' => [],
+                'keys' => StockLibraries::keyStatus(StockLibraries::LISTED[$id]['env'] ?? []),
+                'connects' => $connects && $library->capabilities()->needsOAuth,
+                'connected' => $connects && $library->connected(),
+                'callback' => $connects ? \nineteenninetyfour\ghostwriter\controllers\LibrariesController::callbackHostAndPath($id) : null,
                 'available' => $library->available(),
                 'enabled' => $libraries->enabled($id),
                 'licensable' => $library instanceof \NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\LicensableLibrary,
                 'oauth' => $library->capabilities()->needsOAuth,
                 'demo' => $id === StockLibraries::DEMO,
                 'coming' => false,
-                'note' => $id === StockLibraries::DEMO ? \Craft::t('ghostwriter', 'Offered in dev mode, or with stockDemo in config/ghostwriter.php. Never in production. It calls nobody and charges nothing.') : null,
+                'note' => $id === StockLibraries::DEMO
+                    ? \Craft::t('ghostwriter', 'Offered in dev mode, or with stockDemo in config/ghostwriter.php. Never in production. It calls nobody and charges nothing.')
+                    : (isset(StockLibraries::LISTED[$id]) ? \Craft::t('ghostwriter', StockLibraries::LISTED[$id]['note']) : null),
+                'sandbox' => $id === 'shutterstock' && $this->getSettings()->usesShutterstockSandbox(),
             ];
         }
 
-        foreach (StockLibraries::COMING as $id => $coming) {
+        foreach (StockLibraries::LISTED as $id => $listed) {
             if (!isset($libraries->all()[$id])) {
                 $paid[] = [
                     'id' => $id,
-                    'label' => $coming['label'],
-                    'keys' => StockLibraries::keyStatus($coming['env']),
+                    'label' => $listed['label'],
+                    'keys' => StockLibraries::keyStatus($listed['env']),
                     'available' => false,
                     'enabled' => $libraries->enabled($id),
                     'licensable' => true,
-                    'oauth' => $coming['oauth'],
+                    'oauth' => false,
                     'demo' => false,
-                    'coming' => true,
-                    'note' => \Craft::t('ghostwriter', $coming['note']),
+                    'coming' => $listed['coming'],
+                    'unset' => !$listed['coming'],
+                    'note' => \Craft::t('ghostwriter', $listed['note']),
                 ];
             }
         }

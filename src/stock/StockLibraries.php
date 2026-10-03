@@ -7,6 +7,7 @@ use craft\helpers\App;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\Cost;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\LicensableLibrary;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\Offer;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\Paid\Shutterstock;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\PhotoLibrary;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\Quote;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Libraries\Testing\FakeLibrary;
@@ -23,10 +24,10 @@ use yii\base\Component;
  * - **Free:** Unsplash, Pexels, Pixabay (keys in .env) and Openverse, as
  *   before (core's StockSearch holds them).
  * - **Paid:** each a core adapter, used once its keys are in .env and it
- *   is switched on in the settings. Getty Images (with iStock) and
- *   Shutterstock are listed with their keys' status, and stay inert until
- *   core has their adapters (COMING). Others can be added with
- *   EVENT_REGISTER_LIBRARIES.
+ *   is switched on in the settings: Shutterstock (SHUTTERSTOCK_API_KEY and
+ *   SHUTTERSTOCK_API_SECRET; licensing needs its account connected), and
+ *   any added with EVENT_REGISTER_LIBRARIES. Getty Images with iStock is
+ *   listed with its keys' status, inert until core has its adapter.
  * - **Demo:** core's FakeLibrary as "Demo stock (no charge)", for test
  *   sites and screenshots. Only in dev mode or with `stockDemo` set, and
  *   never when CRAFT_ENVIRONMENT is production. It calls nobody and
@@ -45,26 +46,29 @@ class StockLibraries extends Component
     public const EVERYTHING = 'everything';
 
     /**
-     * Paid libraries the settings list before core has their adapters:
-     * their keys' status is shown (read from .env, never stored or shown),
-     * and nothing is searched or licensed.
+     * Paid libraries the settings always list, with their keys' status
+     * (read from .env, never stored or shown): Shutterstock, registered
+     * once either of its keys is set; and Getty Images with iStock, which
+     * stays inert (`coming`) until core has its adapter.
      *
-     * @var array<string, array{label: string, short: string, env: array<int, string>, note: string, oauth: bool}>
+     * @var array<string, array{label: string, short: string, env: array<int, string>, note: string, oauth: bool, coming: bool}>
      */
-    public const COMING = [
+    public const LISTED = [
         'getty' => [
             'label' => 'Getty Images and iStock',
             'short' => 'Getty',
             'env' => ['GETTY_API_KEY', 'GETTY_API_SECRET'],
             'note' => 'A key and secret from your own Getty Images or iStock account rep, under your own agreement. An iStock key works here too.',
             'oauth' => false,
+            'coming' => true,
         ],
         'shutterstock' => [
             'label' => 'Shutterstock',
             'short' => 'Shutterstock',
             'env' => ['SHUTTERSTOCK_API_KEY', 'SHUTTERSTOCK_API_SECRET'],
-            'note' => 'Needs a Shutterstock API plan (a shutterstock.com web plan can’t license through the API), and an account connected here.',
+            'note' => 'Your own app’s consumer key and secret, from shutterstock.com/account/developers/apps. Licensing needs a Shutterstock API plan (a shutterstock.com web plan can’t license through the API) and the account connected here.',
             'oauth' => true,
+            'coming' => false,
         ],
     ];
 
@@ -72,6 +76,8 @@ class StockLibraries extends Component
     private const SHORT = ['unsplash' => 'Unsplash', 'pexels' => 'Pexels', 'pixabay' => 'Pixabay', 'openverse' => 'Openverse', self::DEMO => 'Demo stock', 'istock' => 'iStock', 'adobe' => 'Adobe Stock', 'alamy' => 'Alamy'];
 
     private ?FakeLibrary $demo = null;
+
+    private ?Shutterstock $shutterstock = null;
 
     /** @var array<string, PhotoLibrary>|null */
     private ?array $registered = null;
@@ -89,6 +95,11 @@ class StockLibraries extends Component
 
             if ($this->demoAllowed()) {
                 $event->libraries[] = $this->demo();
+            }
+
+            // Shutterstock, once either of its keys is in .env.
+            if (array_filter(self::keyStatus(self::LISTED['shutterstock']['env']))) {
+                $event->libraries[] = $this->shutterstock();
             }
 
             $this->trigger(self::EVENT_REGISTER_LIBRARIES, $event);
@@ -197,11 +208,30 @@ class StockLibraries extends Component
     }
 
     /**
+     * Shutterstock with the site's own app key and secret, its connected
+     * account's tokens (encrypted), and the sandbox where set. Editorial
+     * images are allowed, and each search asks for them or not.
+     */
+    public function shutterstock(): Shutterstock
+    {
+        $plugin = Plugin::getInstance();
+
+        return $this->shutterstock ??= new Shutterstock(
+            $plugin->providers->httpClients(),
+            trim((string) App::env('SHUTTERSTOCK_API_KEY')),
+            trim((string) App::env('SHUTTERSTOCK_API_SECRET')),
+            $plugin->libraryTokens,
+            sandbox: $plugin->getSettings()->usesShutterstockSandbox(),
+            editorial: true,
+        );
+    }
+
+    /**
      * A library's name as the dialog's chips give it: "Getty", "Unsplash".
      */
     public function shortLabel(string $id): string
     {
-        return self::SHORT[$id] ?? (self::COMING[$id]['short'] ?? ($this->get($id)?->label() ?? StockSearch::LABELS[$id] ?? ucfirst($id)));
+        return self::SHORT[$id] ?? (self::LISTED[$id]['short'] ?? ($this->get($id)?->label() ?? StockSearch::LABELS[$id] ?? ucfirst($id)));
     }
 
     /**
@@ -209,7 +239,7 @@ class StockLibraries extends Component
      */
     public function label(string $id): string
     {
-        return $this->get($id)?->label() ?? StockSearch::LABELS[$id] ?? (self::COMING[$id]['label'] ?? ucfirst($id));
+        return $this->get($id)?->label() ?? StockSearch::LABELS[$id] ?? (self::LISTED[$id]['label'] ?? ucfirst($id));
     }
 
     /**
@@ -291,6 +321,7 @@ class StockLibraries extends Component
     {
         $this->registered = null;
         $this->demo = null;
+        $this->shutterstock = null;
     }
 
     /**

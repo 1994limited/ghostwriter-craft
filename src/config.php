@@ -63,6 +63,8 @@ return [
         // 'stockOnPublish' => 'block',
         // Offer the demo library outside dev mode (never in production).
         // 'stockDemo' => '$GHOSTWRITER_STOCK_DEMO',
+        // Shutterstock's sandbox (charges nothing): true, false, or null for dev mode only.
+        // 'shutterstockSandbox' => null,
         // Days before a preview no entry uses is cleaned up.
         // 'stockUnusedDays' => 30,
 

@@ -17,7 +17,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 - [Voice guide and image style](guides.md)
 - [Kinds of content](kinds.md)
 - [Images](images.md)
-- [Stock photos](stock-photos.md): paid libraries, previews, licensing, the ledger. Getty Images, iStock and Shutterstock are coming.
+- [Stock photos](stock-photos.md): paid libraries (Shutterstock; Getty Images and iStock are coming), previews, licensing, the ledger.
 - [Content plan](content-plan.md)
 - [The Overview and the widget](dashboard.md)
 

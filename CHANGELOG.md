@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.1.
+Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.2.
 
 ### Added
 - **The stock image ledger:** a record of every stock photo Ghostwriter puts into the site, free or paid: its library and ID, its asset, its licence state, the credit and licence, who added it and an append-only history. Kept in two new tables, `ghostwriter_stock_images` and `ghostwriter_stock_usages` (schema 1.2.0). Records are never deleted: deleting an asset marks its record removed and keeps any licence.
@@ -18,6 +18,8 @@ Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.1.
 - **No page goes live holding a preview:** on `Entry::EVENT_BEFORE_SAVE`, a canonical entry enabled for its site, saved live or updated from a draft (applying a draft), is refused with "The hero image is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing." on the field, at any depth in Matrix and Neo blocks. Drafts and disabled entries always save. **Warn** (`stockOnPublish`) saves with a notice; global sets and categories are only warned.
 - **Ghostwriter → Stock images:** every stock photo in the site, by tab (Previews, with requested licences first; Licensed; Failed; All), with where each is used, its state, cost, licence and credit, and **License**, **Reconcile**, **Remove preview**, **Download licence record**, **Export CSV** and **Check where they're used**. An Overview tile, "N stock previews to license", and a line on the widget.
 - **Cleanup** with Craft's garbage collection and `php craft ghostwriter/stock/cleanup`: comps deleted when their period ends (the stand-in stays: "Preview expired"), previews no entry has used for `stockUnusedDays` removed, and licences whose answer was lost settled with `reconcile()` after ten minutes. `php craft ghostwriter/stock/usages` looks again at where each is used.
+- **Shutterstock** (core 1.2's adapter), from `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`: search with the app's key and secret; license with the account connected. Nothing of a preview is stored: editors see Shutterstock's own watermarked preview. **Shutterstock sandbox** (`shutterstockSandbox`) uses `api-sandbox.shutterstock.com`, by default in dev mode.
+- **Connect account / Disconnect** in the settings for libraries that license with a person's own sign-in, following core's `docs/connecting-accounts.md`: three control panel routes (`ghostwriter/libraries/<id>/connect`, `/callback`, `/disconnect`), admins only, a random single-use `state` kept in the session and checked with `hash_equals()`, the same absolute callback (built from the site's own URL, never the request's host) in both calls, and the host-and-path to register shown on the row. Tokens are kept through core's `LibraryTokens`, encrypted with Craft's security component (`DbLibraryTokens`).
 - **Docs:** [Stock photos](docs/stock-photos.md).
 - **`ghostwriter:license` permission** ("License stock images"), given to nobody by default; admins have it.
 - Uninstalling writes the ledger to `storage/ghostwriter-stock-ledger-<date>.json` before its tables are dropped, and says so.
@@ -25,7 +27,7 @@ Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.1.
 - **New entries start unpublished** (`draftsUnpublished`, on by default, matching Statamic's `drafts_unpublished`): when a draft goes into a new entry, its **Enabled** switch is turned off in the form (for the site too), so it can be saved straight away and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Existing entries are never changed.
 
 ### Changed
-- Requires `1994/ghostwriter-core` ^1.1.
+- Requires `1994/ghostwriter-core` ^1.2.
 - Images a stock library's terms keep from AI (Getty Images and iStock) never go to a model: not as reference images for finding or making a picture, nor as samples for the image style guide. Files named `GettyImages-*` or `iStock-*`, or whose embedded credit names Getty Images or iStock, are left out too.
 
 ## 1.0.0 - 2026-10-02
