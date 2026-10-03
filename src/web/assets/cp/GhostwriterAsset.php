@@ -16,8 +16,8 @@ class GhostwriterAsset extends AssetBundle
     {
         $this->sourcePath = __DIR__ . '/dist';
         $this->depends = [CpAsset::class];
-        $this->js = ['ghostwriter.js'];
-        $this->css = ['ghostwriter.css'];
+        $this->js = ['ghostwriter.js', 'finish.js'];
+        $this->css = ['ghostwriter.css', 'finish.css'];
 
         parent::init();
     }

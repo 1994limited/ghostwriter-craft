@@ -49,7 +49,13 @@ Search **Shutterstock** from the same dialog as the free libraries, with your ow
 
 Licensing has its own permission, so only the people you choose can buy photos. Anyone else can send a **Request licence**. A paid library's results come in its own order: they're never shown to a model to rank.
 
-## Know what to write next
+## Finish this page
+
+Ghostwriter never makes up a price, a date or a name. Where a draft needs a fact it doesn't have, it marks the place, and a link it can't settle points nowhere until you choose.
+
+Every gap is highlighted in the entry form, and a guide with the Ghostwriter mark walks you through them one by one: type in the fact, link to the right page, swap the placeholder image, license the preview. **The page can't go live while a gap remains.** Prefer a warning? Choose that in the settings.
+
+
 
 The **content plan** reads what each section has and what it lacks, and suggests what's missing. Turn any idea into a new entry in one click.
 

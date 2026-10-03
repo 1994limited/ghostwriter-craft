@@ -258,6 +258,10 @@
             if (notes) {
                 sessionStorage.removeItem(NOTICE);
                 Ghostwriter.announceApplied(notes.message, notes.notes ?? []);
+
+                // "Finish this page" opens by itself after a draft goes in.
+                Ghostwriter.draftApplied = Boolean(notes.finish);
+                document.dispatchEvent(new CustomEvent('ghostwriter:draft-applied', { detail: { finish: Boolean(notes.finish) } }));
             }
         } catch (error) {}
     });
@@ -370,7 +374,7 @@
          */
         applied(data) {
             try {
-                sessionStorage.setItem(NOTICE, JSON.stringify({ message: this.config.editing ? t('Changes added to the form. Check them over, then save.') : t('Draft added to the form. Check it over, then save.'), notes: data.notes ?? [] }));
+                sessionStorage.setItem(NOTICE, JSON.stringify({ message: this.config.editing ? t('Changes added to the form. Check them over, then save.') : t('Draft added to the form. Check it over, then save.'), notes: data.notes ?? [], finish: Boolean(data.finish) }));
             } catch (error) {}
 
             const url = new URL(window.location.href);
@@ -2960,7 +2964,8 @@
         $(root).find('[data-ghostwriter-image]').addBack('[data-ghostwriter-image]').each((i, holder) => {
             if (!holder.dataset.ghostwriterReady) {
                 holder.dataset.ghostwriterReady = '1';
-                new Ghostwriter.ImageButton(holder);
+                // Kept on the holder, so "Finish this page" can open it for its field.
+                $(holder).data('gwImageButton', new Ghostwriter.ImageButton(holder));
             }
         });
     };

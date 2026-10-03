@@ -82,3 +82,8 @@ jobs:
 
       - name: Tests
         run: vendor/bin/codecept run unit --no-colors
+
+      # The guide's helpers that need no page; Node comes with the runner.
+      - name: JavaScript tests
+        if: matrix.php == '8.4' && matrix.craft == 'highest'
+        run: node --test tests/js/*.test.mjs
