@@ -87,6 +87,7 @@ use yii\base\Event;
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
  * @property-read Layouts $layouts
+ * @property-read \nineteenninetyfour\ghostwriter\preview\Previews $previews
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -143,6 +144,8 @@ class Plugin extends BasePlugin
                 'layouts' => Layouts::class,
                 // Finish this page: what is unfinished in an entry, and the publish guard.
                 'gaps' => \nineteenninetyfour\ghostwriter\gaps\Gaps::class,
+                // The Preview tab: the draft rendered by the site's own templates, unsaved.
+                'previews' => \nineteenninetyfour\ghostwriter\preview\Previews::class,
             ],
         ];
     }

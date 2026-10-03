@@ -82,6 +82,30 @@ class StockComps extends Component
     }
 
     /**
+     * The comp's ledger ID by its stand-in's file name, for every stand-in
+     * shown as a comp to this person. The preview's locator finds a
+     * stand-in by file name; its comp's address names the ledger ID instead.
+     *
+     * @return array<string, string>
+     */
+    public function compNames(): array
+    {
+        $comps = $this->mayViewComps() ? $this->comps() : [];
+
+        if ($comps === []) {
+            return [];
+        }
+
+        $names = [];
+
+        foreach (Asset::find()->id(array_keys($comps))->status(null)->site('*')->unique()->all() as $asset) {
+            $names[(string) $asset->filename] = $comps[(int) $asset->id]['id'];
+        }
+
+        return $names;
+    }
+
+    /**
      * @return array<int, array{id: string, state: string}>
      */
     private function comps(): array

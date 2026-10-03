@@ -1,5 +1,18 @@
 # Release Notes for Ghostwriter
 
+## Unreleased
+
+Requires `1994/ghostwriter-core` ^1.7, for the preview's markers and block map.
+
+### Added
+- **The page preview, server side.** `ghostwriter/preview/prepare` (control panel, as **Use this draft** is permitted) works out the draft's values exactly as **Use this draft** would, marks a copy with core's invisible markers, and returns a token URL on the site with the map of the page's blocks. `ghostwriter/preview/render` (site, reached only with that token) rebuilds the entry with those values in memory and serves it through the section's own page template, as Craft's own preview does. **Nothing is written:** no draft, provisional draft, element or nested entry; the only writes are the token (15 minutes, no usage limit) and cache entries, and both expire. The same values reuse their URL for 10 minutes.
+- CKEditor nested entries a draft adds render unsaved, through their entry type's partial template (`_partials/entry/<type>`), or as a plain box where there is none.
+- Templates can tell a Ghostwriter preview with `ghostwriterPreview` (any preview: `craft.app.request.isPreview`). Preview responses send a policy that blocks third-party scripts and their beacons and stops form posts, plus `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow` and `X-Frame-Options: SAMEORIGIN`.
+- `preview` and `previewScriptHosts` settings.
+
+### Changed
+- `drafts\Applier` takes its values from the new `drafts\DraftValues`, which has no side effects, so the preview and **Use this draft** share one mapping. A preview never makes a striped placeholder: it uses one already in the volume, or leaves the image out.
+
 ## 1.2.0 - 2026-10-03
 
 Requires `1994/ghostwriter-core` ^1.6.1, which no longer brackets quoted titles or figures you gave in a filled-in brief.

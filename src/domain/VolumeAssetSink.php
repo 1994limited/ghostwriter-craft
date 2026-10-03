@@ -16,11 +16,18 @@ use NineteenNinetyFour\Ghostwriter\Core\Schema\Field;
  * Placeholders::FILENAME at the volume's root. One per volume, made once
  * and reused, so the asset library does not fill up with copies. Assets
  * fields hold a list of asset IDs.
+ *
+ * Read only (for the preview), it never saves anything: a volume with no
+ * placeholder yet gets none.
  */
 class VolumeAssetSink implements AssetSink
 {
     /** @var array<int, int> Placeholder asset ID by volume ID. */
     private array $assets = [];
+
+    public function __construct(private bool $readOnly = false)
+    {
+    }
 
     public function placeholder(Field $field, callable $png): string|int|null
     {
@@ -75,6 +82,10 @@ class VolumeAssetSink implements AssetSink
 
         if ($existing) {
             return (int) $existing->id;
+        }
+
+        if ($this->readOnly) {
+            return null;
         }
 
         $path = Craft::$app->getPath()->getTempPath() . '/' . Placeholders::FILENAME;
