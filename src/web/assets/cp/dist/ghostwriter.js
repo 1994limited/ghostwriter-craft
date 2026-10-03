@@ -424,6 +424,8 @@
             // On a phone, the phone layout, unless the person chose otherwise.
             this.width = window.innerWidth < 640 ? 'phone' : 'desktop';
             this.page = null;
+            // The layout cards above the draft, kept between redraws.
+            this.cards = null;
 
             try {
                 const view = localStorage.getItem('ghostwriter:draft-view');
@@ -517,10 +519,11 @@
 
             // Another piece: its own preview. The same one: render the new
             // draft once the changes stop, or at once for the first draft.
-            if (this.page && data.id !== this.session?.id) {
-                this.page.reset();
-            } else if (this.page && changed && data.draft) {
-                this.page.changed(data.draft, !this.session?.draft);
+            if (data.id !== this.session?.id) {
+                this.page?.reset();
+                this.cards?.reset();
+            } else if (this.page && data.draft && this.pageKey(data) !== this.pageKey(this.session)) {
+                this.page.changed(this.pageKey(data), !this.session?.draft);
             }
 
             this.session = data;
@@ -636,6 +639,7 @@
             const drafted = !!this.session?.draft;
 
             if (this.session?.stage === 'filling') return t('brief.filling');
+            if (this.session?.layouts?.planning) return t('Finding other layouts…');
 
             if (this.waited < 8) return drafted ? t('Reading your message…') : t('Reading the brief…');
             if (this.waited < 30) return drafted ? t('Revising the draft…') : t('Thinking it through…');
@@ -817,6 +821,7 @@
                 case 'save-draft': return this.saveDraft();
                 case 'apply': return this.apply();
                 case 'start-over': return this.startOver();
+                case 'delete-extra': return this.deleteExtra($target.data('item'), $target.data('label'));
             }
         },
 
@@ -901,13 +906,13 @@
         // Writing edited where it is shown: remembered on the way in, saved
         // on the way out if it changed.
         onFocusIn(event) {
-            const $field = $(event.target).closest('[data-edit-path]');
+            const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
             if ($field.length) $field.data('was', this.fieldValue($field));
         },
 
         async onFocusOut(event) {
-            const $field = $(event.target).closest('[data-edit-path]');
+            const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
             if (!$field.length) return;
 
@@ -918,19 +923,28 @@
             $field.addClass('is-saving');
 
             try {
-                const data = await Ghostwriter.request('POST', 'sessions/edit-field', {
-                    id: this.session.id,
-                    path: $field.attr('data-edit-path'),
-                    format: $field.data('format'),
-                    value,
-                });
+                // An extra's words go to the extra; the rest to its place in the draft.
+                const data = $field.is('[data-edit-extra]')
+                    ? await Ghostwriter.request('POST', 'sessions/edit-extra', {
+                        id: this.session.id,
+                        item: $field.attr('data-edit-extra'),
+                        part: $field.attr('data-part') ?? '',
+                        format: $field.data('format'),
+                        value,
+                    })
+                    : await Ghostwriter.request('POST', 'sessions/edit-field', {
+                        id: this.session.id,
+                        path: $field.attr('data-edit-path'),
+                        format: $field.data('format'),
+                        value,
+                    });
 
                 this.session = data;
                 this.raw = data.draft ?? '';
-                this.page?.changed(data.draft);
+                this.page?.changed(this.pageKey(data));
 
                 // Redrawn only when nothing else is being typed in.
-                if (!this.$container.find('[data-edit-path]:focus').length) {
+                if (!this.$container.find('[data-edit-path]:focus, [data-edit-extra]:focus').length) {
                     const scroll = this.$container.find('.gw-draft__body').scrollTop();
                     this.renderDraft();
                     this.$container.find('.gw-draft__body').scrollTop(scroll);
@@ -949,13 +963,30 @@
         // A piece of writing that can be changed in place.
         editable(node, extra = '') {
             const off = this.working() || this.editing;
-            const path = esc(JSON.stringify(node.path));
+            // An extra's words are edited as the extra; the rest where they
+            // are in the draft, which every layout shares.
+            const where = node.extra
+                ? `data-edit-extra="${esc(node.extra)}" data-part="${esc(node.part ?? '')}"`
+                : `data-edit-path="${esc(JSON.stringify(node.path))}"`;
 
             if (node.kind === 'html') {
-                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} data-edit-path="${path}" data-format="html" data-multiline="1" aria-label="${esc(node.label)}">${node.html}</div>`;
+                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} ${where} data-format="html" data-multiline="1" aria-label="${esc(node.label)}">${node.html}</div>`;
             }
 
-            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-path="${path}" data-format="text" data-multiline="${node.multiline ? 1 : 0}" aria-label="${esc(node.label)}">${esc(node.text)}</div>`;
+            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} ${where} data-format="text" data-multiline="${node.multiline ? 1 : 0}" aria-label="${esc(node.label)}">${esc(node.text)}</div>`;
+        },
+
+        // Words a layout put together from several places in the draft:
+        // shown, not edited here, since there's no one place to put them.
+        assembled(node, extra = '') {
+            const note = t('Put together for this layout from several parts of the draft. Change these words in the “{layout}” layout, or ask in the conversation.', { layout: this.writerName() });
+            const body = node.kind === 'html' ? `<div class="gw-prose">${node.html}</div>` : `<div class="gw-pre">${esc(node.text ?? '')}</div>`;
+
+            return `<div class="gw-assembled ${extra}" title="${esc(note)}">${body}<p class="gw-assembled__note light">${esc(note)}</p></div>`;
+        },
+
+        writerName() {
+            return this.session?.layouts?.plans?.find((plan) => plan.writer)?.name ?? t('As written');
         },
 
         // The draft as a page to read: only its words, in order, each
@@ -964,10 +995,12 @@
             const out = [];
 
             const walk = (list, where) => list.forEach((node) => {
-                if (node.editable) {
-                    out.push(node.handle === 'title' && !where
+                if (node.editable || node.assembled) {
+                    const shown = node.assembled ? this.assembled(node) : this.editable(node);
+
+                    out.push(node.handle === 'title' && !where && !node.assembled
                         ? this.editable(node, 'gw-text-title')
-                        : `<div class="gw-text-part">${where ? `<div class="gw-text-where">${esc(where)}</div>` : ''}${this.editable(node)}</div>`);
+                        : `<div class="gw-text-part">${where ? `<div class="gw-text-where">${esc(where)}</div>` : ''}${shown}</div>`);
                 } else if (node.kind === 'blocks') {
                     node.items.forEach((block) => walk(block.fields, block.label));
                 } else if (node.kind === 'rows') {
@@ -979,14 +1012,103 @@
 
             walk(nodes, '');
 
-            return out.length ? `<article class="gw-text-view">${out.join('')}</article>` : `<p class="light">${esc(t('There is no writing in this draft yet.'))}</p>`;
+            return (out.length ? `<article class="gw-text-view">${out.join('')}</article>` : `<p class="light">${esc(t('There is no writing in this draft yet.'))}</p>`)
+                + this.extrasView(this.session?.extras ?? []);
+        },
+
+        // The extras the writer prepared with the draft (§3): one card per
+        // extra, each item editable where it is (C1) with where it came
+        // from, and ✕ to delete. A layout uses them where it has room.
+        extrasView(extras) {
+            if (!extras.length) return '';
+
+            const off = this.working() || this.editing;
+            const field = (item, part, text, label) => `<span class="gw-editable gw-pre gw-extra__text" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-extra="${esc(item.id)}" data-part="${esc(part)}" data-format="text" data-multiline="0" aria-label="${esc(label)}">${esc(text)}</span>`;
+            const items = (extra) => extra.items.map((item, n) => {
+                const parts = Object.entries(item.parts ?? {}).filter(([name]) => name !== 'for');
+                const label = (part) => t('{extra} {number}: {part}', { extra: extra.label, number: n + 1, part });
+                const source = item.source?.label
+                    ? (item.source.url ? `<a href="${esc(item.source.url)}" target="_blank" rel="noopener">${esc(item.source.label)} <span aria-hidden="true">↗</span></a>` : esc(item.source.label))
+                    : '';
+
+                return `<li class="gw-extra__item">
+                    <div class="gw-extra__words">
+                        ${parts.filter(([name]) => name === 'question').map(([name, text]) => field(item, name, text, label(name))).join('')}
+                        ${field(item, '', item.text, label(t('text')))}
+                        ${parts.filter(([name]) => name !== 'question').map(([name, text]) => `<span class="gw-extra__part"><span class="gw-extra__part-name">${esc(name)}</span>${field(item, name, text, label(name))}</span>`).join('')}
+                    </div>
+                    <div class="gw-extra__meta">
+                        ${source ? `<span class="gw-extra__source gw-extra__source--${esc(item.source.kind ?? 'none')}" title="${esc(item.source.label)}">${source}</span>` : ''}
+                        ${item.state ? `<span class="gw-extra__state gw-extra__state--${esc(item.state.key)}">${esc(item.state.label)}</span>` : ''}
+                        ${extra.items.length > 1 ? `<button type="button" class="gw-extra__delete" data-action="delete-extra" data-item="${esc(item.id)}" data-label="${esc(label(t('text')))}" aria-label="${esc(t('Delete {extra} {number}', { extra: extra.label, number: n + 1 }))}" ${off ? 'disabled' : ''}>✕</button>` : ''}
+                    </div>
+                </li>`;
+            }).join('');
+
+            return `<section class="gw-extras" aria-labelledby="gw-extras-heading">
+                <h3 id="gw-extras-heading">${esc(t('Extras'))}</h3>
+                <p class="light">${esc(t('Prepared with the draft, only from what you told me, the draft itself or your existing pages. A layout uses them where it has room; one that isn’t used is never put in the entry. Click to change one.'))}</p>
+                ${extras.map((extra) => `<div class="gw-extra">
+                    <div class="gw-extra__head">
+                        <strong>${esc(extra.label)}</strong>
+                        ${extra.usedLabel ? `<span class="gw-extra__use ${extra.used ? 'is-used' : ''}">${esc(extra.usedLabel)}</span>` : ''}
+                        <button type="button" class="gw-extra__delete" data-action="delete-extra" data-item="${esc(extra.id)}" data-label="${esc(extra.label)}" aria-label="${esc(t('Delete the {extra} extra', { extra: extra.label }))}" title="${esc(t('Delete'))}" ${off ? 'disabled' : ''}>✕</button>
+                    </div>
+                    <ul>${items(extra)}</ul>
+                </div>`).join('')}
+            </section>`;
+        },
+
+        async deleteExtra(item, label) {
+            if (this.working()) return;
+
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/delete-extra', { id: this.session.id, item });
+
+                this.session = data;
+                this.page?.changed(this.pageKey(data));
+                this.renderDraft();
+                this.announce(t('{extra} deleted.', { extra: label }));
+                this.$container.find('#gw-extras-heading').attr('tabindex', '-1').trigger('focus');
+            } catch (error) {}
+        },
+
+        async chooseLayout(plan) {
+            if (this.working() || plan === this.session?.layouts?.chosen) return;
+
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/choose-layout', { id: this.session.id, plan });
+
+                this.session = data;
+                this.page?.changed(this.pageKey(data), true);
+                this.renderDraft();
+                this.announce(t('{layout} layout.', { layout: data.layouts.chosenName ?? plan }));
+            } catch (error) {
+                if (error?.response?.status === 409) this.openSession(this.session.id);
+            }
+        },
+
+        async refreshLayouts() {
+            if (this.working()) return;
+
+            try {
+                this.receive(await Ghostwriter.request('POST', 'sessions/refresh-layouts', { id: this.session.id }));
+                this.announce(t('Finding other layouts…'));
+            } catch (error) {
+                if (error?.response?.status === 409) this.openSession(this.session.id);
+            }
+        },
+
+        // What the Preview shows: the draft in the chosen layout, with its extras.
+        pageKey(session) {
+            return session?.draft ? `${session.draft}\n#layout:${session.layouts?.key ?? ''}` : null;
         },
 
         async saveDraft() {
             try {
                 const data = await Ghostwriter.request('POST', 'sessions/draft', { id: this.session.id, draft: this.raw });
 
-                this.page?.changed(data.draft);
+                this.page?.changed(this.pageKey(data));
                 this.session = data;
                 this.editing = false;
                 this.renderDraft();
@@ -1399,7 +1521,7 @@
                     ? `<div class="flex"><button type="button" class="btn small" data-action="cancel-edit">${esc(t('Cancel'))}</button><button type="button" class="btn small submit" data-action="save-draft">${esc(t('Save changes'))}</button></div>`
                     : `<div class="flex">
                            <button type="button" class="btn small" data-action="edit" ${working ? 'disabled' : ''} title="${esc(t('Change the structure: add, move or remove blocks'))}">${esc(t('Edit YAML'))}</button>
-                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(session.editing ? t('Use these changes') : t('Use this draft'))}</button>
+                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(session.editing ? t('Use these changes') : (session.layouts?.plans?.length > 1 && session.layouts.chosenName ? t('Use this draft ({layout})', { layout: session.layouts.chosenName }) : t('Use this draft')))}</button>
                        </div>`;
             }
 
@@ -1437,6 +1559,17 @@
             }
 
             $draft.children('.gw-draft__toolbar').html(toolbar);
+
+            // The layout cards, between the toolbar and the draft, in every view.
+            this.cards ??= new Ghostwriter.LayoutCards({
+                choose: (plan) => this.chooseLayout(plan),
+                refresh: () => this.refreshLayouts(),
+                prepare: (plan) => Ghostwriter.request('POST', 'preview/prepare', { id: this.session.id, elementId: this.formElementId(), siteId: this.config.siteId, plan }),
+            });
+
+            if (!$.contains($draft[0], this.cards.root)) $draft.children('.gw-draft__toolbar').after(this.cards.root);
+
+            this.cards.update(this.editing ? null : session, { busy: working || this.busy, previewable: this.config.preview });
             $draft.children('.gw-draft__body')
                 .html(body)
                 .attr({ id: 'gw-draft-panel', role: session.draft && !this.editing ? 'tabpanel' : null, 'aria-labelledby': session.draft && !this.editing ? `gw-tab-${view}` : null })
@@ -1451,7 +1584,7 @@
                 if (!$.contains($draft[0], this.page.root)) $draft.append(this.page.root);
 
                 this.page.setWidth(this.width);
-                this.page.show(session.draft, working);
+                this.page.show(this.pageKey(session), working);
             } else {
                 this.page?.hide();
             }
@@ -1509,7 +1642,7 @@
             return `<div class="gw-preview ${nested ? 'gw-preview--nested' : ''}">${nodes.map((node) => `
                 <div class="gw-preview__field">
                     <div class="gw-preview__label">${esc(node.label)}</div>
-                    ${node.editable ? this.editable(node) : this.previewValue(node)}
+                    ${node.editable ? this.editable(node) : (node.assembled ? this.assembled(node) : this.previewValue(node))}
                 </div>`).join('')}</div>`;
         },
 
