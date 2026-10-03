@@ -50,6 +50,12 @@ Stock photos, "Finish this page", and new entries that start unpublished, on `19
   - The guide's words, and core's, are Craft translations (`Craft.t('ghostwriter', …)`, registered for the page).
   - Places in blocks are named once: "the Text block", or "Subheading (in the Hero block)", not "Text: Text", in the guide and in the publish guard's messages.
   - The guide's helpers have their own tests (`node --test tests/js/*.test.mjs`), run in CI.
+- **Finish this page: fixes that stick** (an audit of every fix in a browser, checking what the field shows, that it is saved, and that the gap clears):
+  - **Link to …** on Craft's Link field showed the entry but saved nothing: the field writes its stored value only when its picker reports a choice. The guide now reports it the same way, so `{entry:…}` is saved.
+  - **A fix counts only when the field reads back different.** Otherwise the guide says "That didn't change the field. Try another fix, or change it yourself." and stays on the step. A choice made in Craft's own pickers (Choose an entry, Choose from Assets, Find a photo) is checked the same way once the picker closes.
+  - **Cancelling a picker leaves the field as it was:** the replace Craft was holding is dropped, and a Link field switched to Entry to open its picker goes back to the type (and address) it had.
+  - **The guide and the mark step aside while a slideout is open** (a block opened from cards view), as they do for Craft's modals, and come back, checking again, when it closes.
+  - **Remove it** in CKEditor no longer leaves two spaces where the template text was.
 - **"Include editorial images" says what it means:** an (i) with Craft's info icon (focusable, and opened by a tap) explains editorial photos and where they may be used, a hint under it reads "News and event photos. Not for advertising or promotion.", and it shows only when the source chosen in **Search in** can return editorial images (core's `Capabilities::$editorial`; never the free libraries). Each **Search in** option now says whether it can (`editorial`).
 - **Docs:** [Finish this page](docs/finish-this-page.md).
 

@@ -31,7 +31,7 @@ On an entry with something that stops publishing, a count sits beside **Save**: 
   **Write it for me** and **Write around it** each make one small request to your AI provider, and say so on the button ("uses Ghostwriter"). Nothing else in the guide calls a model.
 - **Back**, **Skip for now** and **Next**. Skipped gaps stay highlighted and still count; the guide remembers them for this entry for the rest of the browser session.
 
-Every fix goes into the form, as if you had typed it. Craft saves your draft as it always does, and nothing is published until you save.
+Every fix goes into the form, as if you had typed it, and counts only once the field really holds something new: if it doesn't, the guide says so and stays on the step. Cancelling Craft's picker leaves the field as it was. While a picker, a dialog or a block's slideout is open, the guide steps aside. Craft saves your draft as it always does, and nothing is published until you save.
 
 The guide looks again each time Craft saves your draft, and only what it finds then is still a step. A field turns green ("Fixed ✓") once it had gaps and has none left; when a fix leaves something else in the same field (a placeholder swapped for a stock preview, which still needs a licence), that's a new step and the field stays open.
 

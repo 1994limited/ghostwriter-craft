@@ -670,10 +670,11 @@ body:has(> .modal-shade[style*="display: block"]) .gw-finish-flyer {
     visibility: hidden;
 }
 
-/* Above a slideout's Cancel and Save while one is open (a block opened from
-   cards view). */
+/* Out of the way while a slideout is open (a block opened from cards view,
+   an element's editor): its fields keep their highlights and tags, and the
+   guide comes back, looking again, when it closes. */
 
-body:has(.slideout-container .slideout) .gw-finish-guide,
-body:has(.slideout-container .slideout) .gw-finish-dock {
-    bottom: 84px;
+body:has(.slideout-container:not(.hidden) .slideout) .gw-finish-guide,
+body:has(.slideout-container:not(.hidden) .slideout) .gw-finish-flyer {
+    visibility: hidden;
 }
