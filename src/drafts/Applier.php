@@ -12,6 +12,7 @@ use craft\fields\Assets;
 use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\SessionGaps;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
@@ -42,7 +43,7 @@ class Applier
     }
 
     /**
-     * @return array{draft: Entry, notes: array<int, string>}
+     * @return array{draft: Entry, notes: array<int, string>, gaps: SessionGaps}
      */
     public function apply(Session $session, ContentType $type, Entry $target, User $user): array
     {
@@ -66,7 +67,8 @@ class Applier
             // settings and blocks come from the entry as it stands in this
             // draft, not from what this kind of entry usually has.
             $original = (new EntryReader())->read($entry, $schema);
-            $data = (new EntryMerger())->merge($this->layouts->build($draft->data, $model)->data, $original, $schema);
+            $built = $this->layouts->build($draft->data, $model);
+            $data = (new EntryMerger())->merge($built->data, $original, $schema);
             $notes = [];
             $existing = $this->blockIds($original);
         } else {
@@ -84,9 +86,13 @@ class Applier
         // in the same position, nested items such as breadcrumbs, and the
         // markup around rich text. A new entry only; an existing one keeps
         // its own.
+        $housePlaces = [];
+        $placed = [];
+
         if ($pattern !== null) {
             $house = $this->layouts->houseStyle($data, $model, $pattern->house, (int) $entry->getCanonicalId(), (string) ($data['title'] ?? $draft->title()));
             $data = $house->data;
+            $housePlaces = $house->toFill;
 
             if ($note = $house->note()) {
                 $notes[] = $note;
@@ -108,9 +114,8 @@ class Applier
             $placeholders = Plugin::getInstance()->domain->placeholders($pattern?->filled ?? []);
             $data = $placeholders->fill($data, $model);
 
-            if ($note = $placeholders->note()) {
-                $notes[] = $note;
-            }
+            // No note: each placeholder is a step in "Finish this page".
+            $placed = $placeholders->filled();
         }
 
         $entry->setFieldValues($this->values->forCraft($data, $schema, $existing));
@@ -133,7 +138,9 @@ class Applier
             throw new InvalidArgumentException('The draft could not be saved: ' . implode(' ', $entry->getFirstErrors()));
         }
 
-        return ['draft' => $entry, 'notes' => $notes];
+        // What the draft left for a person, so "Finish this page" can say
+        // why ("I didn't want to guess"). The content stays the truth.
+        return ['draft' => $entry, 'notes' => $notes, 'gaps' => SessionGaps::fromDraft($built, $housePlaces, $placed)];
     }
 
     /**

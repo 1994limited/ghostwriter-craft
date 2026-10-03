@@ -131,15 +131,20 @@ class ImageryTest extends TestCase
         // No footnote has been written before, but its icon is required.
         $this->assertSame($placeholder->id, $blocks[1]->getFieldValue('noteIcon')->one()->id);
 
-        // One placeholder file, reused everywhere, and the person is told where.
+        // One placeholder file, reused everywhere. Where they went is kept
+        // for "Finish this page", which shows each as a step, so the notice
+        // doesn't list them too.
         $this->assertSame(1, (int) \craft\elements\Asset::find()->filename('ghostwriter-image-placeholder.png')->count());
-        $note = implode(' ', array_filter($notes, fn($note) => str_contains($note, 'striped placeholder')));
+        $this->assertSame([], array_values(array_filter($notes, fn($note) => str_contains($note, 'striped placeholder'))));
 
-        foreach (['Cover', 'Banner: ', 'Footnote: NoteIcon', 'Replace them before publishing.'] as $expected) {
-            $this->assertStringContainsString($expected, $note);
+        $placed = array_column(array_filter($this->plugin->sessions->find($session->id)->gaps, fn(array $gap) => $gap['kind'] === 'image-placeholder'), 'label');
+        $placed = implode(' | ', $placed);
+
+        foreach (['Cover', 'Banner: ', 'Footnote: NoteIcon'] as $expected) {
+            $this->assertStringContainsString($expected, $placed);
         }
 
-        $this->assertStringNotContainsString('MediaItem', implode(' ', $notes));
+        $this->assertStringNotContainsString('MediaItem', $placed);
     }
 
     public function testAnImageChosenWhileWritingIsKeptWhenTheDraftIsUsed(): void

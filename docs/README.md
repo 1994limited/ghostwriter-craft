@@ -17,6 +17,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 - [Voice guide and image style](guides.md)
 - [Kinds of content](kinds.md)
 - [Images](images.md)
+- [Finish this page](finish-this-page.md): facts to add, links and images to choose, and why a page won't publish yet.
 - [Stock photos](stock-photos.md): paid libraries (Shutterstock; Getty Images and iStock are coming), previews, licensing, the ledger.
 - [Content plan](content-plan.md)
 - [The Overview and the widget](dashboard.md)

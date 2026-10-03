@@ -134,7 +134,7 @@ class StockLibrariesTest extends TestCase
         $this->assertStringNotContainsString('sk-test-never-shown', $html);
         $this->assertStringContainsString('Connect account', $html);
         $this->assertStringContainsString('name="stockLibraries[demo]"', $html);
-        $this->assertStringContainsString('name="stockOnPublish"', $html);
+        $this->assertStringContainsString('name="onUnfinishedPublish"', $html);
         $this->assertStringContainsString('name="stockIncludeEditorial"', $html);
     }
 
@@ -164,6 +164,16 @@ class StockLibrariesTest extends TestCase
         $settings->stockOnPublish = 'publish anyway';
         $this->assertFalse($settings->validate(['stockOnPublish']));
         $settings->stockOnPublish = 'block';
+        $this->assertTrue($settings->blocksPreviewsOnPublish());
+
+        // "Finish this page"'s setting wins; the stock one is read when it isn't set.
+        $settings->onUnfinishedPublish = 'warn';
+        $this->assertFalse($settings->blocksPreviewsOnPublish());
+        $this->assertSame(\NineteenNinetyFour\Ghostwriter\Core\Gaps\OnPublish::Warn, $settings->onPublish());
+        $settings->onUnfinishedPublish = 'sometimes';
+        $this->assertFalse($settings->validate(['onUnfinishedPublish']));
+        $settings->onUnfinishedPublish = null;
+        $this->assertTrue($settings->validate(['onUnfinishedPublish']));
         $this->assertTrue($settings->blocksPreviewsOnPublish());
     }
 }

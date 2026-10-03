@@ -54,13 +54,20 @@ return [
         // entries are never changed.
         // 'draftsUnpublished' => true,
 
+        // Finish this page. Whether an entry with something still to finish
+        // (a fact to add, a link to choose, an image placeholder, a stock
+        // photo preview not licensed) is blocked from going live, or saved
+        // with a warning ('block' or 'warn'; 'stockOnPublish' is still read
+        // when this isn't set); and whether the guide opens by itself after
+        // a draft is put into an entry.
+        // 'onUnfinishedPublish' => 'block',
+        // 'finishOpenAfterDraft' => true,
+
         // Stock photos. Paid libraries switched on or off, by ID; where
-        // "Search in" starts; editorial images; and whether an entry holding
-        // an unlicensed preview is blocked from going live or only warned.
+        // "Search in" starts; and editorial images.
         // 'stockLibraries' => [],
         // 'stockDefaultSource' => 'free',
         // 'stockIncludeEditorial' => false,
-        // 'stockOnPublish' => 'block',
         // Offer the demo library outside dev mode (never in production).
         // 'stockDemo' => '$GHOSTWRITER_STOCK_DEMO',
         // Shutterstock's sandbox (charges nothing): true, false, or null for dev mode only.

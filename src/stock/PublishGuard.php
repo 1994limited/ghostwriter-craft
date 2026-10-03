@@ -12,22 +12,33 @@ use craft\events\ModelEvent;
 use craft\fields\Assets;
 use craft\helpers\ElementHelper;
 use Illuminate\Support\Collection;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Readiness;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetRef;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\StockImage;
+use nineteenninetyfour\ghostwriter\gaps\Gaps;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Throwable;
 
 /**
- * No page goes live holding a stock photo preview (§7.1).
+ * No page goes live unfinished: the one publish guard for "Finish this
+ * page" and stock photos (§5.6 of the finish-this-page design, §7.1 of the
+ * stock design), core's PublishReadiness behind it.
  *
  * On `Entry::EVENT_BEFORE_SAVE`, for a canonical entry (not a draft or
  * revision) that is enabled for its site and saved in the live scenario,
- * or updated from a draft (applying a draft, which Craft saves in the
- * essentials scenario): if any image in it, at any depth in its
- * blocks, is a preview not licensed yet, the save is refused with a
- * message on the field (`stockOnPublish` = block, the default), or saved
- * with a warning (warn). Drafts, provisional drafts and disabled entries
- * always save. Other elements (global sets, categories) are only warned.
+ * or updated from a draft (applying a draft, which Craft saves through
+ * duplicateElement() in the essentials scenario, so it is told by
+ * `updatingFromDerivative`): one finder run looks for every gap that
+ * blocks, at any depth in Matrix and Neo blocks. A fact to add, a link to
+ * choose or to a page that's gone, an image placeholder, leftover template
+ * text, or a stock photo preview not licensed. Then, as
+ * `onUnfinishedPublish` says, the save is refused with a message on each
+ * field ("block", the default), or saved with one warning listing them
+ * ("warn"). Drafts, provisional drafts and disabled entries always save.
+ *
+ * In sections Ghostwriter doesn't write for, only stock previews are
+ * looked for. Global sets and categories are only warned about previews.
  */
 class PublishGuard
 {
@@ -38,12 +49,22 @@ class PublishGuard
     {
         $element = $event->sender;
 
-        if (!$element instanceof ElementInterface || !$event->isValid || Plugin::getInstance()->stockUsages->ledgerIsEmpty()) {
+        if (!$element instanceof ElementInterface || !$event->isValid) {
             return;
         }
 
         // A block is checked with the entry it is in, never on its own.
         if (method_exists($element, 'getOwner') && $element->getOwner() !== null) {
+            return;
+        }
+
+        if ($element instanceof Entry) {
+            self::entry($event, $element);
+
+            return;
+        }
+
+        if (Plugin::getInstance()->stockUsages->ledgerIsEmpty()) {
             return;
         }
 
@@ -55,36 +76,84 @@ class PublishGuard
             return;
         }
 
-        if ($previews === []) {
+        foreach ($previews as [, $label, $image]) {
+            self::warn(self::message($label, $image));
+        }
+    }
+
+    /**
+     * Whether saving this entry puts it live: a canonical entry, enabled
+     * for its site, saved in the live scenario (Save), or updated from a
+     * draft (applying a draft, which Craft saves through duplicateElement()
+     * in the essentials scenario, so it is told by `updatingFromDerivative`).
+     */
+    public static function goesLive(Entry $entry): bool
+    {
+        return !ElementHelper::isDraftOrRevision($entry)
+            && !$entry->propagating
+            && ($entry->getScenario() === Element::SCENARIO_LIVE || $entry->updatingFromDerivative)
+            && $entry->enabled
+            && $entry->getEnabledForSite();
+    }
+
+    private static function entry(ModelEvent $event, Entry $entry): void
+    {
+        $plugin = Plugin::getInstance();
+
+        if (!self::goesLive($entry) || (!Gaps::writesHere($entry) && $plugin->stockUsages->ledgerIsEmpty())) {
             return;
         }
 
-        // Going live: a canonical entry, enabled for its site, saved in the
-        // live scenario (Save), or updated from a draft (applying a draft,
-        // which Craft saves through duplicateElement() in the essentials
-        // scenario, so it is told by `updatingFromDerivative`).
-        $live = $element instanceof Entry
-            && !ElementHelper::isDraftOrRevision($element)
-            && !$element->propagating
-            && ($element->getScenario() === Element::SCENARIO_LIVE || $element->updatingFromDerivative)
-            && $element->enabled
-            && $element->getEnabledForSite();
+        try {
+            $readiness = $plugin->gaps->readiness($entry);
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't check whether the entry is finished: {$exception->getMessage()}", 'ghostwriter');
 
-        $blocks = $live && Plugin::getInstance()->getSettings()->blocksPreviewsOnPublish();
-
-        foreach ($previews as [$handle, $label, $image]) {
-            $message = self::message($label, $image);
-
-            if ($blocks) {
-                $element->addError($handle, $message);
-            } elseif ($live || !$element instanceof Entry) {
-                self::warn($message);
-            }
+            return;
         }
 
-        if ($blocks) {
-            $event->isValid = false;
+        if ($readiness->ready()) {
+            return;
         }
+
+        $translate = fn(Message $message) => Gaps::translate($message);
+
+        if (!$readiness->blocked()) {
+            self::warn(Gaps::translate($readiness->message($translate)));
+
+            return;
+        }
+
+        foreach (self::byField($readiness) as $handle => $message) {
+            $entry->addError($handle, $message);
+        }
+
+        $event->isValid = false;
+    }
+
+    /**
+     * What each top-level field says, for addError(): core's message for
+     * each problem, named by its block when it sits in one ("Feature:
+     * Picture: This is a Demo stock preview…"), one sentence each.
+     *
+     * @return array<string, string>
+     */
+    public static function byField(Readiness $readiness): array
+    {
+        $fields = [];
+
+        foreach ($readiness->problems() as $gap) {
+            // As core's Readiness words it: "gaps.publish.field.<kind>".
+            $text = Gaps::translate(new Message('gaps.publish.field.' . $gap->kind->value, array_filter([
+                'label' => $gap->label,
+                'hint' => $gap->hint,
+                'library' => is_scalar($gap->meta['library'] ?? null) ? $gap->meta['library'] : null,
+            ], fn($value) => $value !== null)));
+
+            $fields[$gap->path->handle()][] = count($gap->path->segments) > 1 ? "{$gap->label}: {$text}" : $text;
+        }
+
+        return array_map(fn(array $lines) => implode(' ', array_unique($lines)), $fields);
     }
 
     /**

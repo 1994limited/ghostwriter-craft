@@ -6,6 +6,7 @@ use craft\base\Model;
 use craft\helpers\App;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\NotConfigured;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\BaseUrl;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\OnPublish;
 
 /**
  * Ghostwriter's settings. They are edited on the plugin's settings page and,
@@ -87,11 +88,26 @@ class Settings extends Model
     public bool $stockIncludeEditorial = false;
 
     /**
-     * When an entry holding a stock photo preview (not licensed yet) is
-     * saved live: "block" refuses the save with a message on the field;
-     * "warn" saves it and says so. Drafts always save.
+     * The stock photos setting from before "Finish this page": read only
+     * when `onUnfinishedPublish` isn't set, so a config file that names it
+     * keeps working.
      */
     public string $stockOnPublish = self::STOCK_BLOCK;
+
+    /**
+     * When an entry is saved live with something still to finish (a fact
+     * to add, a link to choose, an image placeholder, template text, or a
+     * stock photo preview not licensed yet): "block" refuses the save with
+     * a message on each field; "warn" saves it and says what is left.
+     * Drafts always save. Empty follows `stockOnPublish`, else blocks.
+     */
+    public ?string $onUnfinishedPublish = null;
+
+    /**
+     * Open the "Finish this page" guide by itself after Ghostwriter puts a
+     * draft into an entry, whether or not it was last minimised.
+     */
+    public bool $finishOpenAfterDraft = true;
 
     /**
      * Offer the demo library ("Demo stock (no charge)") outside dev mode,
@@ -194,6 +210,8 @@ class Settings extends Model
             [['timeout'], 'integer', 'min' => 30, 'max' => 1800],
             [['voiceMaxEntries', 'voiceMaxCharsPerEntry', 'voiceMaxChars', 'imageGuideSamples', 'planSuggestions', 'stockUnusedDays'], 'integer', 'min' => 1],
             [['stockOnPublish'], 'in', 'range' => [self::STOCK_BLOCK, self::STOCK_WARN]],
+            [['onUnfinishedPublish'], 'in', 'range' => [self::STOCK_BLOCK, self::STOCK_WARN], 'skipOnEmpty' => true],
+            [['finishOpenAfterDraft'], 'boolean'],
             [['stockDefaultSource'], 'match', 'pattern' => '/^[a-z0-9_-]{1,64}$/'],
             [['stockIncludeEditorial'], 'boolean'],
             [['shutterstockSandbox'], 'safe'],
@@ -243,7 +261,16 @@ class Settings extends Model
      */
     public function blocksPreviewsOnPublish(): bool
     {
-        return $this->stockOnPublish !== self::STOCK_WARN;
+        return $this->onPublish() === OnPublish::Block;
+    }
+
+    /**
+     * What publishing with something unfinished does: `onUnfinishedPublish`,
+     * else the older `stockOnPublish`; anything but "warn" blocks.
+     */
+    public function onPublish(): OnPublish
+    {
+        return OnPublish::fromConfig($this->onUnfinishedPublish, $this->stockOnPublish);
     }
 
     /**

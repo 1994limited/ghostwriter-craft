@@ -43,7 +43,13 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 | **Paid libraries** | Each paid library's keys, **Check connection** and an **Enabled** switch. See [Stock photos](stock-photos.md#settings). |
 | **Search in, by default** | Where the image dialog searches for someone who hasn't chosen yet. |
 | **Include editorial images by default** | Off. |
-| **When a page with an unlicensed preview is published** | **Block** (the default) or **Warn**. |
+
+**Finish this page**
+
+| Setting | What it does |
+| --- | --- |
+| **When a page with things to finish is published** | **Block** (the default) or **Warn**: a fact to add, a link to choose, an image placeholder, template text or a stock photo preview. See [Finish this page](finish-this-page.md#publishing). |
+| **Open the guide after a draft is added** | On. Off, the guide stays as each person last left it. |
 
 **Troubleshooting**
 
@@ -101,7 +107,9 @@ return [
 | `stockLibraries` | `[]` (all on) | Paid photo libraries switched on or off, by ID: `['demo' => false]` |
 | `stockDefaultSource` | `free` | Where **Search in** starts: `free`, `everything` or a library's ID |
 | `stockIncludeEditorial` | `false` | Include editorial-only images in searches by default |
-| `stockOnPublish` | `block` | `block` or `warn` when an entry holding an unlicensed preview goes live |
+| `onUnfinishedPublish` | `null` (block) | `block` or `warn` when an entry with something still to finish goes live; `null` reads `stockOnPublish` |
+| `stockOnPublish` | `block` | The older stock-only setting, read when `onUnfinishedPublish` isn't set |
+| `finishOpenAfterDraft` | `true` | Open the Finish this page guide after a draft is put into an entry |
 | `shutterstockSandbox` | `null` (dev mode) | Use Shutterstock's sandbox: `true`, `false`, or `null` for dev mode only |
 | `stockDemo` | `$GHOSTWRITER_STOCK_DEMO` | Offer the demo library outside dev mode; never in production |
 | `stockUnusedDays` | `30` | Days before a preview no entry uses is cleaned up |

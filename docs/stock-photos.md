@@ -115,11 +115,13 @@ Getty Images and iStock need a credit next to an image whenever a page uses it f
 
 An entry holding a preview can't go live. Saving the live entry, or applying a draft to it, is refused with a message on the field:
 
-> The hero image is a Getty Images preview, not licensed yet. License it, or choose another image, before publishing.
+> This is a Getty Images preview, not licensed yet. License it, or choose another image, before publishing.
+
+Inside a Matrix or Neo block, the message names the block and field ("Hero: Image: This is a Getty Images preview…"). The same check, with the same one message, also stops a page going live with anything else still to finish: see [Finish this page](finish-this-page.md).
 
 License the photo, or choose another, then save. **Drafts always save**, provisional drafts included, so you can keep working with the preview in place. A disabled entry saves too; new entries Ghostwriter writes start disabled (see [Use this draft](writing.md#use-this-draft)).
 
-To warn instead of refusing, set **When a page with an unlicensed preview is published** to **Warn** (`stockOnPublish` = `warn`). The entry saves, with a notice. Global sets and categories are only ever warned.
+To warn instead of refusing, set **When a page with things to finish is published** to **Warn** (`onUnfinishedPublish` = `warn`; the older `stockOnPublish` is still read when it isn't set). The entry saves, with a notice. Global sets and categories are only ever warned.
 
 ## The Stock images screen
 
@@ -162,7 +164,7 @@ If your site uses other AI tools (for alt text, say), set them to skip these ima
 | **Shutterstock sandbox** | `shutterstockSandbox` | **In dev mode** (the default), **Always** or **Never**. |
 | **Search in, by default** | `stockDefaultSource` | `free`, `everything` or a library's ID, such as `demo`. |
 | **Include editorial images by default** | `stockIncludeEditorial` | Off. |
-| **When a page with an unlicensed preview is published** | `stockOnPublish` | `block` (the default) or `warn`. |
+| **When a page with things to finish is published** (under **Finish this page**) | `onUnfinishedPublish` | `block` (the default) or `warn`. Covers previews and every other gap; `stockOnPublish` is read when it isn't set. |
 | | `stockDemo` | Offer the demo library outside dev mode. Never in production. |
 | | `stockUnusedDays` | Days before an unused preview is cleaned up. 30. |
 

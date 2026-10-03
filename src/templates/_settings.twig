@@ -149,6 +149,32 @@
 
 <hr>
 
+<h2 id="finish">{{ 'Finish this page'|t('ghostwriter') }}</h2>
+
+<p class="light">{{ 'Ghostwriter highlights what an editor must still finish in an entry: facts to add, links to choose, image placeholders and stock photo previews. A guide walks through them.'|t('ghostwriter') }}</p>
+
+{% set lockedMode = 'onUnfinishedPublish' in overrides or ('stockOnPublish' in overrides and settings.onUnfinishedPublish is empty) %}
+{{ forms.selectField({
+    label: 'When a page with things to finish is published'|t('ghostwriter'),
+    instructions: 'Block refuses to save the live entry until they are finished, with a message on each field. Warn saves it and lists what is left; anything still marked goes live as it is. Drafts always save.'|t('ghostwriter'),
+    name: 'onUnfinishedPublish',
+    options: {block: 'Block'|t('ghostwriter'), warn: 'Warn'|t('ghostwriter')},
+    value: settings.onPublish().value,
+    warning: lockedMode ? _self.overridden('onUnfinishedPublish' in overrides ? 'onUnfinishedPublish' : 'stockOnPublish', overrides) : null,
+    disabled: lockedMode,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Open the guide after a draft is added'|t('ghostwriter'),
+    instructions: 'After Ghostwriter puts a draft into an entry, the guide opens by itself. Off, it stays as each person last left it.'|t('ghostwriter'),
+    name: 'finishOpenAfterDraft',
+    on: settings.finishOpenAfterDraft,
+    warning: 'finishOpenAfterDraft' in overrides ? _self.overridden('finishOpenAfterDraft', overrides) : null,
+    disabled: 'finishOpenAfterDraft' in overrides,
+}) }}
+
+<hr>
+
 <h2 id="stock-photos">{{ 'Stock photos'|t('ghostwriter') }}</h2>
 <p class="light">{{ 'Photos from libraries, found with the Ghostwriter button on an image field. Keys are read from your .env file each time they are needed and are never stored or shown.'|t('ghostwriter') }}</p>
 
@@ -281,15 +307,6 @@
     disabled: 'stockIncludeEditorial' in overrides,
 }) }}
 
-{{ forms.selectField({
-    label: 'When a page with an unlicensed preview is published'|t('ghostwriter'),
-    instructions: 'Block refuses to save the live entry until the preview is licensed or replaced, with a message on the image field. Warn saves it and says so. Drafts always save.'|t('ghostwriter'),
-    name: 'stockOnPublish',
-    options: {block: 'Block'|t('ghostwriter'), warn: 'Warn'|t('ghostwriter')},
-    value: settings.stockOnPublish,
-    warning: 'stockOnPublish' in overrides ? _self.overridden('stockOnPublish', overrides) : null,
-    disabled: 'stockOnPublish' in overrides,
-}) }}
 
 {% js %}
 (function () {

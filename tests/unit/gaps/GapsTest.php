@@ -1,0 +1,306 @@
+<?php
+
+namespace nineteenninetyfour\ghostwriter\tests\unit\gaps;
+
+use Craft;
+use craft\ckeditor\Field as Ckeditor;
+use craft\elements\Entry;
+use craft\fields\Assets;
+use craft\fields\Link;
+use craft\fields\Number;
+use craft\fields\PlainText;
+use craft\models\Section;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
+use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\Field;
+use nineteenninetyfour\ghostwriter\controllers\GapsController;
+use nineteenninetyfour\ghostwriter\domain\VolumeAssetSink;
+use nineteenninetyfour\ghostwriter\gaps\CraftLinkTargets;
+use nineteenninetyfour\ghostwriter\gaps\Gaps;
+use nineteenninetyfour\ghostwriter\images\ImageSlot;
+use nineteenninetyfour\ghostwriter\jobs\FillGap;
+use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
+use nineteenninetyfour\ghostwriter\stock\StockMarkers;
+use nineteenninetyfour\ghostwriter\tests\support\TestCase;
+
+/**
+ * "Finish this page" on the server: the check the guide runs on an entry
+ * as the form has it (every kind of gap, translated, with where each is in
+ * the form), which never asks a model; the guide's remembered state; and
+ * the fixes that write, which ask once each and never for a fact.
+ */
+class GapsTest extends TestCase
+{
+    private Section $events;
+
+    private Assets $cover;
+
+    private Assets $image;
+
+    private Entry $contact;
+
+    protected function _before(): void
+    {
+        parent::_before();
+
+        Craft::$app->getRequest()->setIsCpRequest(true);
+        $this->plugin->getSettings()->stockLibraries = [];
+        $this->plugin->stockLibraries->reset();
+        $this->plugin->stockComps->reset();
+        StockMarkers::reset();
+
+        $volume = $this->makeVolume();
+        $sources = ['sources' => ['volume:' . $volume->uid], 'defaultUploadLocationSource' => 'volume:' . $volume->uid];
+        $this->cover = $this->makeField(Assets::class, 'cover', $sources + ['maxRelations' => 1]);
+        $this->image = $this->makeField(Assets::class, 'image', $sources + ['maxRelations' => 1]);
+        $feature = $this->makeEntryType('feature', [$this->makeField(PlainText::class, 'heading')], hasTitle: false);
+
+        $type = $this->makeEntryType('event', [
+            $this->makeField(PlainText::class, 'summary'),
+            $this->makeField(Ckeditor::class, 'body'),
+            $this->makeField(Number::class, 'price'),
+            $this->makeField(Link::class, 'button', ['types' => ['url', 'entry']]),
+            $this->cover,
+            $this->image,
+            $this->makeMatrix('blocks', [$feature]),
+        ]);
+
+        // Summary is required on this layout.
+        $layout = $type->getFieldLayout();
+
+        foreach ($layout->getCustomFieldElements() as $element) {
+            if ($element->getField()->handle === 'summary') {
+                $element->required = true;
+            }
+        }
+
+        Craft::$app->getEntries()->saveEntryType($type);
+
+        $this->events = $this->makeSection('events', [$type]);
+        $pages = $this->makeSection('pages', [$this->makeEntryType('page')], Section::TYPE_CHANNEL);
+        $this->contact = $this->makeEntry($pages, 'Contact us');
+    }
+
+    public function testTheCheckFindsEveryKindOfGapWithoutAskingAModel(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->unfinished();
+
+        $result = $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id, 'siteId' => $entry->siteId], 'GET');
+
+        $this->assertSame(200, $result['status'], json_encode($result['data']));
+        $data = $result['data'];
+        $kinds = array_count_values(array_column($data['gaps'], 'kind'));
+
+        foreach (['ask', 'ask-value', 'link', 'link-broken', 'image-placeholder', 'stock-preview', 'required', 'leftover-token', 'placeholder-text'] as $kind) {
+            $this->assertArrayHasKey($kind, $kinds, "No {$kind} gap: " . json_encode(array_keys($kinds)));
+        }
+
+        // Two links to choose: inline, and the Link field on the sentinel.
+        $this->assertSame(2, $kinds['link']);
+        $this->assertSame(count(array_filter($data['gaps'], fn(array $gap) => $gap['severity'] !== 'suggestion')), $data['count']);
+        $this->assertSame($entry->id, $data['elementId']);
+        $this->fake->assertNothingSent();
+
+        $byKind = [];
+
+        foreach ($data['gaps'] as $gap) {
+            $byKind[$gap['kind']] ??= $gap;
+        }
+
+        // Translated, with the speech label and the fixes' labels.
+        $ask = $byKind['ask'];
+        $this->assertSame('I left a gap in Body: adult ticket price. I didn\'t want to guess. What should it say?', $ask['message']);
+        $this->assertSame('Fill this in', $ask['speech']);
+        $this->assertSame(['Type it in', 'Write around it'], array_column($ask['fixes'], 'label'));
+        $this->assertSame(['elementId' => (int) $entry->id, 'handle' => 'body', 'blocks' => [], 'field' => 'body'], $ask['location']);
+
+        // A fact for the number field, from the session: the reason is the writer's.
+        $this->assertSame('Price is empty: adult ticket price. I didn\'t want to guess it.', $byKind['ask-value']['message']);
+        $this->assertSame('I didn\'t want to guess.', $byKind['ask-value']['reason']);
+
+        // "Link to Contact us", from the hint, as a CKEditor link.
+        $link = array_values(array_filter($data['gaps'], fn(array $gap) => $gap['kind'] === 'link' && $gap['meta']['inline']))[0];
+        $this->assertSame('Link to Contact us', $link['fixes'][0]['label']);
+        $this->assertStringStartsWith("{entry:{$this->contact->id}@", $link['fixes'][0]['value']);
+
+        // The stock step carries the stock feature's own badge, by library name.
+        $this->assertSame('Image is still a Demo stock preview. License it before publishing.', $byKind['stock-preview']['message']);
+        $this->assertSame($byKind['stock-preview']['meta']['stockId'], $byKind['stock-preview']['stock']['id']);
+        $this->assertSame('License me', $byKind['stock-preview']['speech']);
+
+        // A gap in a block is found in that block's own field.
+        $heading = array_values(array_filter($data['gaps'], fn(array $gap) => $gap['field'] === 'blocks'))[0];
+        $block = $entry->getFieldValue('blocks')->status(null)->one();
+        $this->assertSame(['elementId' => (int) $block->id, 'handle' => 'heading', 'blocks' => [(int) $block->id], 'field' => 'blocks'], $heading['location']);
+        $this->assertSame('Feature: Heading', $heading['label']);
+    }
+
+    public function testTheCheckReadsTheDraftTheFormIsEditing(): void
+    {
+        $user = $this->signInToEdit();
+        $entry = $this->makeEntry($this->events, 'Finished', ['summary' => 'Done.', 'body' => '<p>All done.</p>']);
+        $draft = Craft::$app->getDrafts()->createDraft($entry, $user->id, null, null, [], true);
+        $draft->setFieldValue('body', '<p>Tickets cost [[ask: adult ticket price]].</p>');
+        Craft::$app->getElements()->saveElement($draft);
+
+        $live = $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id, 'siteId' => $entry->siteId], 'GET')['data'];
+        $editing = $this->action('ghostwriter/gaps/check', ['elementId' => $draft->id, 'siteId' => $entry->siteId], 'GET')['data'];
+
+        $this->assertNotContains('ask', array_column($live['gaps'], 'kind'));
+        $this->assertContains('ask', array_column($editing['gaps'], 'kind'));
+    }
+
+    public function testTheCheckNeedsTheEntryToBeViewable(): void
+    {
+        $entry = $this->makeEntry($this->events, 'Hidden');
+
+        // May use Ghostwriter, but not see this section's entries.
+        $this->signIn();
+        $this->assertSame(403, $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id], 'GET')['status']);
+        $this->assertSame(404, $this->action('ghostwriter/gaps/check', ['elementId' => 999999], 'GET')['status']);
+
+        // May see it, but not use Ghostwriter.
+        $this->signIn(permitted: false, extra: ['viewEntries:' . $this->events->uid]);
+        $this->assertSame(403, $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id], 'GET')['status']);
+    }
+
+    public function testTheGuideRemembersOpenOrMinimisedForEachPerson(): void
+    {
+        $this->signIn();
+
+        $this->assertSame('minimised', GapsController::rememberedGuide(), 'Minimised for someone new.');
+        $this->assertSame('open', $this->action('ghostwriter/gaps/guide', ['state' => 'open'])['data']['state']);
+        $this->assertSame('open', GapsController::rememberedGuide());
+        $this->action('ghostwriter/gaps/guide', ['state' => 'anything']);
+        $this->assertSame('minimised', GapsController::rememberedGuide());
+    }
+
+    public function testWriteItForMeAsksOnceAndPutsNothingIntoTheEntry(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->makeEntry($this->events, 'Spring fair', ['body' => '<p>A fair on the green, with plants for sale.</p>']);
+        $report = $this->plugin->gaps->report($entry);
+        $required = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Required)[0];
+
+        $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $required->id]);
+        $this->assertSame('working', $started['data']['status'], json_encode($started['data']));
+        $this->assertCount(1, $this->queued(FillGap::class));
+
+        $this->fake->respond('gap-filler', '<result>A spring fair on the green, with plants for sale.</result>');
+        $this->runQueue();
+
+        $done = $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $started['data']['id']]);
+        $this->assertSame(['status' => 'done', 'text' => 'A spring fair on the green, with plants for sale.', 'message' => null], $done['data']);
+        $this->assertCount(1, $this->fake->prompted('gap-filler'));
+        $this->assertStringContainsString('A fair on the green', $this->fake->prompted('gap-filler')[0]->prompt);
+
+        // Shown once, then gone; and the entry itself is untouched.
+        $this->assertSame(404, $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $started['data']['id']])['status']);
+        $this->assertSame('', (string) Entry::find()->id($entry->id)->one()->getFieldValue('summary'));
+    }
+
+    public function testAFactIsNeverWrittenOnlyWrittenAround(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->unfinished();
+        $report = $this->plugin->gaps->report($entry);
+        $askValue = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::AskValue)[0];
+        $ask = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Ask)[0];
+
+        $this->assertSame(422, $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $askValue->id])['status']);
+        $this->assertSame([], $this->queued(FillGap::class));
+
+        $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $ask->id, 'sentence' => 'Tickets cost [[ask: adult ticket price]] for adults.']);
+        $this->fake->respond('gap-filler', '<result>Tickets are sold for adults at the gate.</result>');
+        $this->runQueue();
+
+        $request = $this->fake->prompted('gap-filler')[0];
+        $this->assertStringContainsString('Task: write-around', $request->prompt);
+        $this->assertStringContainsString('Missing: adult ticket price', $request->prompt);
+        $this->assertSame('done', $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $started['data']['id']])['data']['status']);
+    }
+
+    public function testSomeoneElsesAnswerIsNotShown(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->makeEntry($this->events, 'Spring fair', ['body' => '<p>A fair.</p>']);
+        $required = $this->plugin->gaps->report($entry)->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Required)[0];
+        $id = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $required->id])['data']['id'];
+
+        $this->signInToEdit();
+
+        $this->assertSame(404, $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $id])['status']);
+    }
+
+    public function testLinkTargetsMatchTitlesAndSlugsAndKnowWhatHasGone(): void
+    {
+        $targets = new CraftLinkTargets();
+        $field = new Field('button', \NineteenNinetyFour\Ghostwriter\Core\Schema\Kind::Reference, type: Link::class);
+
+        $found = $targets->search('contact page');
+        $this->assertSame('Contact us', $found[0]->title);
+        $this->assertSame([], $targets->search('the page'));
+
+        $this->assertTrue($targets->exists(['type' => 'entry', 'value' => "{entry:{$this->contact->id}@1:url}"], $field));
+        $this->assertFalse($targets->exists(['type' => 'entry', 'value' => '{entry:999999@1:url}'], $field));
+        $this->assertFalse($targets->exists('{entry:999999@1:url||https://example.test/gone}', $field));
+        $this->assertNull($targets->exists('https://example.org/', $field));
+        $this->assertNull($targets->exists(null, $field));
+    }
+
+    public function testEveryCoreStringIsInCraftsTranslationsAsCoreHasIt(): void
+    {
+        $craft = require dirname(__DIR__, 3) . '/src/translations/en/ghostwriter.php';
+
+        foreach (Message::strings() as $key => $english) {
+            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-gap-strings.");
+        }
+
+        $this->assertSame('Finish this page', Craft::t('ghostwriter', 'gaps.guide.title'));
+        $this->assertSame('3 things to finish', Gaps::translate(new Message('gaps.guide.count', ['count' => 3])));
+        $this->assertSame('gaps.unknown-key', Gaps::translate(new Message('gaps.unknown-key')), 'Neither Craft nor core has it: the key, as core does.');
+    }
+
+    /**
+     * Someone who may use Ghostwriter and edit events.
+     */
+    private function signInToEdit(): \craft\elements\User
+    {
+        return $this->signIn(extra: ['viewEntries:' . $this->events->uid, 'saveEntries:' . $this->events->uid, 'viewPeerEntries:' . $this->events->uid, 'savePeerEntries:' . $this->events->uid, 'viewPeerEntryDrafts:' . $this->events->uid]);
+    }
+
+    /**
+     * An entry with one of each gap: a fact to add, a fact for a number
+     * field (from the session), links to choose and to a deleted page, an
+     * image placeholder, a stock preview, a required field left empty,
+     * template text, "TBC", and a fact in a block.
+     */
+    private function unfinished(): Entry
+    {
+        $carrier = $this->makeEntry($this->events, 'Carrier', live: false);
+        $preview = $this->plugin->imagePicker->insertPreview(ImageSlot::for($this->image, $carrier), $this->plugin->stockLibraries->demo(), 'demo-03');
+        $this->plugin->stockComps->reset();
+
+        $coverField = (new SchemaReader())->schema($this->events->getEntryTypes()[0])->field('cover');
+        $placeholder = (new VolumeAssetSink())->placeholder($coverField, fn() => Placeholders::png());
+
+        $entry = $this->makeEntry($this->events, 'Spring fair', [
+            'body' => '<p>Tickets cost [[ask: adult ticket price]] for adults. <a href="#gw-link:contact-page">Talk to us</a> or read <a href="{entry:999999@1:url||https://example.test/gone}">last year’s</a>. Bring a [[item]]. Opening times TBC.</p>',
+            'button' => ['type' => 'url', 'value' => 'https://example.com/#gw-link:button', 'label' => 'Link to choose'],
+            'cover' => [(int) $placeholder],
+            'image' => [(int) $preview->id],
+            'blocks' => ['entries' => ['new1' => ['type' => 'feature', 'enabled' => true, 'fields' => ['heading' => 'Open [[ask: opening days]]']]], 'sortOrder' => ['new1']],
+        ], live: false);
+
+        $session = Session::start(Format::Craft, ContentType::GENERIC . 'events', [], Craft::$app->getUser()->getId());
+        $session->recordId = (int) $entry->id;
+        $session->gaps = [['kind' => 'ask-value', 'path' => 'price', 'label' => 'Price', 'hint' => 'adult ticket price', 'reason' => 'draft']];
+        $this->plugin->sessions->save($session);
+
+        return $entry;
+    }
+}

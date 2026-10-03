@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.2.
+Stock photos, from the stock images design, and "Finish this page", from the finish-this-page design, on `1994/ghostwriter-core` ^1.3.
 
 ### Added
 - **The stock image ledger:** a record of every stock photo Ghostwriter puts into the site, free or paid: its library and ID, its asset, its licence state, the credit and licence, who added it and an append-only history. Kept in two new tables, `ghostwriter_stock_images` and `ghostwriter_stock_usages` (schema 1.2.0). Records are never deleted: deleting an asset marks its record removed and keeps any licence.
@@ -27,8 +27,22 @@ Stock photos, from the stock images design, on `1994/ghostwriter-core` ^1.2.
 
 - **New entries start unpublished** (`draftsUnpublished`, on by default, matching Statamic's `drafts_unpublished`): when a draft goes into a new entry, its **Enabled** switch is turned off in the form (for the site too), so it can be saved straight away and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Existing entries are never changed.
 
+- **Finish this page, on the server** (core 1.3's `Gaps`, finish-this-page design phases 2, 4, 5 and 9):
+  - **One publish guard** for unfinished pages and stock previews (core's `PublishReadiness`), on the existing `Entry::EVENT_BEFORE_SAVE` hook: a live save, or applying a draft (`updatingFromDerivative`), is refused while a fact to add (`[[ask: …]]`), a link to choose (`#gw-link:`), a link to a deleted entry, an image placeholder, template text or an unlicensed stock preview remains, with core's message on each top-level field, named by its block inside Matrix and Neo ("Feature: Heading: Add opening days before publishing."). In warn mode, one notice lists them all. Drafts, provisional drafts and disabled entries always save. In sections Ghostwriter doesn't write for, only stock previews are looked for.
+  - **New settings** under **Finish this page**: **When a page with things to finish is published** (`onUnfinishedPublish`, `block` or `warn`, reading `stockOnPublish` when unset; it replaces the stock photos setting on the settings screen) and **Open the guide after a draft is added** (`finishOpenAfterDraft`, on).
+  - **Ports** for core's detectors: `CraftPlaceholderAssets` (the placeholder by its file name), `CraftAssetRefs` (Assets field IDs, and images inline in CKEditor by their `{asset:…}` reference tags, which Craft's relations don't hold) and `CraftLinkTargets` (entries by title and slug for "Link to Contact"; `{entry:…}` references that point at nothing).
+  - **`ghostwriter/gaps/check`**: what is unfinished in an entry as the form has it (its draft or provisional draft, by element ID), translated, with each gap's place in the form (the element whose field it is, inside Matrix and Neo blocks) and the stock badge for previews. It never calls a model.
+  - **"Write it for me" and "Write around it"** (`ghostwriter/gaps/fill`, queued as `FillGap`, polled with `ghostwriter/gaps/fill-status`): one small `gap-filler` request each, shown only to whoever asked, never put into the entry by the server, and never for a fact (core refuses).
+  - **The guide's state** (open or minimised) is remembered per person, for every entry, in Craft's user preferences (`ghostwriter/gaps/guide`); minimised for someone new.
+  - **The session keeps what a draft left for a person** (`Session::$gaps`, from core's `SessionGaps::fromDraft()`), so the guide can say "I didn't want to guess." The image placeholders note is no longer added to the notice after **Use this draft**: each placeholder is a step in the guide.
+  - **Links the house style can't settle** now point at core's sentinel, `https://example.com/#gw-link:<hint>` (`LayoutOptions::withLinkSentinels()`), and are noted as "(link still to choose)".
+  - **Craft translations** for core's gap strings, in `src/translations/en/ghostwriter.php`, copied by `bin/sync-gap-strings` (a test fails when they drift from core).
+  - Core's contract tests run against Craft: `PlaceholderAssetsContract`, `AssetRefsContract`, `MarkerRoundTripContract` (through the real Applier) and `PublishGuardContract` (live save, draft, warn mode, a preview with a marker, applying a draft).
+  - Reading an entry's Matrix and Neo blocks and relations now uses what was posted with the form (the query's cached result) before what is saved.
+- **Docs:** [Finish this page](docs/finish-this-page.md).
+
 ### Changed
-- Requires `1994/ghostwriter-core` ^1.2.
+- Requires `1994/ghostwriter-core` ^1.3.
 - Requires Craft CMS 5.8 or later. Core needs `symfony/yaml` 6.4 or later, which Craft allows from 5.8, so earlier versions could never be installed.
 - Continuous integration: the test suite runs on GitHub Actions for every pull request, on PHP 8.2, 8.3 and 8.4, against the lowest Craft Composer will install and the newest.
 - Images a stock library's terms keep from AI (Getty Images and iStock) never go to a model: not as reference images for finding or making a picture, nor as samples for the image style guide. Files named `GettyImages-*` or `iStock-*`, or whose embedded credit names Getty Images or iStock, are left out too.
