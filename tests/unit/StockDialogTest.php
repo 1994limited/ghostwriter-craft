@@ -52,6 +52,7 @@ class StockDialogTest extends TestCase
         $config = $this->config(ImageButton::htmlFor($this->cover, $draft, false));
 
         $this->assertSame(['free', 'demo', 'everything'], array_column($config['sources'], 'value'));
+        $this->assertSame(['free' => false, 'demo' => true, 'everything' => true], array_column($config['sources'], 'editorial', 'value'), 'Which sources the editorial filter applies to.');
         $this->assertSame('free', $config['source'], 'The site\'s default until the person chooses.');
         $this->assertFalse($config['editorial']);
 

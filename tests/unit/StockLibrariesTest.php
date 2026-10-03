@@ -88,7 +88,7 @@ class StockLibrariesTest extends TestCase
         $this->plugin->getSettings()->stockLibraries = ['demo' => false];
         $this->assertSame([], $this->libraries->paid());
         $this->assertArrayHasKey('demo', $this->libraries->all(), 'Still listed in the settings, to switch back on.');
-        $this->assertSame([['value' => 'free', 'label' => 'Free libraries']], $this->libraries->sourceOptions(true));
+        $this->assertSame([['value' => 'free', 'label' => 'Free libraries', 'editorial' => false]], $this->libraries->sourceOptions(true));
 
         // A registered library without its keys: managers are told where to set it up.
         $this->plugin->getSettings()->stockLibraries = [];
@@ -151,6 +151,26 @@ class StockLibrariesTest extends TestCase
 
         $this->signIn();
         $this->assertSame(403, $this->action('ghostwriter/stock/check', ['library' => 'demo'])['status']);
+    }
+
+    public function testIncludeEditorialImagesShowsOnlyForASourceThatHasThem(): void
+    {
+        $this->plugin->getSettings()->stockLibraries = [];
+        $creative = new FakeLibrary('creative', 'Creative only', Capabilities::paid(Capabilities::QUOTES_BALANCE, 30, editorial: false));
+        Event::on(StockLibraries::class, StockLibraries::EVENT_REGISTER_LIBRARIES, fn(RegisterStockLibrariesEvent $event) => $event->libraries[] = $creative);
+        $this->libraries->reset();
+
+        $editorial = array_column($this->libraries->sourceOptions(false), 'editorial', 'value');
+
+        // The free libraries have none; a creative-only library has none; the
+        // demo library (as Shutterstock) can return editorial images, so
+        // Everything can too.
+        $this->assertSame(['free' => false, 'demo' => true, 'creative' => false, 'everything' => true], $editorial);
+
+        // With only the creative library, Everything has none either.
+        $this->plugin->getSettings()->stockLibraries = ['demo' => false];
+        $this->libraries->reset();
+        $this->assertSame(['free' => false, 'creative' => false, 'everything' => false], array_column($this->libraries->sourceOptions(false), 'editorial', 'value'));
     }
 
     public function testStockSettingsAreValidated(): void

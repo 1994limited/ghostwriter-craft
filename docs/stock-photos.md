@@ -46,7 +46,7 @@ Shutterstock's terms give still images no comp licence, so nothing of a preview 
 Open the image dialog with the **Ghostwriter** button on an Assets field (see [Images](images.md)). Once a paid library is set up, the **Find a photo** tab has:
 
 - **Search in:** *Free libraries*, each paid library, or *Everything*. It starts at the site's default, then remembers your last choice (in your Craft user preferences).
-- **Include editorial images:** editorial-only images (news, events, public figures) can't be used to advertise or promote anything, so they're left out unless you tick this.
+- **Include editorial images:** editorial-only images (news, events, public figures, sports, named brands and places) can only go in news or educational content, never in advertising or anything that promotes a product, and need their credit line shown beside them. So they're left out unless you tick this. It shows only when the library you're searching has editorial images (Shutterstock does; the free libraries don't), with the hint "News and event photos. Not for advertising or promotion." and an (i) that explains the rest.
 
 Each result has a source chip (bottom left: "Unsplash", "Demo stock") and a cost chip (bottom right): **Free**, or what the library says before licensing, such as "1 download" or "3 credits", or "Paid" when it says nothing. An **Editorial** chip marks editorial-only images; hover it for the restrictions.
 
