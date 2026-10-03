@@ -742,10 +742,11 @@
 
                 return this.switchView(tabs[(next + tabs.length) % tabs.length].dataset.view, true);
             }
-            const $field = $(event.target).closest('[data-edit-path]');
+            const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
-            // Writing edited in place: Escape puts it back as it was (and
-            // leaves the panel open), Enter finishes a one-line piece.
+            // Writing edited in place (the draft's, or an extra's): Escape
+            // puts it back as it was (and leaves the panel open), Enter
+            // finishes a one-line piece.
             if ($field.length && event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -903,12 +904,47 @@
             }
         },
 
+        // Text with its gap markers as chips (core's markers.js, loaded
+        // beside preview.js), escaped; plain escaped text until it loads.
+        // Display only: editing starts from the words as stored.
+        withChips(text) {
+            const markers = Ghostwriter.gapMarkersLoaded;
+
+            if (!markers) {
+                if (!this.waitingForChips && Ghostwriter.gapMarkers) {
+                    this.waitingForChips = true;
+                    Ghostwriter.gapMarkers().then(() => {
+                        if (!this.$container?.find('[data-edit-path]:focus, [data-edit-extra]:focus').length) this.renderDraft?.();
+                    }).catch(() => {});
+                }
+
+                return esc(text);
+            }
+
+            if (!this.chipStyles) {
+                markers.injectStyles(document);
+                this.chipStyles = true;
+            }
+
+            return markers.toHtml(text, { labels: Ghostwriter.gapLabels?.() ?? {} });
+        },
+
+        hasGaps(text) {
+            return Boolean(Ghostwriter.gapMarkersLoaded?.has(String(text ?? '')));
+        },
+
         // Writing edited where it is shown: remembered on the way in, saved
-        // on the way out if it changed.
+        // on the way out if it changed. Chips become the stored words first.
         onFocusIn(event) {
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
-            if ($field.length) $field.data('was', this.fieldValue($field));
+            if (!$field.length) return;
+
+            if ($field.attr('data-raw') !== undefined && $field.find('.gw-gap').length) {
+                $field[0].innerText = $field.attr('data-raw');
+            }
+
+            $field.data('was', this.fieldValue($field));
         },
 
         async onFocusOut(event) {
@@ -918,7 +954,12 @@
 
             const value = this.fieldValue($field);
 
-            if (value === $field.data('was')) return;
+            if (value === $field.data('was')) {
+                // Unchanged: back to the chips.
+                if ($field.attr('data-raw') !== undefined) $field.html(this.withChips($field.attr('data-raw')));
+
+                return;
+            }
 
             $field.addClass('is-saving');
 
@@ -1023,7 +1064,7 @@
             if (!extras.length) return '';
 
             const off = this.working() || this.editing;
-            const field = (item, part, text, label) => `<span class="gw-editable gw-pre gw-extra__text" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-extra="${esc(item.id)}" data-part="${esc(part)}" data-format="text" data-multiline="0" aria-label="${esc(label)}">${esc(text)}</span>`;
+            const field = (item, part, text, label) => `<span class="gw-editable gw-pre gw-extra__text" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-extra="${esc(item.id)}" data-part="${esc(part)}" data-format="text" data-multiline="0" ${this.hasGaps(text) ? `data-raw="${esc(text)}"` : ''} aria-label="${esc(label)}">${this.withChips(text)}</span>`;
             const items = (extra) => extra.items.map((item, n) => {
                 const parts = Object.entries(item.parts ?? {}).filter(([name]) => name !== 'for');
                 const label = (part) => t('{extra} {number}: {part}', { extra: extra.label, number: n + 1, part });

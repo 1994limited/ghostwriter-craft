@@ -10,6 +10,11 @@
  * the pointer with its name, and follows the page as it resizes, scrolls and
  * loads its images and fonts. Links in the frame do nothing: Craft adds the
  * preview token to every one.
+ *
+ * Gap markers the templates print as they are (`[[ask: …]]`, `[[check: …]]`,
+ * `#gw-link:` links) are shown as chips once the locator has placed the
+ * blocks (core's markers.js, copied as it is, beside this file). Display
+ * only: the draft keeps its markers.
  */
 (function () {
     window.Ghostwriter = window.Ghostwriter || {};
@@ -33,6 +38,30 @@
 
     let locatorModule = null;
     const locator = () => (locatorModule ??= (Ghostwriter.previewLocator?.() ?? import(LOCATOR)));
+
+    // Core's gap chips (markers.js), beside this file too. The Text tab's
+    // extras and Finish this page use them as well.
+    const MARKERS = new URL('markers.js', document.currentScript?.src ?? window.location.href).toString();
+    let markersModule = null;
+    Ghostwriter.gapMarkers = () => (markersModule ??= (Ghostwriter.previewMarkers?.() ?? import(MARKERS)).then((module) => {
+        // For code that formats text as it draws (the extras list).
+        Ghostwriter.gapMarkersLoaded = module;
+
+        return module;
+    }));
+
+    /** The chips' words, translated. */
+    Ghostwriter.gapLabels = () => ({
+        ask: t('Only you know this: add it before publishing'),
+        check: t('Counted from \':list\'. Check it before publishing'),
+        link: t('Link to choose'),
+        askSpoken: t('Fact to add:'),
+        checkSpoken: t('Count to check:'),
+        linkSpoken: t('(link to choose)'),
+        askRow: t('Add: :hint'),
+        checkRow: t('Check: :hint'),
+        linkRow: t('Choose a link: :hint'),
+    });
 
     /**
      * Helpers with no page, for the tests.
@@ -500,6 +529,8 @@
             this.hovered = null;
             this.located = 0;
             this.missing = [];
+            this.gaps = [];
+            this.gapCounts = {};
             this.stops = [];
             this.queued = false;
         }
@@ -508,6 +539,8 @@
             const doc = this.frame.contentDocument;
             const win = this.frame.contentWindow;
             const { findMarkers, locate, measure, watch, contentArea } = await locator();
+            const { markGaps, countByRegion } = await Ghostwriter.gapMarkers();
+            const labels = Ghostwriter.gapLabels();
 
             this.measureBox = measure;
             this.doc = doc;
@@ -535,6 +568,9 @@
                 this.byKey = result.byKey;
                 this.located = result.regions.length;
                 this.missing = result.missing;
+                // Then the gap markers as chips, inside the regions just found.
+                this.gaps = markGaps(doc, { labels });
+                this.gapCounts = countByRegion(result.regions, this.gaps);
                 this.note(result.partial ? t('Some blocks couldn’t be matched on this page.') : '');
                 this.measure();
             };

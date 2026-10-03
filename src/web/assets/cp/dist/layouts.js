@@ -213,6 +213,9 @@
                         doc.documentElement.style.scrollBehavior = 'auto';
                         frame.contentWindow.scrollTo(0, Math.max(0, top - 16));
                         doc.querySelectorAll('a[href]').forEach((link) => link.setAttribute('tabindex', '-1'));
+                        // Gap markers as chips, as on the Preview tab. The
+                        // preview's own invisible markers don't matter here.
+                        Ghostwriter.gapMarkers?.().then(({ markGaps }) => markGaps(doc, { labels: Ghostwriter.gapLabels?.() ?? {} })).catch(() => {});
                     } catch (error) {}
                 });
 

@@ -511,9 +511,11 @@ class SessionsController extends Controller
             $current = $layouts->core()->extras($session)->item($item) ?? throw new InvalidArgumentException('That extra is no longer there.');
             $named = is_string($part) && $part !== '' && $part !== 'text';
 
-            // Shown as the page will say it: unchanged, a count to check
-            // keeps its marker (and stays to review).
-            if (Markers::withoutChecks((string) ($named ? $current->part($part) : $current->text)) === $value) {
+            // Unchanged (as stored, or as the page will say it): a count to
+            // check keeps its marker (and stays to review).
+            $stored = (string) ($named ? $current->part($part) : $current->text);
+
+            if ($stored === $value || Markers::withoutChecks($stored) === $value) {
                 return;
             }
 

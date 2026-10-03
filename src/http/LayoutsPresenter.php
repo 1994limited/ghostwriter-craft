@@ -151,9 +151,10 @@ class LayoutsPresenter
 
         return [
             'id' => $item->id,
-            // As the page will say it: a count to check shows its value.
-            'text' => Markers::withoutChecks($item->text),
-            'parts' => array_map(fn(string $part) => Markers::withoutChecks($part), $item->parts),
+            // As stored, markers and all: the extras list shows a fact to
+            // add or a count to check as a chip (core's markers.js).
+            'text' => $item->text,
+            'parts' => $item->parts,
             'source' => ['kind' => $source?->kind->value, 'label' => $label, 'quote' => $source?->quote, 'url' => $url],
             'state' => $state === null ? null : ['key' => substr($state->key, strlen('gaps.extras.')), 'label' => Gaps::translate($state)],
             'review' => $item->needsReview(),

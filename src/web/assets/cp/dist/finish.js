@@ -12,6 +12,8 @@
  *   the dock    the mark in a round button, with the count, when the
  *               guide is minimised
  *   the mark    flies to the current field with a short speech label
+ *   chip rows   under plain text boxes (text inputs, Table cells), whose
+ *               text can't be highlighted: one chip per gap in the value
  *
  * What is unfinished comes from the server (ghostwriter/gaps/check), which
  * reads the entry as the form has it: Craft's draft or provisional draft,
@@ -231,6 +233,99 @@
         canPick(input) {
             return Boolean(input && typeof input.showModal === 'function' && input.settings?.allowAdd !== false);
         },
+
+        /*
+         * Plain text boxes whose text can't be highlighted: text inputs, Plain
+         * Text fields' text areas and a Table field's cells.
+         */
+        CHIP_CONTROLS: 'input[type="text"], input:not([type]), textarea.text, table.editable textarea',
+
+        /**
+         * Where a box's chip row goes: after the wrappers that hold only the
+         * box, inside its field or table cell.
+         */
+        rowAnchor(control) {
+            let anchor = control;
+            const stop = (element) => element.matches?.('.field, .input, td, th, form');
+
+            while (anchor.parentElement && !stop(anchor.parentElement) && [...anchor.parentElement.children].filter((child) => !child.hasAttribute?.('data-gw-gap-row')).length === 1) {
+                anchor = anchor.parentElement;
+            }
+
+            return anchor;
+        },
+    };
+
+    /**
+     * A row of chips under each plain text box on the form whose value has a
+     * gap marker ("Add: adult ticket price"), from core's markers.js: kept in
+     * step as the editor types and as blocks and rows come and go. The
+     * field's own highlight and tag stay; the row is only shown, never part
+     * of the value.
+     */
+    Ghostwriter.watchGapInputs = async (root) => {
+        const markers = await Ghostwriter.gapMarkers?.().catch(() => null);
+
+        if (!markers || !root) return null;
+
+        const H = Ghostwriter.FinishHelpers;
+        const labels = Ghostwriter.gapLabels?.() ?? {};
+        const rows = new Map();
+        let queued = false;
+
+        markers.injectStyles(document);
+
+        const update = (control) => {
+            const value = control.value ?? '';
+            const existing = rows.get(control);
+
+            if (existing && existing.value === value && existing.row?.isConnected !== false) return;
+
+            existing?.row?.remove();
+            const row = control.offsetParent !== null || control.closest('table.editable') ? markers.chipRow(document, value, { labels }) : null;
+
+            if (!row) {
+                rows.delete(control);
+
+                return;
+            }
+
+            H.rowAnchor(control).after(row);
+            rows.set(control, { value, row });
+        };
+
+        const refresh = () => {
+            const controls = new Set(root.querySelectorAll(H.CHIP_CONTROLS));
+
+            controls.forEach(update);
+            rows.forEach((entry, control) => {
+                if (!controls.has(control) || !control.isConnected) {
+                    entry.row?.remove();
+                    rows.delete(control);
+                }
+            });
+        };
+
+        const later = () => {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(() => {
+                queued = false;
+                refresh();
+            });
+        };
+
+        root.addEventListener('input', (event) => {
+            if (event.target?.matches?.(H.CHIP_CONTROLS)) update(event.target);
+        }, true);
+
+        new MutationObserver((records) => {
+            if (records.some((record) => ![...record.addedNodes, ...record.removedNodes].every((node) => node.nodeType === 1 && node.hasAttribute('data-gw-gap-row')))) later();
+        }).observe(root, { childList: true, subtree: true });
+
+        refresh();
+
+        return { refresh: later };
     };
 
     Ghostwriter.Finish = Garnish.Base.extend({
@@ -313,6 +408,8 @@
             const form = Craft.cp?.$primaryForm?.[0];
 
             if (form) {
+                // Chips under plain text boxes whose value has a gap.
+                Ghostwriter.watchGapInputs(form).then((watcher) => (this.gapInputs = watcher));
                 new ResizeObserver(() => this.placeFlyer()).observe(form);
                 new MutationObserver((records) => {
                     if (records.some((record) => !(record.target instanceof Element) || !record.target.closest('.gw-gap-tag'))) this.placeFlyer();
@@ -380,6 +477,7 @@
 
         receive(data) {
             const H = Ghostwriter.FinishHelpers;
+            this.gapInputs?.refresh();
             const previousId = this.steps[this.index]?.gap.id;
             const previousIndex = this.index;
 

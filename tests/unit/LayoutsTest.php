@@ -52,8 +52,9 @@ class LayoutsTest extends TestCase
         // The extras, with where each came from: the count is core's, not the model's.
         $stats = $detail['extras'][0];
         $this->assertSame(['stats', 'Numbers', false, 'Not used in As written'], [$stats['kind'], $stats['label'], $stats['used'], $stats['usedLabel']]);
-        $this->assertSame('3 filters', $stats['items'][0]['text']);
-        $this->assertSame(['value' => '3', 'label' => 'filters'], $stats['items'][0]['parts']);
+        // As stored, markers and all: the extras list shows the count to check as a chip.
+        $this->assertSame('[[check: 3 filters | from: size, finish and price]]', $stats['items'][0]['text']);
+        $this->assertSame(['value' => '[[check: 3 | from: size, finish and price]]', 'label' => 'filters'], $stats['items'][0]['parts']);
         $this->assertSame('Counted from the draft: “size, finish and price”', $stats['items'][0]['source']['label']);
         $this->assertSame(['key' => 'needs-review', 'label' => 'Needs review'], $stats['items'][0]['state']);
         $this->assertSame('from the draft', $detail['extras'][1]['items'][0]['source']['label']);
@@ -189,7 +190,7 @@ class LayoutsTest extends TestCase
         $this->fake->assertNothingSent();
     }
 
-    public function testAnExtraShownAsThePageSaysItKeepsItsCountWhenLeftAlone(): void
+    public function testAnExtraLeftAloneKeepsItsCount(): void
     {
         $session = $this->writeFirstDraft($this->servicePiece());
 
@@ -197,8 +198,12 @@ class LayoutsTest extends TestCase
         $this->assertSame(200, $same['status']);
         $this->assertTrue($same['data']['extras'][0]['items'][0]['review'], 'Still to check.');
 
+        // Left alone as stored (the chip's words, markers and all): still to check too.
+        $stored = $this->action('ghostwriter/sessions/edit-extra', ['id' => $session->id, 'item' => 'x1.1', 'part' => 'value', 'value' => '[[check: 3 | from: size, finish and price]]']);
+        $this->assertTrue($stored['data']['extras'][0]['items'][0]['review'], 'Still to check.');
+
         $changed = $this->action('ghostwriter/sessions/edit-extra', ['id' => $session->id, 'item' => 'x1.1', 'part' => 'label', 'value' => 'ways to narrow it']);
-        $this->assertSame(['value' => '3', 'label' => 'ways to narrow it'], $changed['data']['extras'][0]['items'][0]['parts']);
+        $this->assertSame(['value' => '[[check: 3 | from: size, finish and price]]', 'label' => 'ways to narrow it'], $changed['data']['extras'][0]['items'][0]['parts']);
 
         $empty = $this->action('ghostwriter/sessions/edit-extra', ['id' => $session->id, 'item' => 'x1.1', 'value' => ' ']);
         $this->assertSame(422, $empty['status']);

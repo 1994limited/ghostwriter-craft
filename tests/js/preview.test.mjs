@@ -13,6 +13,10 @@ test('locator.js is core’s copy, unchanged', () => {
     assert.equal(sha(new URL('locator.js', dist)), sha(new URL('../../vendor/1994/ghostwriter-core/resources/js/preview/locator.js', import.meta.url)), 'Copy resources/js/preview/locator.js from ghostwriter-core again.');
 });
 
+test('markers.js (the gap chips) is core’s copy, unchanged', () => {
+    assert.equal(sha(new URL('markers.js', dist)), sha(new URL('../../vendor/1994/ghostwriter-core/resources/js/preview/markers.js', import.meta.url)), 'Copy resources/js/preview/markers.js from ghostwriter-core (1.8.2 or later) again.');
+});
+
 // ---- A very small DOM: just what preview.js touches ------------------------
 
 class El {
@@ -81,6 +85,7 @@ function harness() {
         watch: () => ({ stop() {} }),
         contentArea: (doc) => doc.body,
     });
+    context.Ghostwriter.previewMarkers = () => Promise.resolve({ markGaps: () => [], countByRegion: () => ({}) });
     vm.runInContext(readFileSync(new URL('preview.js', dist), 'utf8'), context);
     const preview = new context.Ghostwriter.PagePreview({ target: () => ({ id: 's', elementId: 1, siteId: 1 }), announce: (text) => announced.push(text) });
     const status = () => !preview.root.querySelector('[data-status]').hidden;
