@@ -77,6 +77,7 @@ use yii\base\Event;
  * @property-read DbStockImageStore $stockImages
  * @property-read StockUsages $stockUsages
  * @property-read StockLibraries $stockLibraries
+ * @property-read \nineteenninetyfour\ghostwriter\gaps\Gaps $gaps
  * @property-read StockComps $stockComps
  * @property-read StockCleanup $stockCleanup
  * @property-read DbLibraryTokens $libraryTokens
@@ -136,6 +137,8 @@ class Plugin extends BasePlugin
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
                 'layouts' => Layouts::class,
+                // Finish this page: what is unfinished in an entry, and the publish guard.
+                'gaps' => \nineteenninetyfour\ghostwriter\gaps\Gaps::class,
             ],
         ];
     }

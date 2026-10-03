@@ -64,7 +64,7 @@ class StockPublishTest extends TestCase
         $entry->setScenario(Element::SCENARIO_LIVE);
 
         $this->assertFalse(Craft::$app->getElements()->saveElement($entry));
-        $this->assertSame('The cover is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('cover'));
+        $this->assertSame('This is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('cover'));
     }
 
     public function testDraftsAndDisabledEntriesSaveFreely(): void
@@ -121,7 +121,7 @@ class StockPublishTest extends TestCase
         $entry->setScenario(Element::SCENARIO_LIVE);
 
         $this->assertFalse(Craft::$app->getElements()->saveElement($entry));
-        $this->assertSame('The “Feature: Picture” image is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('blocks'));
+        $this->assertSame('Feature: Picture: This is a Demo stock preview, not licensed yet. License it, or choose another image, before publishing.', $entry->getFirstError('blocks'));
     }
 
     public function testWarnSavesAndSaysSo(): void

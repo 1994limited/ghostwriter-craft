@@ -1,5 +1,6 @@
 # Left out of the package Composer installs (git archive / dist zips).
 /.gitattributes export-ignore
+/bin export-ignore
 /.github export-ignore
 /.gitignore export-ignore
 /codeception.yml export-ignore

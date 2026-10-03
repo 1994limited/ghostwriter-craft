@@ -27,7 +27,9 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\Layout;
  * Core's layout algorithms (describing a field layout, finding how a
  * section's entries are put together and the kinds it holds, the house
  * style, building a draft into entry data), wired for Craft: CKEditor and
- * Redactor HTML, Hyper and Craft's Link field for links. What stays here is
+ * Redactor HTML, Hyper and Craft's Link field for links. A link the house
+ * style can't settle is marked as still to choose with core's sentinel
+ * (`https://example.com/#gw-link:<hint>`), which "Finish this page" finds. What stays here is
  * what needs Craft: choosing the entries, and reading them.
  */
 class Layouts
@@ -39,7 +41,7 @@ class Layouts
 
     public function __construct(private EntryReader $reader = new EntryReader())
     {
-        $this->core = new CoreLayouts(LayoutOptions::craft(), new HtmlDialect(), new CraftLinks(hyper: [self::HYPER], link: [Link::class]));
+        $this->core = new CoreLayouts(LayoutOptions::craft()->withLinkSentinels(), new HtmlDialect(), new CraftLinks(hyper: [self::HYPER], link: [Link::class]));
     }
 
     /**

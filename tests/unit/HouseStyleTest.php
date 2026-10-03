@@ -52,12 +52,13 @@ class HouseStyleTest extends Unit
 
         // Three breadcrumbs, as every page has: Home and Studio are the same
         // everywhere and copied. Without the pages' IDs the third cannot be
-        // told for a link to itself, so it goes to example.com for now.
+        // told for a link to itself, so it is marked as a link still to
+        // choose (core's sentinel), which "Finish this page" finds.
         $this->assertCount(3, $crumbs['crumbs']);
         $this->assertSame('Home', $crumbs['crumbs'][0]['link'][0]['linkText']);
         $this->assertSame('Studio', $crumbs['crumbs'][1]['link'][0]['linkText']);
-        $this->assertSame([['type' => 'verbb\\hyper\\links\\Url', 'linkValue' => 'https://example.com', 'linkText' => 'Link to choose']], $crumbs['crumbs'][2]['link']);
-        $this->assertSame(['Breadcrumbs: Crumb 3 (links to example.com for now)'], $toFill);
+        $this->assertSame([['type' => 'verbb\\hyper\\links\\Url', 'linkValue' => 'https://example.com/#gw-link:link', 'linkText' => 'Link to choose']], $crumbs['crumbs'][2]['link']);
+        $this->assertSame(['Breadcrumbs: Crumb 3 (link still to choose)'], $toFill);
 
         // The hero heading is dressed as the house dresses it; body text,
         // plain on every page, is left plain.
@@ -98,7 +99,7 @@ class HouseStyleTest extends Unit
         $this->assertSame([50724], $data['pageBuilder'][0]['crumbs'][2]['link'][0]['linkValue']);
     }
 
-    public function testALinkThePagesUsuallyHaveButDisagreeOnGoesToExampleDotCom(): void
+    public function testALinkThePagesUsuallyHaveButDisagreeOnIsMarkedAsStillToChoose(): void
     {
         $pages = [$this->page('One', 1), $this->page('Two', 2), $this->page('Three', 3)];
 
@@ -110,8 +111,8 @@ class HouseStyleTest extends Unit
         $style = $this->learn($pages, [1, 2, 3]);
         [$data, $toFill] = $this->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style, 9, 'New');
 
-        $this->assertSame('https://example.com', $data['pageBuilder'][0]['crumbs'][1]['link'][0]['linkValue']);
-        $this->assertSame(['Breadcrumbs: Crumb 2 (links to example.com for now)'], $toFill);
+        $this->assertSame('https://example.com/#gw-link:link', $data['pageBuilder'][0]['crumbs'][1]['link'][0]['linkValue']);
+        $this->assertSame(['Breadcrumbs: Crumb 2 (link still to choose)'], $toFill);
     }
 
     public function testALinkThePagesUsuallyLeaveEmptyStaysEmpty(): void
@@ -128,7 +129,7 @@ class HouseStyleTest extends Unit
         [$data, $toFill] = $this->apply(['pageBuilder' => [['type' => 'breadcrumbs', 'enabled' => true]]], $style);
 
         $this->assertArrayNotHasKey('link', $data['pageBuilder'][0]['crumbs'][0]);
-        $this->assertNotContains('Breadcrumbs: Crumb 1 (links to example.com for now)', $toFill);
+        $this->assertNotContains('Breadcrumbs: Crumb 1 (link still to choose)', $toFill);
     }
 
     public function testAPlaceTheModelsDisagreeOnIsLeftAlone(): void

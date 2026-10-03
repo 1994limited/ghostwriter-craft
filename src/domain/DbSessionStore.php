@@ -28,6 +28,17 @@ class DbSessionStore implements SessionStore
         return is_numeric($userId) ? $this->rows((new Query())->from(Store::SESSIONS)->where(['userId' => (int) $userId])) : [];
     }
 
+    /**
+     * The sessions for an entry (by its canonical ID), the most recently
+     * changed first.
+     *
+     * @return array<int, Session>
+     */
+    public function forElement(int $elementId): array
+    {
+        return $this->rows((new Query())->from(Store::SESSIONS)->where(['elementId' => $elementId]));
+    }
+
     public function find(string $id): ?Session
     {
         // IDs are ours; anything else is not ours to look up.

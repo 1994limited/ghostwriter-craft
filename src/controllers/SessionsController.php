@@ -319,11 +319,17 @@ class SessionsController extends Controller
             $session->markApplied($this->me());
             $session->recordId = (int) $result['draft']->getCanonicalId();
             $session->siteId = (int) $result['draft']->siteId;
+            $session->gaps = $result['gaps']->toArray();
         });
 
         // A provisional draft ("edited, not saved") opens with the entry
         // itself; only a draft in its own right needs naming in the address.
-        return $this->asJson(['notes' => $result['notes'], 'draftId' => $result['draft']->isProvisionalDraft ? null : $result['draft']->draftId]);
+        // "Finish this page" opens by itself once the form has reloaded.
+        return $this->asJson([
+            'notes' => $result['notes'],
+            'draftId' => $result['draft']->isProvisionalDraft ? null : $result['draft']->draftId,
+            'finish' => $plugin->getSettings()->finishOpenAfterDraft,
+        ]);
     }
 
     public function actionDelete(): Response

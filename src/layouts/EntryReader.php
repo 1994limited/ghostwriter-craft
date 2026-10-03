@@ -62,7 +62,7 @@ class EntryReader
             $spec['kind'] === 'rows' => $this->rows($value, $spec),
             $value instanceof SingleOptionFieldData => $value->value,
             $value instanceof MultiOptionsFieldData => array_values(array_map(fn($option) => $option->value, iterator_to_array($value))),
-            $value instanceof ElementQueryInterface => $value->status(null)->ids(),
+            $value instanceof ElementQueryInterface => $this->ids($value),
             $value instanceof Collection => $value->map(fn($item) => $item instanceof ElementInterface ? $item->id : $item)->all(),
             default => $this->serialized($element, $handle, $value),
         };
@@ -191,12 +191,26 @@ class EntryReader
     }
 
     /**
+     * @return array<int, int>
+     */
+    private function ids(ElementQueryInterface $query): array
+    {
+        $cached = method_exists($query, 'getCachedResult') ? $query->getCachedResult() : null;
+
+        return $cached !== null ? array_map(fn(ElementInterface $element) => (int) $element->id, $cached) : array_map('intval', (clone $query)->status(null)->ids());
+    }
+
+    /**
      * @return ElementInterface[]
      */
     private function elements(mixed $value): array
     {
+        // Values posted with the form (a save from the edit screen) are the
+        // query's cached result; the saved ones are fetched.
         if ($value instanceof ElementQueryInterface) {
-            return (clone $value)->status(null)->all();
+            $cached = method_exists($value, 'getCachedResult') ? $value->getCachedResult() : null;
+
+            return $cached ?? (clone $value)->status(null)->all();
         }
 
         if ($value instanceof Collection) {
