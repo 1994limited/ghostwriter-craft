@@ -216,19 +216,26 @@
                 <td>
                     {% if library.coming %}
                         <span class="light">{{ 'Ghostwriter can’t search or license here yet. Your keys are ready for when it can.'|t('ghostwriter') }}</span>
+                    {% elseif library.unset ?? false %}
+                        <span class="light">{{ 'Add {keys} to your .env file.'|t('ghostwriter', {keys: library.keys|keys|join(' and ')}) }}</span>
                     {% else %}
                         <button type="button" class="btn small gw-stock-check" data-library="{{ library.id }}">{{ 'Check connection'|t('ghostwriter') }}</button>
                         <div class="gw-stock-check-result light smalltext" aria-live="polite"></div>
                     {% endif %}
-                    {% if library.oauth %}
-                        {#
-                            Connect account (OAuth): for libraries that license with a
-                            person's own sign-in (Shutterstock, Adobe user auth). It
-                            comes with core's ConnectsAccount port and LibraryTokens
-                            (kept encrypted with Craft's security service); not built
-                            yet. "Connect account" / "Disconnect" go here.
-                        #}
-                        <div class="gw-stock-connect"><button type="button" class="btn small disabled" disabled>{{ 'Connect account'|t('ghostwriter') }}</button> <span class="light smalltext">{{ 'Coming'|t('ghostwriter') }}</span></div>
+                    {% if library.sandbox ?? false %}
+                        <div class="smalltext"><span class="status orange" aria-hidden="true"></span>{{ 'Sandbox: licensing charges nothing.'|t('ghostwriter') }}</div>
+                    {% endif %}
+                    {% if library.connects ?? false %}
+                        {# Connect account (OAuth), per core's docs/connecting-accounts.md. #}
+                        <div class="gw-stock-connect">
+                            {% if library.connected %}
+                                <span class="status green" aria-hidden="true"></span>{{ 'Account connected'|t('ghostwriter') }}
+                                <button type="button" class="btn small gw-stock-disconnect" data-library="{{ library.id }}">{{ 'Disconnect'|t('ghostwriter') }}</button>
+                            {% else %}
+                                <a class="btn small submit" href="{{ cpUrl('ghostwriter/libraries/' ~ library.id ~ '/connect') }}">{{ 'Connect account'|t('ghostwriter') }}</a>
+                                <div class="light smalltext">{{ 'Licensing needs your account connected. First add this to your app’s Callback URL:'|t('ghostwriter') }} <code>{{ library.callback }}</code></div>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </td>
                 <td>
@@ -244,6 +251,16 @@
     </tbody>
 </table>
 {% if 'stockLibraries' in overrides %}<p class="warning">{{ _self.overridden('stockLibraries', overrides) }}</p>{% endif %}
+
+{{ forms.selectField({
+    label: 'Shutterstock sandbox'|t('ghostwriter'),
+    instructions: 'The sandbox (api-sandbox.shutterstock.com) charges nothing for licences and gives a watermarked file, for testing. By default it is used in dev mode only.'|t('ghostwriter'),
+    name: 'shutterstockSandbox',
+    options: {'': 'In dev mode'|t('ghostwriter'), '1': 'Always'|t('ghostwriter'), '0': 'Never'|t('ghostwriter')},
+    value: settings.shutterstockSandbox is same as(true) ? '1' : (settings.shutterstockSandbox is same as(false) ? '0' : (settings.shutterstockSandbox ?? '')),
+    warning: 'shutterstockSandbox' in overrides ? _self.overridden('shutterstockSandbox', overrides) : null,
+    disabled: 'shutterstockSandbox' in overrides,
+}) }}
 
 {{ forms.selectField({
     label: 'Search in, by default'|t('ghostwriter'),
@@ -276,6 +293,21 @@
 
 {% js %}
 (function () {
+    document.querySelectorAll('.gw-stock-disconnect').forEach(function (button) {
+        button.addEventListener('click', async function () {
+            button.classList.add('loading');
+
+            try {
+                const response = await Craft.sendActionRequest('POST', 'ghostwriter/libraries/disconnect', { params: { id: button.dataset.library } });
+                Craft.cp.displayNotice(response.data.message);
+                window.location.reload();
+            } catch (error) {
+                Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
+                button.classList.remove('loading');
+            }
+        });
+    });
+
     document.querySelectorAll('.gw-stock-check').forEach(function (button) {
         button.addEventListener('click', async function () {
             const result = button.parentNode.querySelector('.gw-stock-check-result');

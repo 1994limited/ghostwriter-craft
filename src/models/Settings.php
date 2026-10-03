@@ -100,6 +100,14 @@ class Settings extends Model
      */
     public bool|string $stockDemo = '$GHOSTWRITER_STOCK_DEMO';
 
+    /**
+     * Point Shutterstock at its sandbox (api-sandbox.shutterstock.com),
+     * where licensing charges nothing and gives a watermarked file. Null
+     * follows dev mode: the sandbox in dev mode, the real API otherwise.
+     * May be an environment variable ("$GHOSTWRITER_SHUTTERSTOCK_SANDBOX").
+     */
+    public bool|string|null $shutterstockSandbox = null;
+
     /** Days a stock photo stand-in no entry uses is kept before cleanup removes it. */
     public int $stockUnusedDays = 30;
 
@@ -188,6 +196,7 @@ class Settings extends Model
             [['stockOnPublish'], 'in', 'range' => [self::STOCK_BLOCK, self::STOCK_WARN]],
             [['stockDefaultSource'], 'match', 'pattern' => '/^[a-z0-9_-]{1,64}$/'],
             [['stockIncludeEditorial'], 'boolean'],
+            [['shutterstockSandbox'], 'safe'],
             [['stockLibraries'], 'each', 'rule' => ['boolean']],
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
             [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished'], 'boolean'],
@@ -216,6 +225,17 @@ class Settings extends Model
     public function demoRequested(): bool
     {
         return App::parseBooleanEnv($this->stockDemo) ?? false;
+    }
+
+    /**
+     * Whether Shutterstock calls go to its sandbox: as set, else in dev
+     * mode. Never by default in production.
+     */
+    public function usesShutterstockSandbox(): bool
+    {
+        $set = $this->shutterstockSandbox === null || $this->shutterstockSandbox === '' ? null : App::parseBooleanEnv($this->shutterstockSandbox);
+
+        return $set ?? (\Craft::$app->getConfig()->getGeneral()->devMode && !\nineteenninetyfour\ghostwriter\stock\StockLibraries::isProduction());
     }
 
     /**
@@ -332,6 +352,11 @@ class Settings extends Model
         if (array_key_exists('logReplies', $values) && is_string($values['logReplies'])) {
             $given = trim($values['logReplies']);
             $values['logReplies'] = $given === '' ? false : (str_starts_with($given, '$') ? $given : (App::normalizeBooleanValue($given) ?? $given));
+        }
+
+        if (array_key_exists('shutterstockSandbox', $values) && is_string($values['shutterstockSandbox'])) {
+            $given = trim($values['shutterstockSandbox']);
+            $values['shutterstockSandbox'] = $given === '' ? null : (str_starts_with($given, '$') ? $given : App::normalizeBooleanValue($given));
         }
 
         // Lightswitches post "1" or "".

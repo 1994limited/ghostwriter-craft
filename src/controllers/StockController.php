@@ -542,7 +542,10 @@ class StockController extends Controller
     private function refusal(PhotoUnavailable $exception, string $library): string
     {
         return match (true) {
-            $exception instanceof NotConnected => Craft::t('ghostwriter', 'Ghostwriter isn’t connected to {library}. Check its key in Settings, then try again.', ['library' => $library]),
+            // A lost or missing connection: "Connect again" is in the settings.
+            $exception instanceof NotConnected => str_contains(strtolower($exception->getMessage()), 'settings')
+                ? $exception->getMessage()
+                : rtrim($exception->getMessage(), '.') . '. ' . Craft::t('ghostwriter', 'Connect it again under Stock photos in Ghostwriter’s settings.'),
             $exception instanceof InsufficientBalance => Craft::t('ghostwriter', 'Your {library} account has nothing left to license this with. Nothing was charged.', ['library' => $library]),
             $exception instanceof QuoteChanged => $exception->quote !== null
                 ? Craft::t('ghostwriter', 'The price has changed: it is now {cost}. Check it and license again.', ['cost' => $exception->quote->costLabel()])
