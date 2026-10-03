@@ -4,6 +4,10 @@
         <p class="warning with-icon smalltext">{{ 'Ghostwriter has no API key yet.'|t('ghostwriter') }}</p>
     {% endif %}
 
+    {% if (stock.previews ?? 0) > 0 %}
+        <p class="warning with-icon smalltext"><a href="{{ cpUrl('ghostwriter/stock') }}">{{ '{count, plural, =1{1 stock preview to license} other{# stock previews to license}}'|t('ghostwriter', {count: stock.previews}) }}</a></p>
+    {% endif %}
+
     {% if not setup.complete and not setup.hidden %}
         <a class="gw-widget__setup" href="{{ cpUrl('ghostwriter/setup') }}{{ nextStep ? '#step-' ~ nextStep.number }}">
             <span>

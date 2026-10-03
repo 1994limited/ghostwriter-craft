@@ -245,7 +245,7 @@ class StockLibraries extends Component
      * isn't set up is listed for managers, to say where to set it up, and
      * left out for everyone else.
      *
-     * @return array<int, array{value: string, label: string, disabled?: bool}>
+     * @return array<int, array{value: string, label: string, short?: string, disabled?: bool}>
      */
     public function sourceOptions(bool $manager): array
     {
@@ -257,7 +257,8 @@ class StockLibraries extends Component
             }
 
             if ($library->available()) {
-                $options[] = ['value' => $id, 'label' => $library->label()];
+                // The select gives the whole name; running text the short one.
+                $options[] = ['value' => $id, 'label' => $library->label(), 'short' => $this->standInName($id)];
             } elseif ($manager) {
                 $options[] = ['value' => $id, 'label' => Craft::t('ghostwriter', '{library} (connect in Settings)', ['library' => $library->label()]), 'disabled' => true];
             }

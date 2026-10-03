@@ -118,6 +118,13 @@
             <span class="gw-tile__value gw-tile__value--number">{{ planOpen }}</span>
             <span class="gw-tile__note">{{ '{count, plural, =0{No ideas waiting} =1{idea waiting} other{ideas waiting}}'|t('ghostwriter', {count: planOpen}) }}</span>
         </a>
+        {% if (stock.previews ?? 0) > 0 %}
+            <a class="gw-tile{{ stock.live ? ' gw-tile--warning' }}" href="{{ cpUrl('ghostwriter/stock') }}">
+                <span class="gw-tile__label">{{ 'Stock images'|t('ghostwriter') }}</span>
+                <span class="gw-tile__value gw-tile__value--number">{{ stock.previews }}</span>
+                <span class="gw-tile__note">{{ '{count, plural, =1{stock preview to license} other{stock previews to license}}'|t('ghostwriter', {count: stock.previews}) }}{% if stock.live %} · {{ '{count, plural, =1{one on a live entry} other{# on live entries}}'|t('ghostwriter', {count: stock.live}) }}{% endif %}</span>
+            </a>
+        {% endif %}
         <a class="gw-tile" href="#gw-in-progress">
             <span class="gw-tile__label">{{ 'In progress'|t('ghostwriter') }}</span>
             <span class="gw-tile__value gw-tile__value--number">{{ inProgress|length }}</span>

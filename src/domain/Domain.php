@@ -97,9 +97,9 @@ class Domain extends Component
      * The stock image ledger and its rules: every stock image Ghostwriter
      * put into the site, free or paid, where it is used and its licence.
      */
-    public function stock(): StockImages
+    public function stock(?\Closure $clock = null): StockImages
     {
-        return new StockImages(Plugin::getInstance()->stockImages, Plugin::getInstance()->lock, $this->options());
+        return new StockImages(Plugin::getInstance()->stockImages, Plugin::getInstance()->lock, $this->options(), $clock);
     }
 
     /**

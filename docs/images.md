@@ -37,6 +37,8 @@ Libraries searched:
 
 See [API keys](api-keys.md#free-photo-libraries) for getting the free keys.
 
+Paid libraries, and a demo library for trying them, are searched from the same tab with **Search in**; a paid photo goes in as a preview to license. See [Stock photos](stock-photos.md).
+
 ### Names, alt text and credits
 
 A chosen photo's file name, title and alt text come from the library's own title and description of it, falling back to the search that found it. For example, `potter-mending-a-bowl-x7k2qa.jpg`, titled "Potter mending a bowl".

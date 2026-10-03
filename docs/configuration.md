@@ -34,7 +34,16 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 | **Image provider** | ChatGPT (OpenAI) or Gemini (Google), for making images. **Whichever has a key** uses OpenAI if its key is set, then Gemini. |
 | **Image model** | Leave blank for the provider's default. |
 | **Mark images still to choose** | Striped placeholders in empty image fields on new entries. See [Placeholders](images.md#placeholders). |
-| **Search Openverse** | Free public-domain and CC0 photos, with no key. |
+
+**Stock photos**
+
+| Setting | What it does |
+| --- | --- |
+| **Free libraries** | Each free library's key, **Set** or **Not set**, and **Search Openverse**. |
+| **Paid libraries** | Each paid library's keys, **Check connection** and an **Enabled** switch. See [Stock photos](stock-photos.md#settings). |
+| **Search in, by default** | Where the image dialog searches for someone who hasn't chosen yet. |
+| **Include editorial images by default** | Off. |
+| **When a page with an unlicensed preview is published** | **Block** (the default) or **Warn**. |
 
 **Troubleshooting**
 
@@ -89,6 +98,12 @@ return [
 | `imageModel` | provider's default | `gpt-image-2.5-sunburst` or `gemini-3.1-flash-image` |
 | `openverse` | `true` | Search Openverse |
 | `placeholderImages` | `true` | Striped placeholders in empty image fields |
+| `stockLibraries` | `[]` (all on) | Paid photo libraries switched on or off, by ID: `['demo' => false]` |
+| `stockDefaultSource` | `free` | Where **Search in** starts: `free`, `everything` or a library's ID |
+| `stockIncludeEditorial` | `false` | Include editorial-only images in searches by default |
+| `stockOnPublish` | `block` | `block` or `warn` when an entry holding an unlicensed preview goes live |
+| `stockDemo` | `$GHOSTWRITER_STOCK_DEMO` | Offer the demo library outside dev mode; never in production |
+| `stockUnusedDays` | `30` | Days before a preview no entry uses is cleaned up |
 | `suggestKindsAutomatically` | `true` | Suggest kinds when Get started's kinds step opens |
 | `draftsUnpublished` | `true` | A new entry Ghostwriter writes starts with **Enabled** off; existing entries are never changed |
 | `sharedConversations` | `true` | Share conversations with everyone who may use Ghostwriter; `false` keeps each to the person who started it |

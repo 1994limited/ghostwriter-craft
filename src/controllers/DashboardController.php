@@ -56,6 +56,7 @@ class DashboardController extends Controller
             'imagery' => ['exists' => $imagery->exists(), 'updatedAt' => $imagery->updatedAt],
             'planOpen' => count(array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->isOpen())),
             'isAdmin' => Craft::$app->getUser()->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
+            'stock' => \nineteenninetyfour\ghostwriter\stock\StockView::summary(),
         ]);
     }
 }

@@ -8,7 +8,8 @@
  *
  * API keys are never set here. Ghostwriter reads them from the environment:
  * ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, and for photo libraries
- * UNSPLASH_ACCESS_KEY, PEXELS_API_KEY and PIXABAY_API_KEY.
+ * UNSPLASH_ACCESS_KEY, PEXELS_API_KEY and PIXABAY_API_KEY, and for paid ones
+ * GETTY_API_KEY/GETTY_API_SECRET and SHUTTERSTOCK_API_KEY/SHUTTERSTOCK_API_SECRET.
  */
 
 return [
@@ -52,6 +53,18 @@ return [
         // it saves at once and is never published by accident. Existing
         // entries are never changed.
         // 'draftsUnpublished' => true,
+
+        // Stock photos. Paid libraries switched on or off, by ID; where
+        // "Search in" starts; editorial images; and whether an entry holding
+        // an unlicensed preview is blocked from going live or only warned.
+        // 'stockLibraries' => [],
+        // 'stockDefaultSource' => 'free',
+        // 'stockIncludeEditorial' => false,
+        // 'stockOnPublish' => 'block',
+        // Offer the demo library outside dev mode (never in production).
+        // 'stockDemo' => '$GHOSTWRITER_STOCK_DEMO',
+        // Days before a preview no entry uses is cleaned up.
+        // 'stockUnusedDays' => 30,
 
         // Suggest kinds of content for each section when Get started's kinds
         // step opens. Elsewhere kinds are only suggested when someone asks.

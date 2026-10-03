@@ -129,6 +129,34 @@ class StockView
     }
 
     /**
+     * For the Overview tile and the widget (§7.3): how many stock images
+     * aren't licensed yet, and how many of those are on live entries.
+     *
+     * @return array{previews: int, live: int}
+     */
+    public static function summary(): array
+    {
+        $plugin = Plugin::getInstance();
+
+        if ($plugin->stockUsages->ledgerIsEmpty()) {
+            return ['previews' => 0, 'live' => 0];
+        }
+
+        $unlicensed = $plugin->domain->stock()->all(new \NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\StockImageQuery([StockImage::PREVIEW, StockImage::LICENSING, StockImage::FAILED]));
+        $live = array_filter($unlicensed, function(StockImage $image): bool {
+            foreach ($image->usages() as $usage) {
+                if ($usage->live) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        return ['previews' => count($unlicensed), 'live' => count($live)];
+    }
+
+    /**
      * The badge's words for a record's state.
      */
     public static function status(StockImage $image): string

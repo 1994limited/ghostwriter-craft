@@ -311,7 +311,7 @@ class ImagesController extends Controller
             'terms' => $request->terms,
             'direction' => $details['direction'] ?? null,
             'source' => $details['source'] ?? StockLibraries::FREE,
-            'paidLibraries' => array_values(array_unique(array_map(fn(array $option) => $option['source_label'], array_filter($options, fn(array $option) => $option['paid'])))),
+            'paidLibraries' => array_values(array_unique(array_map(fn(array $option) => $libraries->standInName((string) $option['source']), array_filter($options, fn(array $option) => $option['paid'])))),
             'options' => $options,
             'judged' => (bool) ($details['judged'] ?? false),
             'noneFit' => (bool) ($details['noneFit'] ?? false),
