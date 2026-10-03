@@ -16,7 +16,9 @@ class GhostwriterAsset extends AssetBundle
     {
         $this->sourcePath = __DIR__ . '/dist';
         $this->depends = [CpAsset::class];
-        $this->js = ['ghostwriter.js', 'finish.js'];
+        // preview.js loads locator.js (core's, copied as it is) as a module
+        // from beside itself, so it is published here but not registered.
+        $this->js = ['ghostwriter.js', 'finish.js', 'preview.js'];
         $this->css = ['ghostwriter.css', 'finish.css'];
 
         parent::init();
