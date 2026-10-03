@@ -42,7 +42,7 @@ class FinishGuide
         '{count} to do', '{tag}: {label}', 'Suggestion {n} of {total}', 'Suggestion {n} of {total}.', 'A suggestion: it won’t stop the page going live.', 'Ghostwriter: {speech}',
         'Finish this page minimised.', 'Finish this page opened.', 'Alt+Shift+G opens or minimises the guide',
         'Alt+Shift+N for the next step, Alt+Shift+P for the one before, Alt+Shift+G to open or minimise.',
-        'What should it say?', 'Put it in', 'Show me', 'Open block', 'uses Ghostwriter',
+        'What should it say?', 'What should it say instead?', 'Put it in', 'Show me', 'Open block', 'uses Ghostwriter',
         'License', 'License ({cost})', 'Request licence', 'Refresh preview', 'Choose another', 'Download again and replace', 'Licence requested by {name}',
         'Ghostwriter couldn’t find that gap in the field any more.', 'Something went wrong.', 'That didn’t change the field. Try another fix, or change it yourself.',
     ];

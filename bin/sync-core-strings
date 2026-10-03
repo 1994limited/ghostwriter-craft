@@ -17,7 +17,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
 
 $target = dirname(__DIR__) . '/src/translations/en/ghostwriter.php';
-$craft = fn(string $text): string => (string) preg_replace('/:([a-z][a-z_]*)/', '{$1}', $text);
+$craft = fn(string $text): string => (string) preg_replace('/:([a-zA-Z][a-zA-Z_]*)/', '{$1}', $text);
 $strings = [];
 
 foreach (Message::strings() as $key => $text) {

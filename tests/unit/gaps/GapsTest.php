@@ -308,7 +308,7 @@ class GapsTest extends TestCase
         $craft = require dirname(__DIR__, 3) . '/src/translations/en/ghostwriter.php';
 
         foreach (Message::strings() as $key => $english) {
-            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-core-strings.");
+            $this->assertSame(preg_replace('/:([a-zA-Z][a-zA-Z_]*)/', '{$1}', $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-core-strings.");
         }
 
         // The brief in the conversation's, likewise.

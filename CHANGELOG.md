@@ -18,8 +18,14 @@ Requires `1994/ghostwriter-core` ^1.8, for layouts, extras and counts to check (
 
 - A preview whose template fails is answered by the render action itself (Craft renders templates as the response is sent, so it renders the page there first), with the reason for the panel and, for admins, the error and the template.
 
+- **Counts to check in Finish this page.** A count Ghostwriter worked out from a list you gave it goes into the entry as `[[check: 3 counties | from: …]]` (core's `GapKind::Check`): a step that says "I counted 3 counties from “…”. Is that right?" with **Looks right**, **Change it** (a box with the count, to correct) and **Remove it**, highlighted in the form (in CKEditor too) with "Check me", and counted in the pill. When the list has changed since, the step says so and offers the new count first (**Use “4 counties”**). The gap finder is given the piece's brief, answers and draft (`GapContext::$sources`, from `ExtraSources::fromSession()`), so it can tell. Like a fact to add, it stops the page going live, or warns. See [Counts to check](docs/finish-this-page.md#counts-to-check).
+- The publish guard also checks a draft about to be applied, which Craft 5.9+ saves first in the live scenario with `applyingDraft`: so **Create entry** on a new entry's unpublished draft is stopped, with the messages on its fields, as Save on a live entry and applying a provisional draft (`updatingFromDerivative`) already were.
+
 ### Changed
 - `drafts\Applier` takes its values from the new `drafts\DraftValues`, which has no side effects, so the preview and **Use this draft** share one mapping. A preview never makes a striped placeholder: it uses one already in the volume, or leaves the image out.
+
+### Fixed
+- `bin/sync-core-strings` turned camelCase parameters (`:newCount`) into `{new}Count`; it now keeps them whole (`{newCount}`).
 
 ## 1.2.0 - 2026-10-03
 
