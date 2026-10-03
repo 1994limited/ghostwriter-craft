@@ -51,6 +51,7 @@ Stock photos, from the stock images design, and "Finish this page", from the fin
   - The guide's words, and core's, are Craft translations (`Craft.t('ghostwriter', …)`, registered for the page).
   - Places in blocks are named once: "the Text block", or "Subheading (in the Hero block)", not "Text: Text", in the guide and in the publish guard's messages.
   - The guide's helpers have their own tests (`node --test tests/js/*.test.mjs`), run in CI.
+- **"Include editorial images" says what it means:** an (i) with Craft's info icon (focusable, and opened by a tap) explains editorial photos and where they may be used, a hint under it reads "News and event photos. Not for advertising or promotion.", and it shows only when the source chosen in **Search in** can return editorial images (core's `Capabilities::$editorial`; never the free libraries). Each **Search in** option now says whether it can (`editorial`).
 - **Docs:** [Finish this page](docs/finish-this-page.md).
 
 ### Changed

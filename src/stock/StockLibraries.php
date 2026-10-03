@@ -279,7 +279,10 @@ class StockLibraries extends Component
      */
     public function sourceOptions(bool $manager): array
     {
-        $options = [['value' => self::FREE, 'label' => Craft::t('ghostwriter', 'Free libraries')]];
+        // `editorial`: the source can return editorial-only images (core's
+        // Capabilities::$editorial), so "Include editorial images" applies.
+        $options = [['value' => self::FREE, 'label' => Craft::t('ghostwriter', 'Free libraries'), 'editorial' => false]];
+        $editorial = false;
 
         foreach ($this->all() as $id => $library) {
             if (!$this->enabled($id)) {
@@ -287,15 +290,17 @@ class StockLibraries extends Component
             }
 
             if ($library->available()) {
+                $hasEditorial = $library->capabilities()->editorial;
+                $editorial = $editorial || $hasEditorial;
                 // The select gives the whole name; running text the short one.
-                $options[] = ['value' => $id, 'label' => $library->label(), 'short' => $this->standInName($id)];
+                $options[] = ['value' => $id, 'label' => $library->label(), 'short' => $this->standInName($id), 'editorial' => $hasEditorial];
             } elseif ($manager) {
-                $options[] = ['value' => $id, 'label' => Craft::t('ghostwriter', '{library} (connect in Settings)', ['library' => $library->label()]), 'disabled' => true];
+                $options[] = ['value' => $id, 'label' => Craft::t('ghostwriter', '{library} (connect in Settings)', ['library' => $library->label()]), 'disabled' => true, 'editorial' => false];
             }
         }
 
         if ($this->paid() !== []) {
-            $options[] = ['value' => self::EVERYTHING, 'label' => Craft::t('ghostwriter', 'Everything')];
+            $options[] = ['value' => self::EVERYTHING, 'label' => Craft::t('ghostwriter', 'Everything'), 'editorial' => $editorial];
         }
 
         return $options;

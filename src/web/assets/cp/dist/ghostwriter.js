@@ -2443,6 +2443,15 @@
      * field's own input. The server only offers it when one of the two can
      * be done.
      */
+    /**
+     * Whether "Include editorial images" applies to a "Search in" choice:
+     * only a source that can return editorial-only images (core's
+     * Capabilities::$editorial), never the free libraries.
+     */
+    Ghostwriter.editorialFor = function (sources, value) {
+        return Boolean((sources ?? []).find((source) => source.value === (value ?? 'free'))?.editorial);
+    };
+
     Ghostwriter.ImageButton = Garnish.Base.extend({
         init(holder) {
             const t = (message, params) => Craft.t('ghostwriter', message, params);
@@ -2550,8 +2559,12 @@
                                 ${this.sourcePicker()}
                                 <button type="button" class="btn submit gw-image-search">${t('Search')}</button>
                             </div>
-                            <div class="gw-image-filters${this.hasPaid() ? '' : ' hidden'}">
-                                <label class="gw-image-editorial"><input type="checkbox"${this.config.editorial ? ' checked' : ''}> ${t('Include editorial images')}</label>
+                            <div class="gw-image-filters${Ghostwriter.editorialFor(this.config.sources, this.config.source) ? '' : ' hidden'}">
+                                <div class="gw-image-editorial-row">
+                                    <label class="gw-image-editorial"><input type="checkbox" aria-describedby="gw-image-editorial-hint"${this.config.editorial ? ' checked' : ''}> ${t('Include editorial images')}</label>
+                                    <span class="info">${Ghostwriter.escape(t('Editorial photos show real news and events: public figures, sports, named brands and places. You can use them only in news or educational content, such as a story or blog post about the event, not in advertising or anything that promotes a product. They need their credit line shown next to the image. Off: only creative photos, which are safe on any page.'))}</span>
+                                </div>
+                                <p id="gw-image-editorial-hint" class="light gw-image-editorial__hint">${t('News and event photos. Not for advertising or promotion.')}</p>
                             </div>
                             <div class="gw-image-status"></div>
                             <div class="gw-image-grid"></div>
@@ -2581,9 +2594,17 @@
             this.addListener($modal.find('.gw-image-words'), 'keydown', (event) => event.key === 'Enter' && this.find());
             this.addListener($modal.find('.gw-image-make'), 'click', 'make');
             this.addListener($modal.find('.gw-image-source-select'), 'change', (event) => {
-                $modal.find('.gw-image-intro').text(this.intro($(event.currentTarget).val()));
+                const source = $(event.currentTarget).val();
+
+                $modal.find('.gw-image-intro').text(this.intro(source));
+                // Only where the source can return editorial images.
+                $modal.find('.gw-image-filters').toggleClass('hidden', !Ghostwriter.editorialFor(this.config.sources, source));
                 this.fit();
             });
+
+            // The (i) beside "Include editorial images": Craft's own info icon,
+            // focusable, and opened by a tap as well as a hover.
+            Craft.initUiElements($modal);
 
             this.show(this.mode);
             this.current();
@@ -2694,7 +2715,8 @@
             const $pane = this.pane('find');
             const $search = $pane.find('.gw-image-search');
             const source = $pane.find('.gw-image-source-select').val() ?? 'free';
-            const editorial = $pane.find('.gw-image-editorial input').prop('checked') ? 1 : 0;
+            // Hidden for a source with no editorial images: then it never applies.
+            const editorial = !$pane.find('.gw-image-filters').hasClass('hidden') && $pane.find('.gw-image-editorial input').prop('checked') ? 1 : 0;
 
             $search.addClass('loading');
             $pane.find('.gw-image-grid').empty();

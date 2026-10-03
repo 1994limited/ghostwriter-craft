@@ -19,6 +19,13 @@ use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
  */
 class ImageButton
 {
+    /** The editorial filter's words in the image dialog, for Craft.t() in the editor's language. */
+    public const JS_STRINGS = [
+        'Include editorial images',
+        'News and event photos. Not for advertising or promotion.',
+        'Editorial photos show real news and events: public figures, sports, named brands and places. You can use them only in news or educational content, such as a story or blog post about the event, not in advertising or anything that promotes a product. They need their credit line shown next to the image. Off: only creative photos, which are safe on any page.',
+    ];
+
     public static function htmlFor(Assets $field, ?ElementInterface $element, bool $inline): string
     {
         $request = Craft::$app->getRequest();
@@ -56,6 +63,7 @@ class ImageButton
 
         $view = Craft::$app->getView();
         $view->registerAssetBundle(GhostwriterAsset::class);
+        $view->registerTranslations('ghostwriter', self::JS_STRINGS);
 
         $config = $tools + [
             // "Search in": free libraries, each paid one, or everything;
