@@ -83,6 +83,7 @@ class GhostwriterWidget extends Widget
             'setup' => $plugin->onboarding->progress(),
             'nextStep' => $plugin->onboarding->nextStep(),
             'configured' => $plugin->studio->configured(),
+            'stock' => \nineteenninetyfour\ghostwriter\stock\StockView::summary(),
             'sections' => array_map(fn($section) => ['handle' => $section->handle, 'name' => Craft::t('site', $section->name)], $plugin->types->sections()),
         ]);
     }

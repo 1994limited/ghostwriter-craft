@@ -4,7 +4,7 @@ This page covers who can use Ghostwriter, who manages it, how conversations are 
 
 ## Using Ghostwriter
 
-Ghostwriter adds one permission under **Settings → Users → User Groups** (or on a user's own permissions): **Use Ghostwriter**.
+Ghostwriter adds two permissions under **Settings → Users → User Groups** (or on a user's own permissions): **Use Ghostwriter**, and **License stock images** (see [below](#licensing-stock-images)).
 
 People with it see:
 
@@ -17,6 +17,10 @@ People with it see:
 They also share the voice guide, image style guide, kinds of content and content plan, and can change them: edit or rewrite a guide, edit or delete a kind, add, dismiss or delete ideas. These are the writing team's shared tools, like the entries themselves.
 
 Writing into an entry still needs Craft's own permission to save entries in that section. Ghostwriter never lets anyone change an entry they couldn't change by hand.
+
+## Licensing stock images
+
+**License stock images** (`ghostwriter:license`) lets someone license a paid stock photo, which spends money or your account's allowance. Nobody has it by default; admins do. Without it, the badge under a preview says "Ask a manager to license", with **Request licence**. Inserting a preview needs only **Use Ghostwriter**. See [Stock photos](stock-photos.md#permissions).
 
 ## Managing Ghostwriter
 

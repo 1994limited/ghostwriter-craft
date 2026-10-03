@@ -5,6 +5,7 @@ namespace nineteenninetyfour\ghostwriter\controllers;
 use Craft;
 use craft\elements\Asset;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\StockImage;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\StockImageQuery;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Exceptions\InsufficientBalance;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Exceptions\LicenceRefused;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Exceptions\LicensingUncertain;
@@ -34,6 +35,173 @@ use yii\web\Response;
  */
 class StockController extends Controller
 {
+    /** The ledger screen's tabs: the states each shows. */
+    public const TABS = [
+        'previews' => [StockImage::PREVIEW, StockImage::LICENSING],
+        'licensed' => [StockImage::LICENSED],
+        'failed' => [StockImage::FAILED],
+        'all' => [],
+    ];
+
+    /**
+     * The "Stock images" screen (§7.3): every stock image Ghostwriter put
+     * into the site, by tab (Previews, Licensed, Failed, All), newest first,
+     * with requested licences at the top of Previews.
+     */
+    public function actionIndex(): Response
+    {
+        $plugin = Plugin::getInstance();
+        $tab = (string) $this->request->getQueryParam('tab', 'previews');
+        $tab = isset(self::TABS[$tab]) ? $tab : 'previews';
+        $page = max(1, (int) $this->request->getQueryParam('page', 1));
+        $result = $plugin->stockImages->query(new StockImageQuery(self::TABS[$tab], page: $page, perPage: 50));
+        $rows = StockView::many($result->images);
+
+        if ($tab === 'previews') {
+            usort($rows, fn(array $a, array $b) => ($b['requested'] !== null) <=> ($a['requested'] !== null));
+        }
+
+        foreach ($rows as &$row) {
+            $row['thumb'] = $row['comp'] ?? self::thumb($row['assetId']);
+        }
+
+        unset($row);
+
+        $counts = $plugin->stockImages->counts();
+        $this->view->registerAssetBundle(\nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset::class);
+
+        return $this->renderTemplate('ghostwriter/stock', [
+            'tab' => $tab,
+            'tabCounts' => array_map(fn(array $states) => $states === [] ? array_sum($counts) : array_sum(array_intersect_key($counts, array_flip($states))), self::TABS),
+            'rows' => $rows,
+            'page' => $page,
+            'total' => $result->total,
+            'hasMore' => $result->hasMore(),
+            'mayLicense' => StockView::mayLicense(Craft::$app->getUser()->getIdentity()),
+        ]);
+    }
+
+    /**
+     * The ledger as CSV, for finance and audits (§5.5): one row per record
+     * in the tab, with where each is used.
+     */
+    public function actionExport(): Response
+    {
+        $plugin = Plugin::getInstance();
+        $tab = (string) $this->request->getQueryParam('tab', 'all');
+        $images = $plugin->domain->stock()->all(new StockImageQuery(self::TABS[$tab] ?? [], perPage: 500));
+        $libraries = $plugin->stockLibraries;
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['Date', 'State', 'Library', 'ID', 'Title', 'Licence or order ID', 'Cost', 'Licence type', 'Licensed by', 'Licensed at', 'Credit line', 'Restrictions', 'Where used'], escape: '');
+
+        foreach ($images as $image) {
+            $licence = $image->licence();
+            fputcsv($out, [
+                $image->insertedAt->format('Y-m-d H:i'),
+                $image->state(),
+                $libraries->standInName($image->library),
+                $image->externalId,
+                $image->title,
+                $licence?->orderId,
+                $licence?->cost?->label() . ($licence?->estimated ? ' (estimated)' : ''),
+                $image->licenceType,
+                $licence?->licensedBy,
+                $licence?->licensedAt->format('Y-m-d H:i'),
+                $image->creditLine,
+                $image->restrictions,
+                implode('; ', array_map(fn($usage) => "{$usage->ownerType} {$usage->ownerId} ({$usage->label})", $image->usages())),
+            ], escape: '');
+        }
+
+        rewind($out);
+
+        return $this->response->sendContentAsFile((string) stream_get_contents($out), 'stock-images-' . date('Y-m-d') . '.csv', ['mimeType' => 'text/csv']);
+    }
+
+    /**
+     * "Download licence record": the whole ledger record, licence and
+     * history included, as JSON.
+     */
+    public function actionRecord(string $id): Response
+    {
+        $image = Plugin::getInstance()->stockImages->find($id) ?? throw new NotFoundHttpException();
+
+        return $this->response->sendContentAsFile(\craft\helpers\Json::encode($image->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), "stock-licence-{$image->library}-{$image->externalId}.json", ['mimeType' => 'application/json']);
+    }
+
+    /**
+     * "Reconcile": a licence whose outcome wasn't known, settled now from
+     * the library's own licences, never by buying again.
+     */
+    public function actionReconcile(): Response
+    {
+        $this->requirePostRequest();
+
+        [$image] = $this->licensable((string) $this->request->getRequiredBodyParam('id'));
+        $image = Plugin::getInstance()->stockCleanup->reconcile($image->id);
+        $library = Plugin::getInstance()->stockLibraries->standInName($image->library);
+
+        return $this->asJson([
+            'message' => match ($image->state()) {
+                StockImage::LICENSED => Craft::t('ghostwriter', '{library} has the licence: order {order}. It wasn’t bought again.', ['library' => $library, 'order' => $image->licence()?->orderId]),
+                StockImage::FAILED => Craft::t('ghostwriter', '{library} has no licence for this image, so nothing was charged. It can be licensed again.', ['library' => $library]),
+                default => Craft::t('ghostwriter', '{library} hasn’t shown the purchase yet. Ghostwriter will check again in a few minutes; don’t buy it again.', ['library' => $library]),
+            },
+            'badge' => StockView::many([$image])[0],
+        ]);
+    }
+
+    /**
+     * "Remove preview": the preview goes, its comp and its stand-in with
+     * it (out of any entry it was in). Never a licensed image.
+     */
+    public function actionRemove(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+
+        if (!StockView::mayLicense(Craft::$app->getUser()->getIdentity())) {
+            throw new ForbiddenHttpException();
+        }
+
+        $image = $plugin->stockImages->find((string) $this->request->getRequiredBodyParam('id')) ?? throw new NotFoundHttpException();
+
+        if (!in_array($image->state(), [StockImage::PREVIEW, StockImage::FAILED], true)) {
+            return $this->refuse(Craft::t('ghostwriter', 'Only a preview can be removed. A licence stays on file.'), 409);
+        }
+
+        $comp = $image->comp();
+        $image = $plugin->domain->stock()->removed($image->id, $plugin->domain->person());
+        StockFiles::forget($comp);
+        $asset = is_numeric($image->asset->id) ? Asset::find()->id((int) $image->asset->id)->status(null)->one() : null;
+
+        if ($asset instanceof Asset) {
+            Craft::$app->getElements()->deleteElement($asset);
+        }
+
+        return $this->asJson(['message' => Craft::t('ghostwriter', 'Preview removed. Its stand-in has gone from Assets, and from any entry it was in.'), 'badge' => StockView::many([$image])[0]]);
+    }
+
+    /**
+     * Look again at where every stock image is used (§5.4, on demand).
+     */
+    public function actionResync(): Response
+    {
+        $this->requirePostRequest();
+        $changed = Plugin::getInstance()->stockUsages->resync();
+
+        return $this->asJson(['message' => Craft::t('ghostwriter', '{count, plural, =0{Every image’s uses were up to date.} =1{One image’s uses were updated.} other{# images’ uses were updated.}}', ['count' => $changed])]);
+    }
+
+    private static function thumb(?int $assetId): ?string
+    {
+        $asset = $assetId ? Asset::find()->id($assetId)->status(null)->one() : null;
+
+        return $asset instanceof Asset ? Craft::$app->getAssets()->getThumbUrl($asset, 120, 90) : null;
+    }
+
     /**
      * A preview's comp, for signed-in editors only (the route is the
      * control panel's, behind its sign-in and the Use Ghostwriter

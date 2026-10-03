@@ -19,6 +19,8 @@ use craft\elements\Asset;
 use craft\events\DefineAssetUrlEvent;
 use craft\events\DefineAttributeHtmlEvent;
 use craft\events\ElementEvent;
+use craft\events\ModelEvent;
+use craft\services\Gc;
 use craft\events\RegisterElementTableAttributesEvent;
 use craft\services\Dashboard;
 use craft\services\Elements;
@@ -41,6 +43,8 @@ use nineteenninetyfour\ghostwriter\domain\DbStockImageStore;
 use nineteenninetyfour\ghostwriter\domain\DbWaitingStore;
 use nineteenninetyfour\ghostwriter\domain\Domain;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use nineteenninetyfour\ghostwriter\stock\PublishGuard;
+use nineteenninetyfour\ghostwriter\stock\StockCleanup;
 use nineteenninetyfour\ghostwriter\stock\StockComps;
 use nineteenninetyfour\ghostwriter\stock\StockLibraries;
 use nineteenninetyfour\ghostwriter\stock\StockMarkers;
@@ -73,6 +77,7 @@ use yii\base\Event;
  * @property-read StockUsages $stockUsages
  * @property-read StockLibraries $stockLibraries
  * @property-read StockComps $stockComps
+ * @property-read StockCleanup $stockCleanup
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -122,6 +127,7 @@ class Plugin extends BasePlugin
                 'stockUsages' => StockUsages::class,
                 'stockLibraries' => StockLibraries::class,
                 'stockComps' => StockComps::class,
+                'stockCleanup' => StockCleanup::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -156,6 +162,7 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/types/<handle:[a-z0-9_-]+>'] = 'ghostwriter/types/edit';
             $event->rules['ghostwriter/teach/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/types/teach';
             $event->rules['ghostwriter/write/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/sections/new';
+            $event->rules['ghostwriter/stock'] = 'ghostwriter/stock/index';
             // A paid photo's comp, for signed-in editors only (§7.0).
             $event->rules['ghostwriter/stock/<id:[0-9a-f]{26}>/comp'] = 'ghostwriter/stock/comp';
         });
@@ -183,6 +190,22 @@ class Plugin extends BasePlugin
 
         Event::on(Elements::class, Elements::EVENT_AFTER_DELETE_ELEMENT, function(ElementEvent $event): void {
             $this->stockUsages->afterDelete($event->element);
+        });
+
+        // No page goes live holding a stock photo preview (§7.1): entries
+        // are blocked (or warned, by setting); global sets and categories
+        // are warned.
+        foreach ([Entry::class, \craft\elements\GlobalSet::class, \craft\elements\Category::class] as $class) {
+            Event::on($class, Element::EVENT_BEFORE_SAVE, function(ModelEvent $event): void {
+                PublishGuard::beforeSave($event);
+            });
+        }
+
+        // Comps past their period go, unused stand-ins are cleared, and
+        // licences of unknown outcome are settled, with Craft's garbage
+        // collection (§7.4).
+        Event::on(Gc::class, Gc::EVENT_RUN, function(): void {
+            $this->stockCleanup->run();
         });
 
         // Editors see a paid photo's comp where the stand-in is (§7.0).
@@ -239,6 +262,10 @@ class Plugin extends BasePlugin
                     'plan' => ['label' => Craft::t('ghostwriter', 'Content plan'), 'url' => 'ghostwriter/plan'],
                     'voice' => ['label' => Craft::t('ghostwriter', 'Voice guide'), 'url' => 'ghostwriter/voice'],
                     'imagery' => ['label' => Craft::t('ghostwriter', 'Image style'), 'url' => 'ghostwriter/imagery'],
+                    // The stock image ledger, once there is anything in it or a paid library to use.
+                    'stock' => !$this->stockUsages->ledgerIsEmpty() || $this->stockLibraries->paid() !== []
+                        ? ['label' => Craft::t('ghostwriter', 'Stock images'), 'url' => 'ghostwriter/stock']
+                        : null,
                     'settings' => $user->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges
                         ? ['label' => Craft::t('ghostwriter', 'Settings'), 'url' => 'settings/plugins/ghostwriter']
                         : null,

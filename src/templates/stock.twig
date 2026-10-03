@@ -1,0 +1,110 @@
+{#
+    The stock image ledger (§7.3): every stock photo Ghostwriter put into
+    the site, free or paid. Previews still to license come first, with
+    requested licences at the top. Licence records are kept for good.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = 'Stock images'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'stock' %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}] %}
+
+{% block actionButton %}
+    <div class="flex">
+        <button type="button" class="btn" id="gw-stock-resync">{{ 'Check where they’re used'|t('ghostwriter') }}</button>
+        <a class="btn" href="{{ actionUrl('ghostwriter/stock/export', {tab: tab}) }}">{{ 'Export CSV'|t('ghostwriter') }}</a>
+    </div>
+{% endblock %}
+
+{% set tabLabels = {
+    previews: 'Previews'|t('ghostwriter'),
+    licensed: 'Licensed'|t('ghostwriter'),
+    failed: 'Failed'|t('ghostwriter'),
+    all: 'All'|t('ghostwriter'),
+} %}
+
+{% block content %}
+    <nav class="btngroup gw-stock-tabs" aria-label="{{ 'Stock images'|t('ghostwriter') }}">
+        {% for handle, count in tabCounts %}
+            <a class="btn{{ handle == tab ? ' active' }}" href="{{ cpUrl('ghostwriter/stock', {tab: handle}) }}"{{ handle == tab ? ' aria-current="page"' }}>{{ tabLabels[handle] }} <span class="light">{{ count }}</span></a>
+        {% endfor %}
+    </nav>
+
+    {% if rows is empty %}
+        <div class="zilch gw-stock-empty">
+            <p>{{ {
+                previews: 'No previews waiting for a licence.',
+                licensed: 'No stock images licensed yet.',
+                failed: 'No failed licences.',
+                all: 'No stock images yet. Find one with the Ghostwriter button on an image field.',
+            }[tab]|t('ghostwriter') }}</p>
+        </div>
+    {% else %}
+        <div class="tableview gw-stock-ledger">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th scope="col"><span class="visually-hidden">{{ 'Image'|t('ghostwriter') }}</span></th>
+                        <th scope="col">{{ 'Photo'|t('ghostwriter') }}</th>
+                        <th scope="col">{{ 'Where used'|t('ghostwriter') }}</th>
+                        <th scope="col">{{ 'State'|t('ghostwriter') }}</th>
+                        <th scope="col">{{ 'Licence'|t('ghostwriter') }}</th>
+                        <th scope="col">{{ 'Credit and restrictions'|t('ghostwriter') }}</th>
+                        <th scope="col"><span class="visually-hidden">{{ 'Actions'|t('ghostwriter') }}</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr data-stock-row="{{ row|json_encode }}">
+                            <td class="gw-stock-ledger__thumb">{% if row.thumb %}<img src="{{ row.thumb }}" alt="" loading="lazy">{% endif %}</td>
+                            <th scope="row">
+                                {% if row.assetId %}<a href="{{ cpUrl('assets/edit/' ~ row.assetId) }}">{{ row.title ?? row.externalId }}</a>{% else %}{{ row.title ?? row.externalId }}{% endif %}
+                                <div class="light">{{ row.library }} {{ row.externalId }}{% if row.editorial %} · {{ 'Editorial'|t('ghostwriter') }}{% endif %}</div>
+                            </th>
+                            <td>
+                                {% for usage in row.usages %}
+                                    <div><a href="{{ usage.url }}">{{ usage.title ?? usage.label }}</a> <span class="light">{{ usage.label }}{% if usage.live %} · {{ 'live'|t('ghostwriter') }}{% endif %}</span></div>
+                                {% else %}
+                                    <span class="light">{{ 'Not used'|t('ghostwriter') }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {{ row.status }}
+                                {% if row.requested %}<div class="light">{{ 'Requested by {name}, {when}'|t('ghostwriter', {name: row.requested.name, when: row.requested.at}) }}</div>{% endif %}
+                                {% if row.error %}<div class="error">{{ row.error }}</div>{% endif %}
+                            </td>
+                            <td>
+                                {% if row.licence %}
+                                    <div>{{ row.licence.cost ?? '–' }}{% if row.licence.estimated %} <span class="light">{{ '(estimated)'|t('ghostwriter') }}</span>{% endif %}</div>
+                                    <div class="light">{{ row.licence.orderId }} · {{ row.licence.by }} · {{ row.licence.at }}</div>
+                                {% elseif row.free %}
+                                    <div>{{ 'Free'|t('ghostwriter') }}</div>
+                                    <div class="light">{{ row.insertedBy }} · {{ row.insertedAt }}</div>
+                                {% else %}
+                                    <span class="light">{{ 'Added by {name}, {when}'|t('ghostwriter', {name: row.insertedBy ?? '–', when: row.insertedAt}) }}</span>
+                                {% endif %}
+                                {% if row.termEndsAt %}<div class="light">{{ 'Term ends {date}'|t('ghostwriter', {date: row.termEndsAt}) }}</div>{% endif %}
+                            </td>
+                            <td>
+                                {% if row.credit %}<div>{{ row.credit }}</div>{% endif %}
+                                {% if row.restrictions %}<div class="light">{{ row.restrictions }}</div>{% endif %}
+                            </td>
+                            <td class="gw-stock-ledger__actions"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page > 1 or hasMore %}
+            <div class="flex gw-stock-pages">
+                {% if page > 1 %}<a class="btn" href="{{ cpUrl('ghostwriter/stock', {tab: tab, page: page - 1}) }}">{{ 'Newer'|t('ghostwriter') }}</a>{% endif %}
+                {% if hasMore %}<a class="btn" href="{{ cpUrl('ghostwriter/stock', {tab: tab, page: page + 1}) }}">{{ 'Older'|t('ghostwriter') }}</a>{% endif %}
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% js %}
+    Ghostwriter.StockLedger && new Ghostwriter.StockLedger();
+{% endjs %}

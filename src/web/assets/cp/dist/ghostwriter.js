@@ -2364,6 +2364,53 @@
     };
 
     /**
+     * The "Stock images" screen: each row's actions (License, Reconcile,
+     * Remove preview, Request licence, Download licence record), and
+     * looking again at where images are used.
+     */
+    Ghostwriter.StockLedger = Garnish.Base.extend({
+        init() {
+            const t = (message, params) => Craft.t('ghostwriter', message, params);
+            const reload = () => window.location.reload();
+
+            $('[data-stock-row]').each((i, row) => {
+                const item = JSON.parse(row.dataset.stockRow);
+                const $cell = $(row).find('.gw-stock-ledger__actions');
+                const buttons = [];
+
+                if (item.mayLicense) buttons.push(`<button type="button" class="btn small submit" data-stock="license">${t('License')}</button>`);
+                if (item.mayReplace) buttons.push(`<button type="button" class="btn small submit" data-stock="replace">${t('Download again and replace')}</button>`);
+                if (item.mayReconcile) buttons.push(`<button type="button" class="btn small" data-stock="reconcile">${t('Reconcile')}</button>`);
+                if (item.mayRequest) buttons.push(`<button type="button" class="btn small" data-stock="request">${t('Request licence')}</button>`);
+                if (item.mayRemove) buttons.push(`<button type="button" class="btn small" data-stock="remove">${t('Remove preview')}</button>`);
+                if (item.licence) buttons.push(`<a class="btn small" href="${Ghostwriter.escape(Craft.getActionUrl('ghostwriter/stock/record', { id: item.id }))}">${t('Download licence record')}</a>`);
+
+                $cell.html(`<div class="gw-stock-ledger__buttons">${buttons.join('')}</div>`);
+                Ghostwriter.prepareButtons($cell);
+                Ghostwriter.Stock.wire($cell, item, reload);
+                $cell.find('[data-stock="reconcile"]').on('click', (event) => Ghostwriter.Stock.act('stock/reconcile', item, $(event.currentTarget), reload));
+                $cell.find('[data-stock="remove"]').on('click', (event) => {
+                    if (window.confirm(t('Remove this preview? Its stand-in is deleted from Assets and comes out of any entry it is in.'))) {
+                        Ghostwriter.Stock.act('stock/remove', item, $(event.currentTarget), reload);
+                    }
+                });
+            });
+
+            $('#gw-stock-resync').on('click', async (event) => {
+                const $button = $(event.currentTarget).addClass('loading');
+
+                try {
+                    const result = await Ghostwriter.request('POST', 'stock/resync', {});
+                    Craft.cp.displaySuccess(result.message);
+                    reload();
+                } catch (error) {
+                    $button.removeClass('loading');
+                }
+            });
+        },
+    });
+
+    /**
      * The stock panel in an asset's sidebar.
      */
     Ghostwriter.initStockPanels = function (root) {
@@ -2444,6 +2491,12 @@
         },
 
         badges(items) {
+            this.stockItems = items;
+
+            if (this.$modal) {
+                this.current();
+            }
+
             Ghostwriter.Stock.render(this.$badges, items, (result) => {
                 // Licensed: the field's thumbnail shows the new file.
                 if (result.thumb && result.assetId) {
@@ -2486,7 +2539,8 @@
                     </div>
                     <div class="gw-panel__body">
                         <div class="gw-image-pane" data-pane="find">
-                            <p class="light">${t('Ghostwriter reads the block this field is in, and the rest of the page, then searches free photo libraries and picks the photos that best suit the page’s words and the images already used here.')}</p>
+                            <div class="gw-image-current hidden"></div>
+                            <p class="light gw-image-intro">${Ghostwriter.escape(this.intro(this.config.source))}</p>
                             <div class="flex gw-image-form">
                                 <input type="text" class="text fullwidth gw-image-words" placeholder="${Ghostwriter.escape(t('What should it show? Leave empty and Ghostwriter will choose'))}">
                                 ${this.sourcePicker()}
@@ -2522,8 +2576,13 @@
             this.addListener($modal.find('.gw-image-search'), 'click', 'find');
             this.addListener($modal.find('.gw-image-words'), 'keydown', (event) => event.key === 'Enter' && this.find());
             this.addListener($modal.find('.gw-image-make'), 'click', 'make');
+            this.addListener($modal.find('.gw-image-source-select'), 'change', (event) => {
+                $modal.find('.gw-image-intro').text(this.intro($(event.currentTarget).val()));
+                this.fit();
+            });
 
             this.show(this.mode);
+            this.current();
             this.describe();
         },
 
@@ -2585,6 +2644,45 @@
 
         hasPaid() {
             return (this.config.sources ?? []).some((source) => source.value !== 'free');
+        },
+
+        /**
+         * What the Find a photo tab does, for where it searches: free
+         * libraries are picked to suit the page; a paid library's results
+         * are in its own order.
+         */
+        intro(source) {
+            const t = this.t;
+            const paid = (this.config.sources ?? []).filter((option) => !['free', 'everything'].includes(option.value) && !option.disabled);
+            const chosen = paid.find((option) => option.value === source);
+
+            if (chosen) {
+                return t('Searches {library} for this part of the page. Results are in {library}’s order.', { library: chosen.short ?? chosen.label });
+            }
+
+            if (source === 'everything') {
+                return t('Searches the free libraries and {libraries} for this part of the page. Free photos are picked to suit the page; {libraries} results follow in their own order.', { libraries: paid.map((option) => option.short ?? option.label).join(', ') });
+            }
+
+            return t('Ghostwriter reads the block this field is in, and the rest of the page, then searches free photo libraries and picks the photos that best suit the page’s words and the images already used here.');
+        },
+
+        /**
+         * At the top of the dialog, the preview the field holds now, with
+         * what can be done about it.
+         */
+        current() {
+            const $current = this.$modal.find('.gw-image-current');
+            const items = this.stockItems ?? [];
+
+            $current.toggleClass('hidden', !items.length).empty();
+
+            if (items.length) {
+                $current.append(`<h3 class="gw-image-current__heading">${this.t('In this field now')}</h3>`, $('<div/>'));
+                Ghostwriter.Stock.render($current.children('div'), items, () => {
+                    this.refreshBadges();
+                });
+            }
         },
 
         async find() {
@@ -2703,7 +2801,7 @@
 
             // No model judges a paid library's photos: their terms forbid it.
             (data.paidLibraries ?? []).forEach((library) => {
-                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(t('{library} results are in {library}’s order; Ghostwriter doesn’t judge paid libraries.', { library }))}</p>`);
+                $grid.before(`<p class="light gw-image-note">${Ghostwriter.escape(t('Shown in {library}’s order. Ghostwriter doesn’t rank paid libraries.', { library }))}</p>`);
             });
 
             data.options.forEach((photo, i) => {
