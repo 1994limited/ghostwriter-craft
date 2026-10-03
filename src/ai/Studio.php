@@ -12,12 +12,14 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Conversation;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Result;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Studio as CoreStudio;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\StudioOptions;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\SuggestedIdea;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\SuggestedKind;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\UnreadableReply;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\Plugin;
 use Psr\Log\LoggerInterface;
@@ -176,7 +178,18 @@ class Studio extends Component
      */
     public function write(Session $session, ContentType $type, string $voice): TaggedResponse
     {
-        return $this->core()->write($this->inputs()->conversation($session), $this->inputs()->writerContext($type, $voice, $this->images($type)));
+        return $this->core()->write(...$this->writerInputs($session, $type, $voice));
+    }
+
+    /**
+     * What the writer is given for a turn: the conversation and its
+     * context. Layouts read the writer's extras against the same.
+     *
+     * @return array{0: Conversation, 1: WriterContext}
+     */
+    public function writerInputs(Session $session, ContentType $type, string $voice): array
+    {
+        return [$this->inputs()->conversation($session), $this->inputs()->writerContext($type, $voice, $this->images($type))];
     }
 
     /**

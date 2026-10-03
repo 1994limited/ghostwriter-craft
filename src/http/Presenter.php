@@ -12,7 +12,6 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
-use NineteenNinetyFour\Ghostwriter\Core\Text\DraftPreview;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 
@@ -181,14 +180,17 @@ class Presenter
         $problem = null;
         $words = 0;
         $preview = [];
+        $layouts = new LayoutsPresenter();
 
         if ($session->draft !== null) {
             try {
                 $draft = Draft::parse($session->draft);
                 $words = $draft->wordCount();
 
+                // The chosen layout's blocks and words (the draft itself
+                // with the writer's layout).
                 if ($entryType = $type ? $plugin->types->entryType($type->forSession($session)) : null) {
-                    $preview = (new DraftPreview())->render($draft->data, (new SchemaReader())->read($entryType));
+                    $preview = $layouts->preview($session, $draft, (new SchemaReader())->read($entryType));
                 }
             } catch (InvalidArgumentException $exception) {
                 $problem = $exception->getMessage();
@@ -240,6 +242,9 @@ class Presenter
             'draft' => $session->draft,
             'draftProblem' => $problem,
             'preview' => $preview,
+            // The layout cards and the Text tab's extras (§3).
+            'layouts' => $layouts->layouts($session),
+            'extras' => $layouts->extras($session),
             'words' => $words,
             'usage' => $session->usage,
             'appliedAt' => $session->appliedAt,

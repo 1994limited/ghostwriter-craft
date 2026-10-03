@@ -14,6 +14,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Layout\BuiltEntry;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
+use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
 use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
@@ -54,7 +55,7 @@ class DraftValues
      *     editing: bool,
      * }
      */
-    public function for(Session $session, ContentType $type, Entry $entry, bool $readOnly = false): array
+    public function for(Session $session, ContentType $type, Entry $entry, bool $readOnly = false, ?string $plan = null): array
     {
         if ($session->draft === null) {
             throw new InvalidArgumentException('There is no draft yet.');
@@ -64,6 +65,10 @@ class DraftValues
         $entryType = $entry->getType();
         $schema = $this->reader->read($entryType);
         $model = Schema::fromSpecs($schema);
+
+        // The chosen layout (or the one asked for): the draft's own words,
+        // arranged. With the writer's layout chosen this is the draft.
+        $draft = new Draft((new DraftLayouts())->draftData($session, $model, $plan), $draft->raw);
 
         $editing = $session->isEditing();
         $existing = [];
