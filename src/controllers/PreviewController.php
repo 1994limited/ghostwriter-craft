@@ -86,7 +86,8 @@ class PreviewController extends Controller
         }
 
         try {
-            $result = $plugin->previews->prepare($session, $type, $entry, Craft::$app->getUser()->getIdentity());
+            $plan = $this->request->getBodyParam('plan');
+            $result = $plugin->previews->prepare($session, $type, $entry, Craft::$app->getUser()->getIdentity(), plan: is_string($plan) && $plan !== '' ? $plan : null);
         } catch (CannotPreview $cannot) {
             return $this->asJson(['preview' => false, 'reason' => $cannot->reason, 'message' => $cannot->getMessage()]);
         } catch (InvalidArgumentException $exception) {

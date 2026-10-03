@@ -54,6 +54,19 @@ class Layouts
      */
     public function pattern(string $section, Schema $schema, ?string $entryType = null, array $where = [], array $examples = []): Pattern
     {
+        return $this->study($section, $schema, $entryType, $where, $examples)['pattern'];
+    }
+
+    /**
+     * The pattern, with the entries it was found from (newest first, as
+     * core's PatternFinder took them): what layouts compare a plan with.
+     *
+     * @param array<string, mixed> $where
+     * @param array<int, int|string> $examples
+     * @return array{pattern: Pattern, entries: array<int, EntryData>}
+     */
+    public function study(string $section, Schema $schema, ?string $entryType = null, array $where = [], array $examples = []): array
+    {
         // Entries picked by hand are the whole evidence: a section such as
         // Pages holds several kinds of page, and only a person knows which
         // ones a given type should be modelled on.
@@ -64,10 +77,11 @@ class Layouts
         }
 
         $specs = $schema->toSpecs();
-        $pattern = $this->core->patterns()->find($schema, array_map(fn(Entry $entry) => new EntryData($this->reader->read($entry, $specs), (int) $entry->getCanonicalId()), $entries));
+        $data = array_map(fn(Entry $entry) => new EntryData($this->reader->read($entry, $specs), (int) $entry->getCanonicalId(), (string) $entry->title), array_values($entries));
+        $pattern = $this->core->patterns()->find($schema, $data);
         LayoutLog::record('pattern', $pattern);
 
-        return $pattern;
+        return ['pattern' => $pattern, 'entries' => $data];
     }
 
     /**

@@ -11,6 +11,7 @@ use craft\helpers\ElementHelper;
 use craft\helpers\StringHelper;
 use craft\helpers\UrlHelper;
 use DateTime;
+use NineteenNinetyFour\Ghostwriter\Core\Arrange\Plan;
 use NineteenNinetyFour\Ghostwriter\Core\Arrange\Units;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
@@ -21,6 +22,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\drafts\DraftValues;
 use nineteenninetyfour\ghostwriter\drafts\FieldValues;
+use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
@@ -60,22 +62,31 @@ class Previews extends Component
      *     preview-only negative ID. Each is in its rich text value already
      *     (`<craft-entry data-entry-id="-101">`), or is put at the end of the
      *     value `at` names ("body", "pageBuilder/1/text").
-     * @return array{url: string, map: array<int, array<string, mixed>>, expires: string, hash: string, reused: bool, ms: int}
+     * @return array{url: string, map: array<int, array<string, mixed>>, expires: string, hash: string, plan: string, reused: bool, ms: int}
      */
-    public function prepare(Session $session, ContentType $type, Entry $target, User $user, array $nested = []): array
+    public function prepare(Session $session, ContentType $type, Entry $target, User $user, array $nested = [], ?string $plan = null): array
     {
         $started = microtime(true);
         $base = $this->baseFor($target, $user);
         $this->assertPreviewable($base);
 
-        $values = (new DraftValues())->for($session, $type, $base, readOnly: true);
+        // The chosen layout, or the one a card shows (§5).
+        $layouts = new DraftLayouts();
+        $shown = $layouts->plan($session, $plan);
+        $values = (new DraftValues())->for($session, $type, $base, readOnly: true, plan: $shown?->id);
         $hasTitle = (bool) $base->getType()->hasTitleField;
         $title = $hasTitle ? $values['title'] : (string) $base->title;
         $data = $hasTitle ? ['title' => $title] + $values['data'] : $values['data'];
         $data = $this->placeNested($data, $nested);
 
-        $units = Units::fromDraft(Draft::parse((string) $session->draft), $values['model']);
-        $units = $session->units !== [] ? $units->restore($session->units) : $units;
+        // Units name the draft's own places, so they map the writer's
+        // layout only; another layout's blocks are mapped by position.
+        $units = null;
+
+        if ($shown === null || $shown->id === Plan::WRITER) {
+            $units = Units::fromDraft(Draft::parse((string) $session->draft), $values['model']);
+            $units = $session->units !== [] ? $units->restore($session->units) : $units;
+        }
 
         $marked = (new PreviewMarkers(fn(mixed $reference) => $this->assetName($reference)))->mark($data, $values['model'], $units);
         $withNested = $this->withNested($this->withImageFields($marked->map, $values['model'], $data), $nested, $marked->data);
@@ -86,7 +97,7 @@ class Previews extends Component
         $reused = $cache->get(self::CACHE . 'h:' . $hash);
 
         if (is_array($reused) && ($reused['expires'] ?? 0) - time() > self::MARGIN) {
-            return ['url' => $reused['url'], 'map' => $map->toArray(), 'expires' => gmdate(DATE_ATOM, $reused['expires']), 'hash' => $marked->hash, 'reused' => true, 'ms' => $this->since($started)];
+            return ['url' => $reused['url'], 'map' => $map->toArray(), 'expires' => gmdate(DATE_ATOM, $reused['expires']), 'hash' => $marked->hash, 'plan' => $shown?->id ?? Plan::WRITER, 'reused' => true, 'ms' => $this->since($started)];
         }
 
         // The address it will have: a new entry's temporary slug is made
@@ -133,7 +144,7 @@ class Previews extends Component
 
         $cache->set(self::CACHE . 'h:' . $hash, ['url' => $url, 'expires' => $expires], self::REUSE);
 
-        return ['url' => $url, 'map' => $map->toArray(), 'expires' => gmdate(DATE_ATOM, $expires), 'hash' => $marked->hash, 'reused' => false, 'ms' => $this->since($started)];
+        return ['url' => $url, 'map' => $map->toArray(), 'expires' => gmdate(DATE_ATOM, $expires), 'hash' => $marked->hash, 'plan' => $shown?->id ?? Plan::WRITER, 'reused' => false, 'ms' => $this->since($started)];
     }
 
     /**

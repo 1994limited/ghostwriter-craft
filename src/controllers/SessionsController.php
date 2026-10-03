@@ -14,6 +14,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefStage;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
@@ -21,7 +22,9 @@ use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use nineteenninetyfour\ghostwriter\drafts\Applier;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\FillBrief;
+use nineteenninetyfour\ghostwriter\jobs\RefreshLayouts;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
+use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
@@ -406,6 +409,153 @@ class SessionsController extends Controller
             unset($node);
 
             return trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+        }, inPlace: true);
+    }
+
+    /**
+     * A layout chosen from the cards, for everyone on the piece (E7). No
+     * model, and nothing is put into the entry until "Use this draft".
+     */
+    public function actionChooseLayout(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+        $plan = (string) $this->request->getRequiredBodyParam('plan');
+        $layouts = new DraftLayouts();
+        $refusal = null;
+
+        $session = $plugin->domain->sessions()->change($session->id, function(Session $session) use ($layouts, $plan, &$refusal) {
+            try {
+                $layouts->core()->choose($session, $plan);
+            } catch (InvalidArgumentException $exception) {
+                $refusal = $this->refuse(Craft::t('ghostwriter', 'That layout needs refreshing before it can be used.'), 409);
+
+                return false;
+            }
+
+            $session->touch($this->me());
+
+            return null;
+        });
+
+        if ($session === null) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        return $refusal ?? $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * "Refresh layouts": the planner asked again for the draft as it is
+     * now. One model call, run in the queue like a turn, and one at a time.
+     */
+    public function actionRefreshLayouts(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        if ($session->draft === null) {
+            return $this->refuse(Craft::t('ghostwriter', 'There is no draft yet.'));
+        }
+
+        $domain = $plugin->domain;
+        $viewer = $domain->viewer();
+        $claimed = false;
+
+        $session = $domain->sessions()->change($session->id, function(Session $session) use ($domain, $viewer, &$claimed) {
+            $claimed = $session->claim($viewer->id, $domain->options());
+
+            return $claimed ? null : false;
+        });
+
+        if ($session === null) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        if (!$claimed) {
+            return $this->busy(new Busy('Ghostwriter is still working on this piece.', $session->waitingOn($viewer)), Craft::t('ghostwriter', 'Ghostwriter is still working on this piece.'));
+        }
+
+        RefreshLayouts::start(['sessionId' => $session->id]);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * An extra changed in the Text tab (C1): the editor's words become its
+     * source. Layouts that use it follow.
+     */
+    public function actionEditExtra(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $item = (string) $this->request->getRequiredBodyParam('item');
+        $part = $this->request->getBodyParam('part');
+        $value = (string) $this->request->getBodyParam('value');
+        $value = $this->request->getBodyParam('format') === 'html' ? trim((new HtmlToMarkdown())->convert($value)) : trim(str_replace("\r", '', $value));
+
+        if ($value === '' || mb_strlen($value) > 5000) {
+            return $this->refuse(Craft::t('ghostwriter', 'An extra can’t be empty. Delete it instead.'));
+        }
+
+        return $this->extraEdit($session, function(Session $session, DraftLayouts $layouts) use ($item, $part, $value): void {
+            $current = $layouts->core()->extras($session)->item($item) ?? throw new InvalidArgumentException('That extra is no longer there.');
+            $named = is_string($part) && $part !== '' && $part !== 'text';
+
+            // Shown as the page will say it: unchanged, a count to check
+            // keeps its marker (and stays to review).
+            if (Markers::withoutChecks((string) ($named ? $current->part($part) : $current->text)) === $value) {
+                return;
+            }
+
+            if ($named) {
+                $layouts->core()->editExtra($session, $item, $current->text, array_merge($current->parts, [$part => $value]), $layouts->context($session));
+            } else {
+                $layouts->core()->editExtra($session, $item, $value, null, $layouts->context($session));
+            }
+        });
+    }
+
+    /**
+     * An extra deleted in the Text tab: a layout that used it is arranged
+     * again without it.
+     */
+    public function actionDeleteExtra(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $item = (string) $this->request->getRequiredBodyParam('item');
+
+        return $this->extraEdit($session, function(Session $session, DraftLayouts $layouts) use ($item): void {
+            $site = $layouts->context($session) ?? throw new InvalidArgumentException('This piece’s section is no longer there.');
+            $extras = $layouts->core()->extras($session);
+
+            // A whole extra ("x2"), or one item of it ("x2.1").
+            $ids = $extras->item($item) !== null ? [$item] : [];
+
+            foreach ($extras->all() as $extra) {
+                if ($extra->id === $item) {
+                    $ids = array_map(fn($one) => $one->id, $extra->items);
+                }
+            }
+
+            if ($ids === []) {
+                throw new InvalidArgumentException('That extra is no longer there.');
+            }
+
+            foreach ($ids as $id) {
+                $layouts->core()->deleteExtra($session, $id, $site);
+            }
         });
     }
 
@@ -653,18 +803,60 @@ class SessionsController extends Controller
      * people's edits can't undo each other.
      *
      * @param callable(Session): string $edit The new draft.
+     * @param bool $inPlace Whether only values changed, where they are (click-to-edit).
      */
-    private function handEdit(Session $session, callable $edit): Response
+    private function handEdit(Session $session, callable $edit, bool $inPlace = false): Response
     {
         $domain = Plugin::getInstance()->domain;
         $refusal = null;
 
         try {
-            $session = $domain->sessions()->edit($session->id, $domain->viewer(), function(Session $session) use ($edit, &$refusal): ?bool {
+            $layouts = new DraftLayouts();
+            $session = $domain->sessions()->edit($session->id, $domain->viewer(), function(Session $session) use ($edit, &$refusal, $layouts, $inPlace): ?bool {
+                $before = $session->draft;
+
                 try {
                     $session->draft = $edit($session);
                 } catch (InvalidArgumentException $exception) {
                     $refusal = $this->refuse($exception->getMessage());
+
+                    return false;
+                }
+
+                // The layouts follow the words: unit ids carried over, and a
+                // layout that no longer fits marked stale. No model. A value
+                // changed where it is keeps its id however much it changed:
+                // it is the same piece of writing in the same place.
+                $layouts->afterEdit($session, $inPlace ? $session->draft : $before);
+
+                return null;
+            });
+        } catch (Busy $busy) {
+            return $this->busy($busy);
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        return $refusal ?? $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * A change to the extras, under the session's lock like a hand edit.
+     *
+     * @param callable(Session, DraftLayouts): void $change
+     */
+    private function extraEdit(Session $session, callable $change): Response
+    {
+        $domain = Plugin::getInstance()->domain;
+        $layouts = new DraftLayouts();
+        $refusal = null;
+
+        try {
+            $session = $domain->sessions()->edit($session->id, $domain->viewer(), function(Session $session) use ($change, $layouts, &$refusal): ?bool {
+                try {
+                    $change($session, $layouts);
+                } catch (InvalidArgumentException $exception) {
+                    $refusal = $this->refuse(Craft::t('ghostwriter', $exception->getMessage()));
 
                     return false;
                 }
