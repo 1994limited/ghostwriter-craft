@@ -133,10 +133,36 @@ A preview is a normal page request with a token, so your templates run as they d
 
 Even without that, third-party scripts (tag managers, analytics, chat widgets) and their requests are blocked in the preview; your site's own scripts run. If your templates load scripts from a CDN, allow it with `previewScriptHosts`. The page is shown in a frame on the control panel's own domain, so a server that sends `X-Frame-Options: DENY` for every page stops the preview, as it stops Live Preview. CKEditor nested entries render through their entry type's partial template (`_partials/entry/<type handle>.twig`); one with no partial shows as a plain box with its text.
 
+### Layouts
+
+The first draft comes laid out more than one way. Above the draft, up to three **layout cards** show the same words arranged differently: the writer's own layout first (**As written**), then up to two others. Each card has a small live picture of the page it makes (rendered with your templates, like the Preview), its name, a line on what it does, how many blocks it has, and **Suggested** on the one most like your existing pages. *Suggested* means "like your pages", not "best".
+
+- **Choose a card** and the Preview, Blocks and Text show that layout, and the button reads **Use this draft (Sections apart)**. The choice is kept on the piece, so everyone working on it sees the same one. Choosing costs nothing: no model call.
+- **The words are the same in every layout.** A layout only moves them between blocks, splits or joins them, and may place an extra (below). It never writes words of its own. Change writing where it's shown, as usual, and every layout follows. In a layout other than *As written*, words the layout put together from several places in the draft are shown but not edited there ("Put together for this layout…"): change them in *As written*, or ask in the conversation.
+- **While the other layouts are found** (one more model call, after the draft), the draft already shows, and two cards say "Finding other layouts…".
+- **After you change the draft**, the other layouts follow it. One that no longer fits says **Needs refreshing** and can't be chosen; **Refresh layouts** asks again (one model call).
+- The row is hidden when there's only one layout: an entry that's being edited, a page with too little to arrange, or when no other layout came back. Nothing is shown as an error.
+- On a phone the cards scroll sideways. The cards are buttons: **Tab** reaches them, **←** and **→** move between them, **Enter** or **Space** chooses.
+
+There's no setting: this is how drafting works (a first draft is two model calls, the writer and the layout planner; later changes are one).
+
+### Extras
+
+With the first draft, the writer also prepares **extras** where your section has a block for them: numbers, a pull quote, questions and answers, an "at a glance" box, captions, a second call to action, a testimonial, a short intro. A layout uses them where it has room; one that no layout uses never reaches the entry.
+
+They're at the foot of the **Text** tab: "Prepared with the draft, only from what you told me, the draft itself or your existing pages."
+
+- Each extra says whether the chosen layout uses it (**Used in Sections apart**), and each item where it came from: *from your brief*, *from your answer · question 2*, *from the draft*, *from* one of your pages (linked), or *your words* once you've changed it.
+- **Nothing is made up.** An item whose facts aren't in what you gave Ghostwriter is dropped. One waiting on a fact only you know says **Needs your answer**.
+- **A count it worked out** ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, not the model, and says **Counted from your brief: “…”** and **Needs review**. It's a step in [Finish this page](finish-this-page.md) before the page can go live.
+- **Click an item to change it.** It's saved when you leave it.
+- **✕** deletes an extra (or one item of it). A layout that used it is arranged again without it.
+
 ## Use this draft
 
 **Use this draft** puts the draft into the entry, then reloads the form so you can see it.
 
+- **The chosen layout goes in** (see [Layouts](#layouts)), with any extras it uses. With *As written* chosen, it's the draft as written.
 - **Nothing is saved or published.** It goes into the entry's own Craft draft. Check it over, then save the entry as usual, or discard it.
 - **A new entry starts unpublished.** Its **Enabled** switch is turned off, so you can save it straight away, and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Switch it on when the entry is ready. An existing entry's status is never changed. Turn this off with **New entries start unpublished** in the [settings](configuration.md#settings) (`draftsUnpublished`).
 - Using it again replaces what is in the form.
