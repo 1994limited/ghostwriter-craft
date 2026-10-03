@@ -10,6 +10,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\AssetReplacer;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Stock\ReplaceMeta;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFile;
 use nineteenninetyfour\ghostwriter\images\ImagePicker;
+use nineteenninetyfour\ghostwriter\Plugin;
 use RuntimeException;
 
 /**
@@ -23,11 +24,53 @@ use RuntimeException;
  * skipped, since the licences require the embedded copyright, name and
  * image ID to stay. A file of another type keeps the stand-in's name with
  * its own extension; it is never converted.
+ *
+ * Because nothing cleans the file, it must really be a JPEG, PNG or WebP
+ * image: its type is read from its own bytes, never from the type the
+ * library said it sent. Anything else (an SVG, which can carry script, an
+ * HTML error page, a truncated download) is refused and the stand-in
+ * stays where it is.
  */
 class CraftAssetReplacer implements AssetReplacer
 {
     /** How far the licensed file's aspect ratio may differ before the focal point is reset. */
     private const ASPECT_TOLERANCE = 0.01;
+
+    /** The image types a licensed file may be, by PHP's IMAGETYPE constant: [mime, extension]. */
+    private const TYPES = [
+        IMAGETYPE_JPEG => ['image/jpeg', 'jpg'],
+        IMAGETYPE_PNG => ['image/png', 'png'],
+        IMAGETYPE_WEBP => ['image/webp', 'webp'],
+    ];
+
+    /**
+     * The file's real type, from its bytes: [mime, extension], or null
+     * unless it starts with a JPEG, PNG or WebP signature and its header
+     * reads as an image of that same type with a size.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function imageType(string $bytes): ?array
+    {
+        $signature = match (true) {
+            str_starts_with($bytes, "\xFF\xD8\xFF") => IMAGETYPE_JPEG,
+            str_starts_with($bytes, "\x89PNG\r\n\x1A\n") => IMAGETYPE_PNG,
+            strlen($bytes) >= 12 && str_starts_with($bytes, 'RIFF') && substr($bytes, 8, 4) === 'WEBP' => IMAGETYPE_WEBP,
+            default => null,
+        };
+
+        if ($signature === null) {
+            return null;
+        }
+
+        $size = @getimagesizefromstring($bytes);
+
+        if ($size === false || ($size[2] ?? null) !== $signature || ($size[0] ?? 0) < 1 || ($size[1] ?? 0) < 1) {
+            return null;
+        }
+
+        return self::TYPES[$signature];
+    }
 
     public function replace(AssetRef $asset, PhotoFile $file, ReplaceMeta $meta): AssetRef
     {
@@ -37,12 +80,22 @@ class CraftAssetReplacer implements AssetReplacer
             throw new RuntimeException(Craft::t('ghostwriter', 'The image is no longer in Assets.'));
         }
 
+        // Checked before anything is written: a refused file leaves the stand-in as it was.
+        $type = self::imageType($file->content);
+
+        if ($type === null) {
+            throw new RuntimeException(Craft::t('ghostwriter', 'The file {library} sent isn’t a JPEG, PNG or WebP image, so it wasn’t put in place.', [
+                'library' => Plugin::getInstance()->stockLibraries->standInName($file->photo->source),
+            ]));
+        }
+
+        [$mime, $extension] = $type;
+
         $title = $element->title;
         $alt = $element->alt;
         $focal = $element->getHasFocalPoint() ? $element->getFocalPoint() : null;
         $before = $element->getWidth() && $element->getHeight() ? $element->getWidth() / $element->getHeight() : null;
 
-        $extension = strtolower($file->extension === 'jpeg' ? 'jpg' : $file->extension);
         $current = strtolower((string) $element->getExtension());
         $filename = $extension === $current || ($extension === 'jpg' && $current === 'jpeg')
             ? $element->getFilename()
@@ -53,7 +106,7 @@ class CraftAssetReplacer implements AssetReplacer
 
         // Byte for byte: no re-encoding, so the embedded metadata stays.
         $element->sanitizeOnUpload = false;
-        Craft::$app->getAssets()->replaceAssetFile($element, $path, $filename, $file->mime);
+        Craft::$app->getAssets()->replaceAssetFile($element, $path, $filename, $mime);
 
         if ($element->hasErrors()) {
             throw new RuntimeException(implode(' ', $element->getFirstErrors()));
