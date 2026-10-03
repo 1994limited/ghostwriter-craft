@@ -2,8 +2,9 @@
 
 /*
  * Ghostwriter's English strings with keys rather than source text: those
- * for "Finish this page", copied from ghostwriter-core's
- * resources/lang/en/gaps.php by bin/sync-gap-strings. Don't edit by hand.
+ * for "Finish this page" and the brief in the conversation, copied from
+ * ghostwriter-core's resources/lang/en/gaps.php and brief.php by
+ * bin/sync-core-strings. Don't edit by hand.
  */
 
 return [
@@ -85,4 +86,19 @@ return [
     'gaps.publish.field.image-placeholder' => 'Replace the image placeholder before publishing.',
     'gaps.publish.field.stock-preview' => 'This is a {library} preview, not licensed yet. License it, or choose another image, before publishing.',
     'gaps.publish.field.leftover-token' => 'Remove the template text “{hint}” before publishing.',
+    'brief.ask' => 'What’s it called, and what should it say? A line or two is plenty.',
+    'brief.card' => 'Here’s the brief. Change anything that isn’t right, then start writing.',
+    'brief.card.open' => 'Anything in [square brackets] is for you to fill in.',
+    'brief.filling' => 'Filling in the brief…',
+    'brief.filled' => 'The brief is filled in. Check it, then start writing.',
+    'brief.failed' => 'Ghostwriter could not fill in the brief from that. Try again, or say a little more about it.',
+    'brief.region' => 'Brief',
+    'brief.title' => 'Working title',
+    'brief.model-on' => 'Model it on',
+    'brief.agree' => 'Looks right, start writing',
+    'brief.try-again' => 'Try again',
+    'brief.show' => 'Show the brief',
+    'brief.hide' => 'Hide the brief',
+    'brief.save' => 'Save the brief',
+    'brief.saved' => 'The brief is saved. Ghostwriter works from it from the next message.',
 ];

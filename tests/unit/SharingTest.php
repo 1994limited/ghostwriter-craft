@@ -7,6 +7,7 @@ use craft\elements\User;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\DomainOptions;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Launcher;
 use nineteenninetyfour\ghostwriter\tests\support\RecordingMutex;
@@ -51,21 +52,21 @@ class SharingTest extends TestCase
         $this->assertStringContainsString('Started by Ann Archer', $this->dashboard());
 
         $shown = $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data'];
-        $this->assertSame(['Ann Archer', 'Ghostwriter'], [$shown['messages'][1]['from'], $shown['messages'][2]['role'] === 'assistant' ? 'Ghostwriter' : null]);
-        $this->assertFalse($shown['messages'][1]['mine']);
+        $this->assertSame(['Ann Archer', 'Ghostwriter'], [$shown['messages'][0]['from'], $shown['messages'][1]['role'] === 'assistant' ? 'Ghostwriter' : null]);
+        $this->assertFalse($shown['messages'][0]['mine']);
         $this->assertSame('Ann Archer', $shown['startedBy']);
 
         // Bo carries it on; his message is his.
         $sent = $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Make it shorter.']);
         $this->assertSame(200, $sent['status']);
-        $this->assertTrue($sent['data']['messages'][3]['mine']);
-        $this->assertSame('Bo Brown', $sent['data']['messages'][3]['from']);
+        $this->assertTrue($sent['data']['messages'][2]['mine']);
+        $this->assertSame('Bo Brown', $sent['data']['messages'][2]['from']);
 
         // Ann sees who sent it, who last changed the piece, and that Bo is
         // waiting on Ghostwriter; she cannot send while his request runs.
         $this->as($this->ann);
         $shown = $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data'];
-        $this->assertSame('Bo Brown', $shown['messages'][3]['from']);
+        $this->assertSame('Bo Brown', $shown['messages'][2]['from']);
         $this->assertSame(['you', 'Bo Brown', 'Bo Brown'], [$shown['startedBy'], $shown['touchedBy'], $shown['waitingOn']]);
 
         $refused = $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'And add a quote.']);
@@ -76,6 +77,32 @@ class SharingTest extends TestCase
         // Bo himself is not told he is waiting on himself.
         $this->as($this->bo);
         $this->assertNull($this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data']['waitingOn']);
+    }
+
+    public function testEveryoneSeesTheBriefCardInTheThreadAndCanAgreeToIt(): void
+    {
+        $session = Session::start(Format::Craft, 'project', [], $this->ann->id);
+        $this->as($this->ann);
+        $session = $this->plugin->domain->sessions()->open($session, $this->plugin->domain->viewer());
+        $session = $this->plugin->domain->sessions()->details($session->id, 'A faceted search for a kitchen maker.', $this->plugin->domain->viewer());
+        $this->plugin->domain->sessions()->propose($session->id, new Brief('Faceted search', ['what' => 'A search that narrows the range. [Add: the client]']));
+
+        // Bo sees Ann's question, her reply and the card, as she does.
+        $this->as($this->bo);
+        $shown = $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data'];
+
+        $this->assertSame(['ask', 'details', 'card'], array_column($shown['messages'], 'step'));
+        $this->assertSame('Ann Archer', $shown['messages'][1]['from']);
+        $this->assertSame('Faceted search', $shown['card']['title']);
+        $this->assertSame(['what'], $shown['card']['open']);
+
+        // And can agree to it; the writing is then his to wait on.
+        $agreed = $this->action('ghostwriter/sessions/agree', ['id' => $session->id, 'answers' => ['what' => 'A search that narrows the range for Hearth & Co.']]);
+        $this->assertSame(200, $agreed['status']);
+        $this->assertTrue($agreed['data']['card']['agreed']);
+
+        $this->as($this->ann);
+        $this->assertSame('Bo Brown', $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data']['waitingOn']);
     }
 
     public function testTheEntryCarriesOnWithWhoeverStartedItsConversation(): void

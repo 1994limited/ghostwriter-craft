@@ -80,6 +80,22 @@
 .gw-bubble__who { margin-bottom: 3px; font-size: 11.5px; font-weight: 600; color: var(--light-text-color, #606d7b); }
 .gw-bubble__flag { color: var(--amber-700, #b45309); }
 .gw-bubble__draft { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .1)); font-size: 12px; color: var(--green-700, #15803d); }
+/* The brief card: filled in by Ghostwriter, checked and changed by the person. */
+.gw-brief-card { align-self: stretch; display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); border-inline-start: 3px solid var(--gw-accent, #3b4bd8); border-radius: var(--large-border-radius, 6px); background: var(--white, #fff); font-size: 13.5px; }
+.gw-brief-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.gw-brief-card__head h3 { margin: 0; font-size: 14px; }
+.gw-brief-card__head h3:focus { outline: none; }
+.gw-brief-card__head h3:focus-visible { outline: 2px solid var(--gw-accent, #3b4bd8); outline-offset: 2px; border-radius: 2px; }
+.gw-brief-card__intro p { margin: 0 0 6px; }
+.gw-brief-card .field { margin: 8px 0 0; }
+.gw-brief-card .field .heading { margin-bottom: 4px; }
+.gw-brief-card textarea { resize: vertical; }
+.gw-brief-card__open { background: var(--amber-050, #fffbeb); }
+.gw-brief-card__examples { margin: 8px 0 0; padding: 0; border: 0; min-width: 0; }
+.gw-brief-card__examples legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
+.gw-brief-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.gw-composer__note { margin: 0; }
+.gw-carry-on .gw-subheading { margin-top: 6px; }
 .gw-working { display: flex; align-items: center; gap: 10px; color: var(--light-text-color, #606d7b); }
 .gw-elapsed { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .gw-composer { display: grid; gap: 8px; padding: 12px 16px 14px; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); background: var(--white, #fff); }
@@ -426,3 +442,8 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-tile--warning { border-color: #f2c97d; background: #fff8e6; }
 .gw-image-current { margin-bottom: 16px; }
 .gw-image-current__heading { margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--light-text-color, #606d7b); }
+
+/* Reduce motion: nothing in the panel moves by itself. */
+@media (prefers-reduced-motion: reduce) {
+    .gw-panel *, .gw-panel *::before, .gw-panel *::after { transition: none !important; scroll-behavior: auto !important; }
+}

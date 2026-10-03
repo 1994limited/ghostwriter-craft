@@ -235,8 +235,10 @@
  *
  *   setup    teach Ghostwriter a kind of content
  *   type     choose what to write (skipped when there is only one kind)
- *   brief    the questionnaire, with a quick brief that fills it in
- *   write    the conversation, with the draft beside it
+ *   write    the conversation, with the draft beside it. It opens by
+ *            asking for the quick details, fills in the brief from the
+ *            reply and shows it as a card to check; agreeing starts the
+ *            writing, and the card folds away to "Show the brief".
  *
  * "Use this draft" writes the draft into the entry's Craft draft on the
  * server, then reloads the form so the person sees it there, filled in.
@@ -247,6 +249,7 @@
     const esc = (text) => Ghostwriter.escape(text);
     const t = (message, params) => Craft.t('ghostwriter', message, params);
     const NOTICE = 'ghostwriter:applied';
+    const STILL = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     // A draft just put into the form, said once the form has reloaded: one
     // notification, listing anything still to do. With notes it stays until
@@ -398,11 +401,10 @@
             this.info = null;
             this.type = null;
             this.examples = [];
-            this.answers = {};
+            // The brief card as the person is changing it, before it is sent.
+            this.card = null;
+            this.cardKey = null;
             this.errors = {};
-            this.quick = { title: '', notes: '' };
-            this.guessed = false;
-            this.guessing = false;
             this.busy = false;
             this.adding = false;
             this.session = null;
@@ -502,10 +504,12 @@
         receive(data) {
             const changed = data.draft !== this.session?.draft;
             const stepChanged = !this.session;
+            const filled = data.stage === 'proposed' && this.session?.stage === 'filling';
 
             this.session = data;
             this.config.current = data.id;
-            Ghostwriter.address({ ghostwriter: data.id, idea: null });
+
+            if (data.id) Ghostwriter.address({ ghostwriter: data.id, idea: null });
 
             if (changed) {
                 this.raw = data.draft ?? '';
@@ -528,10 +532,34 @@
 
             this.$container.find('.gw-chat-log').each((i, log) => (log.scrollTop = log.scrollHeight));
 
-            // Questions waiting: put the cursor where the answer goes.
-            if (this.asking()) {
+            // The brief is filled in: say so, and bring the card into view
+            // with the focus on it, unless the person is typing elsewhere.
+            if (filled) {
+                this.announce(t('brief.filled'));
+
+                const $card = this.$container.find('.gw-brief-card');
+                const active = document.activeElement;
+
+                $card[0]?.scrollIntoView({ block: 'start', behavior: STILL() ? 'auto' : 'smooth' });
+
+                if (!active || active === document.body || !$.contains(this.$container[0], active) || active.disabled) {
+                    $card.find('[data-card-heading]').trigger('focus');
+                }
+            }
+
+            // Questions waiting, or the quick details: put the cursor where
+            // the answer goes.
+            if (this.asking() || (data.stage === 'details' && stepChanged)) {
                 this.$container.find('[data-model="message"]').trigger('focus');
             }
+        },
+
+        // Said to screen readers, politely.
+        announce(text) {
+            const $live = this.$container.find('[data-live]');
+
+            $live.text('');
+            setTimeout(() => $live.text(text), 50);
         },
 
         later(callback) {
@@ -548,7 +576,7 @@
                 return;
             }
 
-            const since = Date.parse(this.session.messages.at(-1)?.at ?? '') || Date.now();
+            const since = Date.parse(this.session.since ?? '') || Date.now();
             const update = () => {
                 this.waited = Math.max(0, Math.round((Date.now() - since) / 1000));
                 this.$container.find('[data-progress]').text(this.progress());
@@ -562,12 +590,11 @@
         // ---- State --------------------------------------------------------
 
         step() {
-            if (!this.info) return 'loading';
+            if (!this.info || (this.busy && !this.session)) return 'loading';
             if (this.session) return 'write';
             if (this.adding || this.learning()) return 'setup';
-            if (!this.type) return 'type';
 
-            return 'brief';
+            return 'type';
         },
 
         learning() {
@@ -591,6 +618,8 @@
         progress() {
             const drafted = !!this.session?.draft;
 
+            if (this.session?.stage === 'filling') return t('brief.filling');
+
             if (this.waited < 8) return drafted ? t('Reading your message…') : t('Reading the brief…');
             if (this.waited < 30) return drafted ? t('Revising the draft…') : t('Thinking it through…');
 
@@ -598,29 +627,51 @@
         },
 
         // `examples` preselects the entries to model this piece on: a kind's
-        // members, or whatever the type itself was taught from.
+        // members, or whatever the type itself was taught from. Choosing
+        // opens the conversation with the quick-details question; nothing
+        // is kept until the person answers it.
         choose(type, examples = null) {
             this.type = type;
             this.examples = (examples ?? type.examples ?? []).map(Number);
-            this.answers = Object.fromEntries(type.questions.map((question) => [question.handle, '']));
-            this.guessed = false;
             this.planned = null;
-            this.quick = { title: '', notes: '' };
             this.errors = {};
-            this.render();
+            this.receive(this.opening(type));
         },
 
-        // An idea from the content plan: pick its kind of content, put its
-        // title and notes in the quick brief, and fill the brief in.
-        fromIdea(idea) {
-            const types = this.info.types;
+        // A piece not started yet: the question, waiting for its answer.
+        opening(type) {
+            const ask = t('brief.ask');
 
-            this.choose(types.find((type) => type.handle === idea.type) ?? types.find((type) => type.generic));
+            return {
+                id: null, stage: 'details', status: 'idle', error: null, editing: false, waitingOnYou: false,
+                type, title: '', card: null, briefText: null, since: null, draft: null, preview: [], words: 0,
+                messages: [{ role: 'assistant', step: 'ask', content: ask, html: `<p>${esc(ask)}</p>` }],
+            };
+        },
+
+        // An idea from the content plan: its kind of content, and the brief
+        // filled in from its title and notes, ready to check.
+        async fromIdea(idea) {
+            const types = this.info.types;
+            const type = types.find((candidate) => candidate.handle === idea.type) ?? types.find((candidate) => candidate.generic);
+
+            if (!this.info.configured) return this.choose(type);
+
+            this.type = type;
+            this.examples = (type.examples ?? []).map(Number);
             this.planned = idea.id;
-            this.quick = { title: idea.title, notes: [idea.why, idea.notes].filter(Boolean).join('\n\n') };
+            this.busy = true;
             this.render();
 
-            if (this.info.configured) this.guess();
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/from-idea', { idea: idea.id, type: type.handle, examples: this.examples, elementId: this.config.elementId, siteId: this.config.siteId });
+
+                this.busy = false;
+                this.receive(data);
+            } catch (error) {
+                this.busy = false;
+                this.render();
+            }
         },
 
         // ---- Actions ------------------------------------------------------
@@ -633,28 +684,23 @@
 
             const value = event.target.type === 'checkbox' ? event.target.checked : $el.val();
 
-            if (model === 'answer') this.answers[$el.data('handle')] = value;
-            else if (model === 'quick-title') this.quick.title = value;
-            else if (model === 'quick-notes') this.quick.notes = value;
+            if (model === 'card-answer') this.card.answers[$el.data('handle')] = value;
+            else if (model === 'card-title') this.card.title = value;
             else if (model === 'message') this.message = value;
             else if (model === 'raw') this.raw = value;
             else if (model === 'learn-title') this.learn.title = value;
-            else if (model === 'example' || model === 'learn-example') {
-                const list = model === 'example' ? this.examples : this.learn.picked;
+            else if (model === 'card-example' || model === 'learn-example') {
+                const list = model === 'card-example' ? this.card.examples : this.learn.picked;
                 const id = Number($el.val());
                 const next = event.target.checked ? [...list, id].slice(0, MAX_EXAMPLES) : list.filter((picked) => picked !== id);
 
-                if (model === 'example') this.examples = next;
+                if (model === 'card-example') this.card.examples = next;
                 else this.learn.picked = next;
 
                 this.renderPicked($el.closest('.gw-picker'), next);
             } else if (model === 'filter') {
                 const term = String(value).trim().toLowerCase();
                 $el.closest('.gw-picker').find('[data-entry]').each((i, row) => $(row).toggleClass('hidden', !!term && !row.dataset.title.includes(term)));
-            }
-
-            if (model === 'quick-title') {
-                this.$container.find('[data-action="guess"]').prop('disabled', !this.info.configured || this.guessing || !this.quick.title.trim()).toggleClass('disabled', !this.quick.title.trim());
             }
 
             if (model === 'message') {
@@ -692,9 +738,10 @@
                 this.send();
             }
 
-            if (model === 'quick-title' && event.key === 'Enter') {
+            // In the brief card, ⌘↵ agrees (or saves, once agreed).
+            if (String(model).startsWith('card-') && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
-                if (this.quick.title.trim()) this.guess();
+                this.briefAction(this.session.card?.agreed ? 'edit-brief' : 'agree');
             }
         },
 
@@ -717,11 +764,16 @@
                 case 'choose-kind': return this.choose(types.find((type) => type.generic), this.info.kinds[$target.data('kind')].examples);
                 case 'choose-general': return this.choose(types.find((type) => type.generic), []);
                 case 'idea': return this.fromIdea(this.info.ideas.find((idea) => idea.id === $target.data('idea')));
-                case 'change-type': this.type = null; return this.render();
-                case 'guess': return this.guess();
-                case 'start': return this.startWriting();
+                case 'agree': return this.briefAction('agree');
+                case 'try-again': return this.briefAction('try-again');
+                case 'save-brief': return this.briefAction('edit-brief');
                 case 'resume': return this.openSession($target.data('id'));
-                case 'toggle-brief': this.showBrief = !this.showBrief; return this.renderConversation();
+                case 'toggle-brief':
+                    this.showBrief = !this.showBrief;
+                    this.renderConversation();
+                    this.$container.find('[data-action="toggle-brief"]').trigger('focus');
+
+                    return;
                 case 'send': return this.send();
                 case 'retry': return this.retry();
                 case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); return this.send();
@@ -743,41 +795,37 @@
             } catch (error) {}
         },
 
-        // Title and notes in, a filled-in questionnaire out, for checking.
-        async guess() {
-            this.guessing = true;
-            this.render();
+        // The brief card's buttons: "Looks right, start writing", "Try
+        // again", and once agreed "Save the brief". Each sends the card as
+        // the person left it.
+        async briefAction(action) {
+            if (this.busy || this.working() || !this.card) return;
 
-            try {
-                const data = await Ghostwriter.request('POST', 'sessions/brief', { type: this.type.handle, title: this.quick.title, notes: this.quick.notes });
-
-                this.answers = { ...this.answers, ...data.answers };
-                this.guessed = true;
-                this.errors = {};
-            } catch (error) {}
-
-            this.guessing = false;
-            this.render();
-        },
-
-        async startWriting() {
-            this.busy = true;
+            this.busy = action;
             this.errors = {};
-            this.render();
+            this.renderConversation();
 
             try {
-                const data = await Craft.sendActionRequest('POST', 'ghostwriter/sessions/start', {
-                    data: { type: this.type.handle, answers: this.answers, examples: this.examples, elementId: this.config.elementId, siteId: this.config.siteId, idea: this.planned },
-                });
+                const data = await Ghostwriter.request('POST', `sessions/${action}`, { id: this.session.id, title: this.card.title, answers: this.card.answers, examples: this.card.examples });
 
-                Craft.cp.runQueue?.();
                 this.busy = false;
-                this.receive(data.data);
+
+                if (action === 'edit-brief') {
+                    this.cardKey = null;
+                    Craft.cp.displayNotice(t('brief.saved'));
+                    this.announce(t('brief.saved'));
+                }
+
+                if (action === 'agree') this.showBrief = false;
+
+                this.receive(data);
             } catch (error) {
-                this.errors = error?.response?.data?.errors ?? {};
-                Craft.cp.displayError(error?.response?.data?.message ?? t('Something went wrong.'));
                 this.busy = false;
-                this.render();
+                this.errors = error?.response?.data?.errors ?? {};
+                this.renderConversation();
+                this.$container.find('.gw-brief-card .has-errors textarea').first().trigger('focus');
+
+                if (error?.response?.status === 409) this.openSession(this.session.id);
             }
         },
 
@@ -790,14 +838,17 @@
             this.$container.find('[data-model="message"]').val('');
 
             try {
-                this.receive(await Ghostwriter.request('POST', 'sessions/message', { id: this.session.id, message }));
+                this.receive(this.session.id
+                    ? await Ghostwriter.request('POST', 'sessions/message', { id: this.session.id, message })
+                    // The answer to the quick-details question starts the piece.
+                    : await Ghostwriter.request('POST', 'sessions/open', { type: this.type.handle, examples: this.examples, elementId: this.config.elementId, siteId: this.config.siteId, message }));
             } catch (error) {
                 this.message = message;
                 this.renderComposer();
 
                 // Someone else's message is being answered: show it, and
                 // wait with them.
-                if (error?.response?.status === 409) this.openSession(this.session.id);
+                if (error?.response?.status === 409 && this.session.id) this.openSession(this.session.id);
             }
         },
 
@@ -934,9 +985,16 @@
             clearInterval(this.ticker);
 
             this.session = null;
+            this.card = null;
+            this.cardKey = null;
+            this.showBrief = false;
             this.config.current = null;
             Ghostwriter.address({ ghostwriter: 'new', idea: null });
-            this.type = this.nothingToChoose() ? this.type : null;
+
+            // With only one kind there is nothing to choose: ask again.
+            if (this.nothingToChoose() && this.type) return this.choose(this.type);
+
+            this.type = null;
             this.render();
         },
 
@@ -949,6 +1007,7 @@
                 <header class="gw-panel__header">
                     <h1 class="gw-panel__title"><span class="gw-icon" aria-hidden="true">${this.config.icon ?? ''}</span>${esc(t('Ghostwriter'))}</h1>
                     <button type="button" class="btn" data-action="close">${esc(t('Close'))}</button>
+                    <div class="visually-hidden" aria-live="polite" data-live></div>
                 </header>`;
 
             let body = '';
@@ -1045,61 +1104,10 @@
                 </ul>`;
         },
 
-        render_brief() {
-            const type = this.type;
-
-            return `
-                <div class="gw-wide">
-                    <div class="flex flex-justify gw-row">
-                        <div>
-                            <h2>${esc(type.title)}</h2>
-                            <p class="light">${esc(type.description)}</p>
-                        </div>
-                        ${this.nothingToChoose() ? '' : `<button type="button" class="btn small" data-action="change-type">${esc(t('Change'))}</button>`}
-                    </div>
-
-                    <div class="gw-box">
-                        <h3>${esc(t('Quick brief'))}</h3>
-                        <p class="light">${esc(t('Give it a title and anything you already know. Ghostwriter fills in the questions below, for you to check and change.'))}</p>
-                        <input class="text fullwidth" data-model="quick-title" placeholder="${esc(t('Working title'))}" value="${esc(this.quick.title)}" ${this.guessing ? 'disabled' : ''}>
-                        <textarea class="text fullwidth" rows="3" data-model="quick-notes" placeholder="${esc(t('Notes: the angle, who it is for, points to make, projects to mention…'))}" ${this.guessing ? 'disabled' : ''}>${esc(this.quick.notes)}</textarea>
-                        <div class="flex flex-justify gw-row">
-                            <span class="light ${this.guessing ? 'gw-busy-note' : ''}" role="status">${this.guessing
-                                ? `<span class="spinner small"></span> ${esc(t('Filling in the brief from your title and notes. This usually takes under a minute.'))}`
-                                : esc(this.guessed ? t('Filled in below. Anything in [square brackets] needs you.') : t('Optional. You can also just answer the questions.'))}</span>
-                            <button type="button" class="btn ${this.guessing ? 'loading' : ''} ${!this.quick.title.trim() ? 'disabled' : ''}" data-action="guess" ${!this.info.configured || this.guessing || !this.quick.title.trim() ? 'disabled' : ''}>${esc(this.guessed ? t('Try again') : t('Fill in the brief'))}</button>
-                        </div>
-                    </div>
-
-                    ${type.questions.map((question) => `
-                        <div class="field ${this.errors[question.handle] ? 'has-errors' : ''}">
-                            <div class="heading"><label class="${question.required ? 'required' : ''}" for="gw-q-${esc(question.handle)}">${esc(question.label)}</label></div>
-                            ${question.instructions ? `<div class="instructions"><p>${esc(question.instructions)}</p></div>` : ''}
-                            <div class="input">
-                                <textarea id="gw-q-${esc(question.handle)}" class="text fullwidth" rows="${this.rowsFor(question)}" data-model="answer" data-handle="${esc(question.handle)}">${esc(this.answers[question.handle] ?? '')}</textarea>
-                            </div>
-                            ${this.errors[question.handle] ? `<ul class="errors"><li>${esc(this.errors[question.handle])}</li></ul>` : ''}
-                        </div>`).join('')}
-
-                    ${this.info.entries.length ? `
-                        <div class="field">
-                            <div class="heading"><label>${esc(t('Model it on'))}</label></div>
-                            <div class="instructions"><p>${esc(t('Optional. Tick up to six entries and the draft follows how they are built. With none ticked, Ghostwriter goes by the brief and how this section is usually written.'))}</p></div>
-                            ${this.picker('example', this.examples)}
-                        </div>` : ''}
-
-                    <div class="flex flex-justify gw-row gw-actions">
-                        <span class="light">${esc(this.busy ? t('Starting…') : t('Short answers are fine. Ghostwriter asks for anything it still needs before it writes.'))}</span>
-                        <button type="button" class="btn submit ${this.busy ? 'loading' : ''}" data-action="start" ${!this.info.configured || this.busy ? 'disabled' : ''}>${esc(t('Start writing'))}</button>
-                    </div>
-
-                    ${this.nothingToChoose() ? this.carryOn() : ''}
-                </div>`;
-        },
-
         // Tall enough to show the whole answer, however it got there.
-        rowsFor(question) {
-            const lines = String(this.answers[question.handle] ?? '').split('\n').reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 85)), 0);
+        // The card sits in the conversation column, about 50 characters wide.
+        rowsFor(question, answer, width = 50) {
+            const lines = String(answer ?? '').split('\n').reduce((total, line) => total + Math.max(1, Math.ceil(line.length / width)), 0);
 
             return Math.min(Math.max(lines + 1, question.type === 'text' ? 1 : 3), 16);
         },
@@ -1109,7 +1117,7 @@
 
             return `
                 <div class="gw-picker">
-                    ${entries.length > 8 ? `<input class="text fullwidth gw-picker__filter" data-model="filter" placeholder="${esc(t('Filter…'))}">` : ''}
+                    ${entries.length > 8 ? `<input class="text fullwidth gw-picker__filter" data-model="filter" placeholder="${esc(t('Filter…'))}" aria-label="${esc(t('Filter entries'))}">` : ''}
                     <div class="gw-picker__list">
                         ${entries.map((entry) => `
                             <div class="gw-picker__row" data-entry data-title="${esc(entry.title.toLowerCase())}" style="padding-inline-start: ${entry.depth * 1.25}rem">
@@ -1147,17 +1155,25 @@
 
         renderConversation() {
             const session = this.session;
-            const conversation = session.messages.slice(1);
+            const conversation = session.messages;
             const asking = this.asking();
 
-            // Editing an entry has no brief to show: the entry is the brief.
-            let html = session.editing ? '' : `
+            // A piece from the old brief screen shows its brief as it was
+            // written. Editing an entry has no brief to show: the entry is
+            // the brief.
+            let html = session.editing || session.briefText === null || session.briefText === undefined ? '' : `
                 <div class="gw-brief">
-                    <button type="button" class="gw-link" data-action="toggle-brief">${esc(this.showBrief ? t('Hide the brief') : t('Show the brief'))}</button>
-                    ${this.showBrief ? `<div class="gw-pre">${esc(session.messages[0]?.content ?? '')}</div>` : ''}
+                    <button type="button" class="gw-link" data-action="toggle-brief" aria-expanded="${this.showBrief}">${esc(this.showBrief ? t('brief.hide') : t('brief.show'))}</button>
+                    ${this.showBrief ? `<div class="gw-pre">${esc(session.briefText)}</div>` : ''}
                 </div>`;
 
             conversation.forEach((entry, index) => {
+                if (entry.step === 'card') {
+                    html += session.editing ? '' : this.briefCard(entry);
+
+                    return;
+                }
+
                 const mine = entry.role === 'user';
                 const waiting = !mine && asking && index === conversation.length - 1;
 
@@ -1176,8 +1192,14 @@
                     : `<div class="gw-bubble gw-bubble--them gw-working" role="status"><div class="spinner small"></div><span data-progress>${esc(this.progress())}</span><span class="gw-elapsed" data-elapsed></span></div>`;
             }
 
+            // With nothing to choose, the conversation opens at once; other
+            // pieces to carry on with are listed under the question.
+            if (!session.id && this.nothingToChoose()) {
+                html += `<div class="gw-carry-on">${this.carryOn()}</div>`;
+            }
+
             if (session.status === 'failed') {
-                const retry = session.messages[session.messages.length - 1]?.role === 'user';
+                const retry = session.messages[session.messages.length - 1]?.role === 'user' || session.stage === 'filling';
 
                 html += `<div class="gw-failed" role="alert">
                     <p class="error with-icon"><strong>${esc(t('That didn’t work'))}</strong> ${esc(session.error)}</p>
@@ -1185,22 +1207,128 @@
                 </div>`;
             }
 
+            // Whatever had the focus in the card keeps it when it is redrawn.
+            const focused = document.activeElement && $.contains(this.$container.find('.gw-chat-log')[0] ?? document.body, document.activeElement) ? document.activeElement.id : null;
+
             this.$container.find('.gw-chat-log').html(html);
             Ghostwriter.prepareButtons(this.$container.find('.gw-chat-log'));
+
+            if (focused) document.getElementById(focused)?.focus();
+
             this.tick();
+        },
+
+        // The brief card as the person is changing it: what the server last
+        // sent, with their changes until it sends another.
+        cardState() {
+            const card = this.session.card;
+
+            if (!card) return null;
+
+            const key = JSON.stringify([this.session.id, card.attempt, card.agreed, card.title, card.answers, card.examples]);
+
+            if (key !== this.cardKey || !this.card) {
+                this.cardKey = key;
+                this.card = { title: card.title, answers: { ...card.answers }, examples: (card.examples ?? []).map(Number) };
+                this.errors = {};
+            }
+
+            return this.card;
+        },
+
+        // The brief, filled in, in the conversation: a labelled region with
+        // the working title, every question with its answer and the entries
+        // to model it on, all editable. Before it is agreed it has "Looks
+        // right, start writing" and "Try again"; after, it folds away to
+        // "Show the brief" and can still be changed.
+        briefCard(entry) {
+            const session = this.session;
+            const card = this.cardState();
+            const questions = session.type?.questions ?? [];
+            const agreed = session.card.agreed;
+            const proposed = session.stage === 'proposed';
+
+            if (!card) return '';
+
+            if (agreed && !this.showBrief) {
+                return `
+                    <div class="gw-brief">
+                        <button type="button" class="gw-link" data-action="toggle-brief" aria-expanded="false" aria-controls="gw-brief-card">${esc(t('brief.show'))}</button>
+                    </div>`;
+            }
+
+            // Not while Ghostwriter works on the piece: it would write over the change.
+            const off = this.working() || !!this.busy || (!proposed && !agreed);
+            const disabled = off ? 'disabled' : '';
+            const open = new Set(session.card.open ?? []);
+
+            return `
+                <section class="gw-brief-card ${agreed ? 'gw-brief-card--agreed' : ''}" id="gw-brief-card" role="region" aria-labelledby="gw-brief-card-heading">
+                    <div class="gw-brief-card__head">
+                        <h3 id="gw-brief-card-heading" tabindex="-1" data-card-heading>${esc(t('brief.region'))}</h3>
+                        ${agreed ? `<button type="button" class="gw-link" data-action="toggle-brief" aria-expanded="true" aria-controls="gw-brief-card">${esc(t('brief.hide'))}</button>` : ''}
+                    </div>
+                    ${agreed ? '' : `<div class="gw-prose gw-brief-card__intro">${entry.html ?? `<p>${esc(entry.content)}</p>`}</div>`}
+                    <div class="field">
+                        <div class="heading"><label for="gw-brief-title">${esc(t('brief.title'))}</label></div>
+                        <div class="input"><input id="gw-brief-title" class="text fullwidth" data-model="card-title" value="${esc(card.title)}" maxlength="200" ${disabled}></div>
+                    </div>
+                    ${questions.map((question) => `
+                        <div class="field ${this.errors[question.handle] ? 'has-errors' : ''}">
+                            <div class="heading"><label class="${question.required ? 'required' : ''}" for="gw-brief-${esc(question.handle)}">${esc(question.label)}</label></div>
+                            ${question.instructions ? `<div class="instructions" id="gw-brief-${esc(question.handle)}-help"><p>${esc(question.instructions)}</p></div>` : ''}
+                            <div class="input">
+                                <textarea id="gw-brief-${esc(question.handle)}" class="text fullwidth ${open.has(question.handle) ? 'gw-brief-card__open' : ''}" rows="${this.rowsFor(question, card.answers[question.handle])}" data-model="card-answer" data-handle="${esc(question.handle)}" ${question.instructions ? `aria-describedby="gw-brief-${esc(question.handle)}-help"` : ''} ${this.errors[question.handle] ? 'aria-invalid="true"' : ''} ${disabled}>${esc(card.answers[question.handle] ?? '')}</textarea>
+                            </div>
+                            ${this.errors[question.handle] ? `<ul class="errors"><li>${esc(this.errors[question.handle])}</li></ul>` : ''}
+                        </div>`).join('')}
+                    ${this.info.entries.length ? `
+                        <fieldset class="field gw-brief-card__examples" ${disabled}>
+                            <legend class="heading"><span>${esc(t('brief.model-on'))}</span></legend>
+                            ${this.picker('card-example', card.examples)}
+                        </fieldset>` : ''}
+                    ${proposed ? `
+                        <div class="gw-brief-card__actions">
+                            <button type="button" class="btn submit ${this.busy === 'agree' ? 'loading' : ''}" data-action="agree" ${off || !this.info.configured ? 'disabled' : ''}>${esc(t('brief.agree'))}</button>
+                            <button type="button" class="btn ${this.busy === 'try-again' ? 'loading' : ''}" data-action="try-again" ${off || !this.info.configured ? 'disabled' : ''}>${esc(t('brief.try-again'))}</button>
+                        </div>` : ''}
+                    ${agreed ? `
+                        <div class="gw-brief-card__actions">
+                            <button type="button" class="btn submit ${this.busy === 'edit-brief' ? 'loading' : ''}" data-action="save-brief" ${off ? 'disabled' : ''}>${esc(t('brief.save'))}</button>
+                        </div>` : ''}
+                </section>`;
         },
 
         renderComposer() {
             const asking = this.asking();
             const working = this.working();
+            const stage = this.session.stage;
+            const details = stage === 'details';
+            const before = stage === 'filling' || stage === 'proposed';
+            const startOver = this.session.editing
+                ? `<button type="button" class="btn small gw-quiet" data-action="reload-entry" title="${esc(t('Throw away the changes asked for here and start again from the entry as it stands.'))}">${esc(t('Start again from the entry'))}</button>`
+                : `<button type="button" class="btn small gw-quiet" data-action="start-over">${esc(t('Start over'))}</button>`;
+
+            // While the brief is being filled in or checked, it is answered
+            // in the card, not here.
+            if (before) {
+                this.$container.find('.gw-composer').removeClass('gw-composer--asking').html(`
+                    <p class="light gw-composer__note">${esc(stage === 'proposed' ? t('Check the brief above, then start writing.') : t('brief.filling'))}</p>
+                    <div class="gw-composer__actions">${startOver}</div>`);
+                Ghostwriter.prepareButtons(this.$container.find('.gw-composer'));
+
+                return;
+            }
+
+            const placeholder = details
+                ? t('A working title, and a line or two about it…')
+                : asking ? t('Type your answers here. Short is fine; number them if it helps.') : this.session.draft ? t('Ask for a change…') : t('Answer the questions…');
 
             this.$container.find('.gw-composer').toggleClass('gw-composer--asking', asking).html(`
                 ${asking ? `<p class="gw-composer__flag"><span class="gw-dot" aria-hidden="true"></span>${esc(this.session.draft ? t('Your turn: answer above to carry on.') : t('Your turn: answer the questions above and the draft follows.'))}</p>` : ''}
-                <textarea class="text fullwidth" rows="4" data-model="message" ${working ? 'disabled' : ''} placeholder="${esc(asking ? t('Type your answers here. Short is fine; number them if it helps.') : this.session.draft ? t('Ask for a change…') : t('Answer the questions…'))}">${esc(this.message)}</textarea>
+                <textarea class="text fullwidth" rows="4" data-model="message" aria-label="${esc(details ? t('brief.ask') : t('Your message'))}" ${working || !this.info.configured && details ? 'disabled' : ''} placeholder="${esc(placeholder)}">${esc(this.message)}</textarea>
                 <div class="gw-composer__actions">
-                    ${this.session.editing
-                        ? `<button type="button" class="btn small gw-quiet" data-action="reload-entry" title="${esc(t('Throw away the changes asked for here and start again from the entry as it stands.'))}">${esc(t('Start again from the entry'))}</button>`
-                        : `<button type="button" class="btn small gw-quiet" data-action="start-over">${esc(t('Start over'))}</button>`}
+                    ${startOver}
                     <span class="light smalltext">${esc(t('⌘↵ to send'))}</span>
                     <button type="button" class="btn submit ${working ? 'loading' : ''} ${working || !this.message.trim() ? 'disabled' : ''}" data-action="send" ${working || !this.message.trim() ? 'disabled' : ''}>${esc(working ? t('Working…') : t('Send'))}</button>
                 </div>`);
@@ -1230,7 +1358,9 @@
                        </div>`;
             }
 
-            if (!session.draft) {
+            if (!session.draft && ['details', 'filling', 'proposed'].includes(session.stage)) {
+                body = `<div class="gw-empty"><p>${esc(t('The draft appears here once the brief is agreed.'))}</p></div>`;
+            } else if (!session.draft) {
                 body = `<div class="gw-empty">${
                     working
                         ? `<div class="spinner"></div><p>${esc(t('Ghostwriter is working. A draft usually takes a minute or two.'))}</p>`

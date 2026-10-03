@@ -11,12 +11,16 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\NotAllowed;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefStage;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
 use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use nineteenninetyfour\ghostwriter\drafts\Applier;
 use nineteenninetyfour\ghostwriter\http\Presenter;
+use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\web\ForbiddenHttpException;
@@ -24,43 +28,20 @@ use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
- * The writing itself: the brief, the conversation, and handing the draft to
- * the entry it is for.
+ * The writing itself: the conversation, with the brief in it, and handing
+ * the draft to the entry it is for.
  */
 class SessionsController extends Controller
 {
     /**
-     * A first attempt at the questionnaire from a title and a few notes. It
-     * only fills in the form; nothing is started until the person says so.
+     * Start a piece of the chosen kind for the entry the panel is open on,
+     * with the person's reply to the quick-details question ("What's it
+     * called, and what should it say?"): the conversation opens with that
+     * question and the reply, and Ghostwriter fills in the brief from it.
+     * Nothing is kept until the person replies, so choosing a kind and
+     * closing the panel leaves no empty piece behind.
      */
-    public function actionBrief(): Response
-    {
-        $this->requirePostRequest();
-
-        $type = $this->type((string) $this->request->getRequiredBodyParam('type'));
-
-        if ($refusal = $this->notConfigured()) {
-            return $refusal;
-        }
-
-        $title = trim((string) $this->request->getBodyParam('title'));
-        $notes = (string) $this->request->getBodyParam('notes');
-
-        if ($title === '' || mb_strlen($title) > 200 || mb_strlen($notes) > 20000) {
-            return $this->refuse('Give it a working title, and keep the notes under 20,000 characters.');
-        }
-
-        try {
-            return $this->asJson(['answers' => Plugin::getInstance()->studio->draftBrief($type, $title, $notes)]);
-        } catch (InvalidArgumentException $exception) {
-            return $this->refuse($exception->getMessage());
-        }
-    }
-
-    /**
-     * Start writing from the questionnaire, for the entry the panel is open on.
-     */
-    public function actionStart(): Response
+    public function actionOpen(): Response
     {
         $this->requirePostRequest();
 
@@ -72,36 +53,162 @@ class SessionsController extends Controller
             return $refusal;
         }
 
-        $answers = array_map('strval', array_filter((array) $this->request->getBodyParam('answers'), 'is_scalar'));
+        $reply = $this->reply();
 
-        if ($errors = $type->missing($answers)) {
-            $this->response->setStatusCode(422);
-
-            return $this->asJson(['message' => reset($errors), 'errors' => $errors]);
+        if ($reply === null) {
+            return $this->refuse(Craft::t('ghostwriter', 'Write a line or two first.'));
         }
 
-        // Entries to model this one piece on; only ones from its own section.
-        $examples = array_slice(array_values(array_filter((array) $this->request->getBodyParam('examples'), 'is_numeric')), 0, 6);
-        $examples = $examples ? array_map('intval', Entry::find()->id($examples)->section($type->group)->status(null)->fixedOrder()->ids()) : [];
+        $sessions = $plugin->domain->sessions();
+        $viewer = $plugin->domain->viewer();
+        $session = $sessions->open($this->newSession($type, $entry, $this->examples($type, $this->request->getBodyParam('examples')) ?? []), $viewer, Craft::t('ghostwriter', 'brief.ask'));
+        $session = $sessions->details($session->id, $reply, $viewer);
 
-        $session = Session::start(Format::Craft, $type->handle, $answers, $this->me(), $examples);
-        $session->recordId = (int) $entry->getCanonicalId();
-        $session->siteId = (int) $entry->siteId;
-        $session->variant = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entry->getType()->handle : null;
-        $session = $plugin->domain->sessions()->start($session, $plugin->studio->brief($type, $session), $plugin->domain->viewer());
+        FillBrief::start(['sessionId' => $session->id]);
 
-        // Started from the content plan: that idea is now in hand.
-        if ($idea = $this->request->getBodyParam('idea')) {
-            try {
-                $plugin->domain->plan()->start((string) $idea, $session->id);
-            } catch (NotFound) {
-                // Gone from the plan meanwhile: the piece goes ahead.
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * "Draft this" from the content plan: no question first. The piece
+     * opens with the idea, and Ghostwriter fills in the brief from it.
+     */
+    public function actionFromIdea(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $id = (string) $this->request->getRequiredBodyParam('idea');
+        $idea = null;
+
+        foreach ($plugin->domain->ideas() as $candidate) {
+            if ((string) $candidate->id === $id && $candidate->isOpen()) {
+                $idea = $candidate;
             }
+        }
+
+        if ($idea === null) {
+            throw new NotFoundHttpException('That idea is no longer on the plan.');
+        }
+
+        $type = $this->type((string) $this->request->getRequiredBodyParam('type'));
+        $entry = $this->target($type);
+
+        if ($idea->group !== $type->group) {
+            throw new NotFoundHttpException('That idea is for another section.');
+        }
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        $session = $plugin->domain->sessions()->openFromIdea(
+            $this->newSession($type, $entry, $this->examples($type, $this->request->getBodyParam('examples')) ?? []),
+            $plugin->domain->viewer(),
+            $idea->title,
+            trim($idea->why . "\n\n" . $idea->notes),
+        );
+
+        // That idea is now in hand.
+        try {
+            $plugin->domain->plan()->start($idea->id, $session->id);
+        } catch (NotFound) {
+            // Gone from the plan meanwhile: the piece goes ahead.
+        }
+
+        FillBrief::start(['sessionId' => $session->id]);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * "Try again" on the brief card: another brief from the same details,
+     * keeping the answers the person changed in the card.
+     */
+    public function actionTryAgain(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+        $type = $this->type($session->kind);
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        [$answers, $examples, $title] = $this->card($type);
+
+        $session = $this->guarded(fn() => $plugin->domain->sessions()->tryAgain($session->id, $plugin->domain->viewer(), $answers, $examples, $title, Craft::t('ghostwriter', 'brief.try-again')));
+
+        if ($session instanceof Response) {
+            return $session;
+        }
+
+        FillBrief::start(['sessionId' => $session->id]);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * "Looks right, start writing": the card, as the person left it, is the
+     * brief. It is kept on the piece and the writing starts. Anything left
+     * in [square brackets] is for the writer to ask about.
+     */
+    public function actionAgree(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+        $type = $this->type($session->kind);
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        [$answers, $examples, $title] = $this->card($type);
+
+        if ($refusal = $this->missing($type, $session, $answers)) {
+            return $refusal;
+        }
+
+        $studio = $plugin->studio;
+        $kind = $type->forSession($session);
+        $session = $this->guarded(fn() => $plugin->domain->sessions()->agree($session->id, $plugin->domain->viewer(), fn(Brief $brief) => $studio->brief($kind, $brief), $answers, $examples, $title));
+
+        if ($session instanceof Response) {
+            return $session;
         }
 
         RunSessionTurn::start(['sessionId' => $session->id]);
 
         return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * The agreed brief changed ("Show the brief", then edit it). No turn
+     * runs; Ghostwriter works from it from the next message.
+     */
+    public function actionEditBrief(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+        $type = $this->type($session->kind);
+
+        [$answers, $examples, $title] = $this->card($type);
+
+        if ($refusal = $this->missing($type, $session, $answers)) {
+            return $refusal;
+        }
+
+        $studio = $plugin->studio;
+        $kind = $type->forSession($session);
+        $session = $this->guarded(fn() => $plugin->domain->sessions()->editBrief($session->id, $plugin->domain->viewer(), fn(Brief $brief) => $studio->brief($kind, $brief), $answers, $examples, $title));
+
+        return $session instanceof Response ? $session : $this->asJson((new Presenter())->detail($session));
     }
 
     /**
@@ -170,23 +277,32 @@ class SessionsController extends Controller
             return $refusal;
         }
 
-        $message = trim((string) $this->request->getBodyParam('message'));
+        $message = $this->reply();
 
-        if ($message === '' || mb_strlen($message) > 50000) {
+        if ($message === null) {
             return $this->refuse('Write a message first.');
+        }
+
+        // Before the brief is agreed, the only message there is to send is
+        // the reply to the quick-details question; the brief card is
+        // answered with its own buttons.
+        $stage = BriefThread::stage($session);
+
+        if (!$stage->agreed() && $stage !== BriefStage::Details) {
+            return $this->refuse(Craft::t('ghostwriter', 'Check the brief first, then start writing.'), 409);
         }
 
         // One run at a time: checked and started under the session's lock,
         // so two people sending at once can't both start one.
-        try {
-            $session = $plugin->domain->sessions()->send($session->id, $message, $plugin->domain->viewer());
-        } catch (Busy $busy) {
-            return $this->busy($busy);
-        } catch (NotFound|NotAllowed) {
-            throw new NotFoundHttpException('No such piece of writing.');
+        $session = $this->guarded(fn() => $stage === BriefStage::Details
+            ? $plugin->domain->sessions()->details($session->id, $message, $plugin->domain->viewer())
+            : $plugin->domain->sessions()->send($session->id, $message, $plugin->domain->viewer()));
+
+        if ($session instanceof Response) {
+            return $session;
         }
 
-        RunSessionTurn::start(['sessionId' => $session->id]);
+        FillBrief::next($session);
 
         return $this->asJson((new Presenter())->detail($session));
     }
@@ -218,7 +334,9 @@ class SessionsController extends Controller
             return $this->refuse($conflict->getMessage(), $conflict->status());
         }
 
-        RunSessionTurn::start(['sessionId' => $session->id]);
+        // A brief that could not be filled in is filled in again; anything
+        // else is the writer's turn.
+        FillBrief::next($session);
 
         return $this->asJson((new Presenter())->detail($session));
     }
@@ -349,6 +467,103 @@ class SessionsController extends Controller
         }
 
         return $this->asJson(['deleted' => true]);
+    }
+
+    /**
+     * What the person typed, or null when there is nothing to send.
+     */
+    private function reply(): ?string
+    {
+        $message = trim((string) $this->request->getBodyParam('message'));
+
+        return $message === '' || mb_strlen($message) > 50000 ? null : $message;
+    }
+
+    /**
+     * A new piece of this kind for the entry the panel is open on.
+     *
+     * @param array<int, int> $examples
+     */
+    private function newSession(ContentType $type, Entry $entry, array $examples): Session
+    {
+        $session = Session::start(Format::Craft, $type->handle, [], $this->me(), $examples);
+        $session->recordId = (int) $entry->getCanonicalId();
+        $session->siteId = (int) $entry->siteId;
+        $session->variant = count($entry->getSection()?->getEntryTypes() ?? []) > 1 ? $entry->getType()->handle : null;
+
+        return $session;
+    }
+
+    /**
+     * Entries to model a piece on, from the request: only ones from its own
+     * section, at most six. Null when none were sent, to keep the card's.
+     *
+     * @return array<int, int>|null
+     */
+    private function examples(ContentType $type, mixed $examples): ?array
+    {
+        if (!is_array($examples)) {
+            return null;
+        }
+
+        $ids = array_slice(array_values(array_filter($examples, 'is_numeric')), 0, Brief::MAX_EXAMPLES);
+
+        return $ids ? array_map('intval', Entry::find()->id($ids)->section($type->group)->status(null)->fixedOrder()->ids()) : [];
+    }
+
+    /**
+     * The brief card as the person left it: answers by question, the
+     * entries ticked under "Model it on", and the working title.
+     *
+     * @return array{0: array<string, string>, 1: array<int, int>|null, 2: string|null}
+     */
+    private function card(ContentType $type): array
+    {
+        $answers = array_map('strval', array_filter((array) $this->request->getBodyParam('answers'), 'is_scalar'));
+        $title = $this->request->getBodyParam('title');
+
+        return [$answers, $this->examples($type, $this->request->getBodyParam('examples')), is_scalar($title) ? mb_substr(trim((string) $title), 0, 200) : null];
+    }
+
+    /**
+     * Required answers left empty in the card, and answers too long, as the
+     * brief screen checked them. Something in [square brackets] counts as
+     * an answer: the writer asks about it.
+     *
+     * @param array<string, string> $answers
+     */
+    private function missing(ContentType $type, Session $session, array $answers): ?Response
+    {
+        $card = BriefThread::card($session);
+        $errors = $type->missing($card ? $card->with($answers)->answers : $answers);
+
+        if (!$errors) {
+            return null;
+        }
+
+        $errors = array_map(fn(string $error) => Craft::t('ghostwriter', $error), $errors);
+        $this->response->setStatusCode(422);
+
+        return $this->asJson(['message' => reset($errors), 'errors' => $errors]);
+    }
+
+    /**
+     * A change made under the session's lock, with core's refusals answered:
+     * someone else's run (whose), a step out of turn, a piece not there.
+     *
+     * @param callable(): Session $change
+     */
+    private function guarded(callable $change): Session|Response
+    {
+        try {
+            return $change();
+        } catch (Busy $busy) {
+            return $this->busy($busy);
+        } catch (Conflict $conflict) {
+            return $this->refuse(Craft::t('ghostwriter', $conflict->getMessage()), $conflict->status());
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
     }
 
     /**

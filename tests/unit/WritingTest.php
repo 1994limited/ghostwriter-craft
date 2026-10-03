@@ -8,15 +8,17 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
+use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\Launcher;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 
 /**
- * Learning a section, the questionnaire, the conversation, and handing the
+ * Learning a section, the brief in the conversation, and handing the
  * draft to the entry it is for.
  */
 class WritingTest extends TestCase
@@ -152,56 +154,194 @@ class WritingTest extends TestCase
         $this->assertSame([], $this->action('ghostwriter/sections/show', ['section' => 'press'], 'GET')['data']['kinds']);
     }
 
-    public function testATitleAndNotesAreExpandedIntoABriefToCheck(): void
-    {
-        $this->signIn();
-        $this->saveType();
-
-        $this->fake->respond('brief-writer', "<brief>\nwhat: |\n  A search that narrows 400 products by what the customer needs.\n  [Add: the client and what changed after launch]\navoid: Client names.\nmade_up: ignored\n</brief>");
-
-        $this->assertSame(422, $this->action('ghostwriter/sessions/brief', ['type' => 'project', 'notes' => 'No title.'])['status']);
-
-        $response = $this->action('ghostwriter/sessions/brief', ['type' => 'project', 'title' => 'Faceted search', 'notes' => 'For a kitchen appliance maker.']);
-
-        $this->assertSame(['answers' => [
-            'what' => "A search that narrows 400 products by what the customer needs.\n[Add: the client and what changed after launch]",
-            'avoid' => 'Client names.',
-        ]], $response['data']);
-
-        // It was given the title, the notes and what the section already has.
-        $prompt = $this->fake->prompted('brief-writer')[0];
-        $this->assertStringContainsString('Working title: Faceted search', $prompt->prompt);
-        $this->assertStringContainsString('For a kitchen appliance maker.', $prompt->prompt);
-        $this->assertStringContainsString('- Three', $prompt->instructions);
-
-        // Nothing has been started.
-        $this->assertSame([], $this->plugin->sessions->all());
-    }
-
-    public function testTheQuestionnaireRequiresItsRequiredAnswersAndStartsWriting(): void
+    public function testTheConversationAsksForTheDetailsAndFillsInTheBrief(): void
     {
         $user = $this->signIn(admin: true);
         $this->saveType();
         $draft = $this->newDraft($this->articles);
 
-        $refused = $this->action('ghostwriter/sessions/start', ['type' => 'project', 'answers' => ['avoid' => 'Client names.'], 'elementId' => $draft->id]);
+        // Nothing to say yet: nothing is started.
+        $this->assertSame(422, $this->action('ghostwriter/sessions/open', ['type' => 'project', 'message' => ' ', 'elementId' => $draft->id])['status']);
+        $this->assertSame([], $this->plugin->sessions->all());
 
+        $opened = $this->action('ghostwriter/sessions/open', [
+            'type' => 'project',
+            'message' => 'Faceted search for a kitchen appliance maker. Filters by what the cook needs.',
+            'elementId' => $draft->id,
+            'examples' => [$this->entry('Two')->id, $this->makeEntry($this->press, 'Elsewhere')->id],
+        ])['data'];
+
+        // The question, the reply, and Ghostwriter filling in the brief.
+        $this->assertSame('filling', $opened['stage']);
+        $this->assertSame(Session::WORKING, $opened['status']);
+        $this->assertSame([['ask', 'assistant', 'What’s it called, and what should it say? A line or two is plenty.'], ['details', 'user', 'Faceted search for a kitchen appliance maker. Filters by what the cook needs.']], array_map(fn(array $m) => [$m['step'], $m['role'], $m['content']], $opened['messages']));
+        $this->assertCount(1, $this->queued(FillBrief::class));
+        $this->assertSame([], $this->queued(RunSessionTurn::class));
+
+        $session = $this->plugin->sessions->find($opened['id']);
+        $this->assertSame($user->id, $session->startedBy);
+        $this->assertSame($draft->id, $session->recordId);
+        $this->assertSame([$this->entry('Two')->id], $session->examples, 'Only entries from its own section.');
+
+        $this->fake->respond('brief-filler', "<title>Faceted search</title>\n<brief>\nwhat: |\n  A search that narrows the range by what the cook needs.\n  [Add: the client and what changed after launch]\navoid: Client names.\nmade_up: ignored\n</brief>");
+        $this->fillBrief($session);
+
+        $detail = $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data'];
+
+        $this->assertSame('proposed', $detail['stage']);
+        $this->assertSame(Session::IDLE, $detail['status']);
+        $this->assertFalse($detail['waitingOnYou'], 'The card is answered with its own buttons.');
+        $this->assertSame('Faceted search', $detail['title']);
+        $this->assertSame([
+            'title' => 'Faceted search',
+            'answers' => ['what' => "A search that narrows the range by what the cook needs.\n[Add: the client and what changed after launch]", 'avoid' => 'Client names.'],
+            'examples' => [$this->entry('Two')->id],
+            'attempt' => 1,
+            'open' => ['what'],
+            'agreed' => false,
+        ], $detail['card']);
+        $this->assertSame(['ask', 'details', 'card'], array_column($detail['messages'], 'step'));
+        $this->assertSame('Here’s the brief. Change anything that isn’t right, then start writing. Anything in [square brackets] is for you to fill in.', end($detail['messages'])['content']);
+
+        // It was given the reply, the kind's questions and what the section already has.
+        $request = $this->fake->prompted('brief-filler')[0];
+        $this->assertStringContainsString('Filters by what the cook needs.', $request->prompt);
+        $this->assertStringContainsString('- Three', $request->instructions);
+
+        // Nothing is written until the person agrees.
+        $this->assertSame([], $this->queued(RunSessionTurn::class));
+        $this->assertSame(409, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Write it now.'])['status']);
+    }
+
+    public function testTryAgainKeepsTheAnswersThePersonChanged(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->proposed();
+
+        $this->fake->respond('brief-filler', "<title>Search that listens</title>\n<brief>\nwhat: A search built around the cook's questions.\navoid: Jargon.\n</brief>");
+
+        $again = $this->action('ghostwriter/sessions/try-again', ['id' => $session->id, 'title' => 'Faceted search', 'answers' => ['avoid' => 'Anything about pricing.']])['data'];
+
+        $this->assertSame('filling', $again['stage']);
+        $this->assertSame(['ask', 'details', 'card'], array_column($again['messages'], 'step'), '"Try again" itself is not shown.');
+        $this->assertCount(1, $this->queued(FillBrief::class));
+
+        $this->fillBrief($session);
+        $card = (new Presenter())->detail($this->plugin->sessions->find($session->id))['card'];
+
+        $this->assertSame(2, $card['attempt']);
+        $this->assertSame('Faceted search', $card['title'], 'The working title the card had.');
+        $this->assertSame(['what' => "A search built around the cook's questions.", 'avoid' => 'Anything about pricing.'], $card['answers']);
+        $this->assertStringContainsString('`avoid`', $this->fake->prompted('brief-filler')[0]->prompt);
+
+        // Only while a brief waits to be checked.
+        $this->assertSame(409, $this->action('ghostwriter/sessions/try-again', ['id' => $this->startedSession()->id])['status']);
+    }
+
+    public function testLooksRightStartsWritingAndTheBriefStaysEditable(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->proposed();
+
+        // A required answer left empty is refused, as on the brief screen.
+        $refused = $this->action('ghostwriter/sessions/agree', ['id' => $session->id, 'answers' => ['what' => ' ']]);
         $this->assertSame(422, $refused['status']);
         $this->assertArrayHasKey('what', $refused['data']['errors']);
         $this->assertSame([], $this->queued(RunSessionTurn::class));
 
-        $started = $this->action('ghostwriter/sessions/start', ['type' => 'project', 'answers' => ['what' => 'A faceted search.'], 'elementId' => $draft->id, 'examples' => [$this->entry('Two')->id, $this->makeEntry($this->press, 'Elsewhere')->id]]);
+        // Something left in square brackets is an answer: the writer asks about it.
+        $agreed = $this->action('ghostwriter/sessions/agree', ['id' => $session->id, 'title' => 'Search that listens', 'answers' => ['what' => 'A faceted search. [Add: the client]'], 'examples' => []])['data'];
 
-        $this->assertSame(Session::WORKING, $started['data']['status']);
+        $this->assertSame(Session::WORKING, $agreed['status']);
+        $this->assertSame('writing', $agreed['stage']);
+        $this->assertTrue($agreed['card']['agreed']);
+        $this->assertSame([], $agreed['card']['examples']);
+        $this->assertSame(['ask', 'details', 'card'], array_column($agreed['messages'], 'step'), 'The brief shows as the card, not as a message.');
+        $this->assertCount(1, $this->queued(RunSessionTurn::class));
 
-        $session = $this->plugin->sessions->find($started['data']['id']);
+        $stored = $this->plugin->sessions->find($session->id);
+        $this->assertSame(['what' => 'A faceted search. [Add: the client]', 'avoid' => 'Client names.'], $stored->answers);
 
-        $this->assertSame($user->id, $session->startedBy);
-        $this->assertSame($draft->id, $session->recordId);
-        $this->assertSame([$this->entry('Two')->id], $session->examples);
-        $this->assertStringContainsString('A faceted search.', $session->messages[0]['content']);
-        $this->assertStringContainsString('(not answered)', $session->messages[0]['content']);
-        $this->assertSame($session->id, $this->queued(RunSessionTurn::class)[0]->sessionId);
+        // The writer starts from the brief, without the question or the card.
+        $this->fake->respond('writer', '<reply>1. Which client was it for?</reply>');
+        $this->runTurn($stored);
+
+        $writer = $this->fake->prompted('writer')[0];
+        $this->assertStringContainsString('Search that listens', $writer->prompt);
+        $this->assertStringContainsString('A faceted search. [Add: the client]', $writer->prompt);
+        $this->assertStringNotContainsString('A line or two is plenty', $writer->prompt . json_encode($writer->history));
+
+        $detail = (new Presenter())->detail($this->plugin->sessions->find($session->id));
+        $this->assertSame('questions', $detail['stage']);
+        $this->assertTrue($detail['waitingOnYou']);
+
+        // "Show the brief", change it and save: no turn runs.
+        $edited = $this->action('ghostwriter/sessions/edit-brief', ['id' => $session->id, 'answers' => ['avoid' => 'Prices.']])['data'];
+
+        $this->assertSame('Prices.', $edited['card']['answers']['avoid']);
+        $this->assertTrue($edited['card']['agreed']);
+        $this->assertSame(Session::IDLE, $edited['status']);
+        $this->assertCount(1, $this->queued(RunSessionTurn::class));
+        $brief = array_values(array_filter($this->plugin->sessions->find($session->id)->messages, fn(array $m) => ($m['brief']['step'] ?? null) === 'agreed'));
+        $this->assertStringContainsString('Prices.', $brief[0]['content'], 'The writer works from the changed brief.');
+
+        // Not while Ghostwriter is working on the piece.
+        $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'It was for Hearth & Co.']);
+        $this->assertSame(409, $this->action('ghostwriter/sessions/edit-brief', ['id' => $session->id, 'answers' => ['avoid' => 'Nothing.']])['status']);
+    }
+
+    public function testAFailedFillIsTriedAgainAsAFill(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->opened();
+
+        $this->fake->respond('brief-filler', 'Sorry, I cannot help with that.');
+        $this->fillBrief($session);
+
+        $failed = $this->plugin->sessions->find($session->id);
+        $this->assertSame(Session::FAILED, $failed->status);
+        $this->assertSame('Ghostwriter could not fill in the brief from that. Try again, or say a little more about it.', $failed->error);
+
+        $retried = $this->action('ghostwriter/sessions/retry', ['id' => $session->id])['data'];
+
+        $this->assertSame('filling', $retried['stage']);
+        $this->assertCount(1, $this->queued(FillBrief::class));
+        $this->assertSame([], $this->queued(RunSessionTurn::class));
+    }
+
+    public function testAPieceWaitingForItsDetailsTakesThemAsAMessage(): void
+    {
+        $this->signIn();
+        $this->saveType();
+
+        $session = Session::start(Format::Craft, 'project', [], Craft::$app->getUser()->getId());
+        $session = $this->plugin->domain->sessions()->open($session, $this->plugin->domain->viewer());
+
+        $this->assertSame('details', (new Presenter())->detail($session)['stage']);
+
+        $sent = $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'A guide to faceted search.'])['data'];
+
+        $this->assertSame('filling', $sent['stage']);
+        $this->assertCount(1, $this->queued(FillBrief::class));
+
+        // Only once.
+        $this->assertSame(409, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Again.'])['status']);
+    }
+
+    public function testAPieceFromTheBriefScreenStillShowsItsBrief(): void
+    {
+        $this->saveType();
+        $session = $this->startedSession();
+        $session->status = Session::IDLE;
+        $session->addMessage('assistant', 'Here is the draft.');
+        $detail = (new Presenter())->detail($session);
+
+        $this->assertNull($detail['card']);
+        $this->assertStringContainsString('A faceted search.', $detail['briefText']);
+        $this->assertSame(['Here is the draft.'], array_column($detail['messages'], 'content'));
     }
 
     public function testTheWriterCanInterviewFirstAndDraftSecond(): void
@@ -228,7 +368,7 @@ class WritingTest extends TestCase
         $this->assertStringContainsString('<strong>Two</strong>', end($messages)['html']);
         $this->assertStringContainsString('<li>the client</li>', end($messages)['html']);
         $this->assertStringContainsString('&lt;script&gt;', end($messages)['html']);
-        $this->assertArrayNotHasKey('html', $messages[0]);
+        $this->assertNotContains('user', array_column($messages, 'role'), 'The brief is behind "Show the brief".');
         array_pop($session->messages);
         $this->assertSame('interview', (new Presenter())->summary($session)['stage']);
 
@@ -699,11 +839,43 @@ class WritingTest extends TestCase
     {
         $type = $this->plugin->types->find('project');
 
+        // As the brief screen started a piece before 1.6: the brief is the first message.
         $session = Session::start(Format::Craft, 'project', ['what' => 'A faceted search.'], Craft::$app->getUser()->getId());
-        $session->addMessage('user', $this->plugin->studio->brief($type, $session));
+        $session->addMessage('user', $this->plugin->studio->brief($type, new Brief('', $session->answers)));
         $session->status = Session::WORKING;
 
         return $this->plugin->sessions->save($session);
+    }
+
+    /**
+     * A piece whose quick details have been given, being filled in.
+     */
+    private function opened(): Session
+    {
+        $draft = $this->newDraft($this->articles);
+        $id = $this->action('ghostwriter/sessions/open', ['type' => 'project', 'message' => 'Faceted search for a kitchen appliance maker.', 'elementId' => $draft->id])['data']['id'];
+        $this->clearQueue();
+
+        return $this->plugin->sessions->find($id);
+    }
+
+    /**
+     * A piece with its brief card waiting to be checked.
+     */
+    private function proposed(): Session
+    {
+        $session = $this->opened();
+
+        $this->fake->respond('brief-filler', "<title>Faceted search</title>\n<brief>\nwhat: A search that narrows the range.\navoid: Client names.\n</brief>");
+        $this->fillBrief($session);
+        $this->fake->reset();
+
+        return $this->plugin->sessions->find($session->id);
+    }
+
+    private function fillBrief(Session $session): void
+    {
+        (new FillBrief(['sessionId' => $session->id]))->execute(null);
     }
 
     private function sessionWithDraft(string $draft, ?Entry $target = null): Session

@@ -7,6 +7,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\PlanState;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use nineteenninetyfour\ghostwriter\http\Presenter;
+use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\jobs\SuggestIdeas;
 use nineteenninetyfour\ghostwriter\tests\support\Sites;
@@ -204,7 +205,13 @@ class PlanTest extends TestCase
         $this->assertSame([['id' => $idea->id, 'title' => 'Rebuild or repair?', 'type' => null, 'why' => 'Nothing on it yet.', 'notes' => '']], $offered);
 
         $target = $this->newDraft($this->articles);
-        $session = $this->action('ghostwriter/sessions/start', ['type' => 'guide', 'answers' => ['what' => 'Whether to rebuild.'], 'idea' => $idea->id, 'elementId' => $target->id])['data']['id'];
+        $this->fake->respond('brief-filler', "<title>Rebuild or repair?</title>\n<brief>\nwhat: Whether to rebuild.\n</brief>");
+        $opened = $this->action('ghostwriter/sessions/from-idea', ['idea' => $idea->id, 'type' => 'guide', 'elementId' => $target->id])['data'];
+        $session = $opened['id'];
+
+        // "Draft this" asks nothing first: the brief is filled in from the idea.
+        $this->assertSame('filling', $opened['stage']);
+        $this->assertSame([], array_column($opened['messages'], 'step'));
 
         $idea = $this->plugin->plans->find($idea->id);
         $this->assertSame(Idea::DRAFTED, $idea->status);
@@ -219,7 +226,18 @@ class PlanTest extends TestCase
         $this->assertSame('working', $planned['stage']);
         $this->assertFalse($planned['finished']);
         $this->assertStringContainsString('ghostwriter=' . $session, $planned['resumeUrl']);
-        $this->assertCount(1, $this->queued(RunSessionTurn::class));
+        $this->assertCount(1, $this->queued(FillBrief::class));
+        $this->assertSame([], $this->queued(RunSessionTurn::class));
+
+        (new FillBrief(['sessionId' => $session]))->execute(null);
+        $card = $this->action('ghostwriter/sessions/show', ['id' => $session], 'GET')['data'];
+
+        $this->assertSame('proposed', $card['stage']);
+        $this->assertSame('Rebuild or repair?', $card['card']['title']);
+        $this->assertStringContainsString("Working title: Rebuild or repair?\n\nNotes:\nNothing on it yet.", $this->fake->prompted('brief-filler')[0]->prompt);
+
+        // An idea already in hand is not started twice.
+        $this->assertSame(404, $this->action('ghostwriter/sessions/from-idea', ['idea' => $idea->id, 'type' => 'guide', 'elementId' => $target->id])['status']);
 
         // Remove the conversation and it is an idea again.
         $this->action('ghostwriter/sessions/delete', ['id' => $session]);

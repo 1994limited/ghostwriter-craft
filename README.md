@@ -53,7 +53,7 @@ The [installation guide](docs/installation.md) covers each step in full.
 1. Open **Ghostwriter → Get started** in the control panel.
 2. Check that **Connect a model** names your provider, then click **Write the voice guide** on **Learn your voice**.
 3. Learn one or two of the suggested kinds of content.
-4. Open a section's new entry screen and click **Write with Ghostwriter**. Choose what you're writing, answer the brief, and click **Start writing**.
+4. Open a section's new entry screen and click **Write with Ghostwriter**. Choose what you're writing and give it a title and a line or two. Check the brief Ghostwriter fills in, and click **Looks right, start writing**.
 5. Click **Use this draft**, check the entry, and save it.
 
 ## Documentation

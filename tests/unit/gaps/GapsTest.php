@@ -306,10 +306,19 @@ class GapsTest extends TestCase
     public function testEveryCoreStringIsInCraftsTranslationsAsCoreHasIt(): void
     {
         $craft = require dirname(__DIR__, 3) . '/src/translations/en/ghostwriter.php';
-        $wording = require dirname(__DIR__, 3) . '/src/translations/wording.php';
 
         foreach (Message::strings() as $key => $english) {
-            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $wording[$key] ?? $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-gap-strings.");
+            $this->assertSame(preg_replace('/:([a-z][a-z_]*)/', '{$1}', $english), $craft["gaps.{$key}"] ?? null, "gaps.{$key} is out of date: run php bin/sync-core-strings.");
+        }
+
+        // The brief in the conversation's, likewise.
+        foreach (require dirname(__DIR__, 3) . '/vendor/1994/ghostwriter-core/resources/lang/en/brief.php' as $key => $english) {
+            $this->assertSame($english, $craft["brief.{$key}"] ?? null, "brief.{$key} is out of date: run php bin/sync-core-strings.");
+        }
+
+        // No "guess" in anything a person reads.
+        foreach ($craft as $key => $text) {
+            $this->assertDoesNotMatchRegularExpression('/\bguess/i', $text, $key);
         }
 
         $this->assertSame('Finish this page', Craft::t('ghostwriter', 'gaps.guide.title'));
