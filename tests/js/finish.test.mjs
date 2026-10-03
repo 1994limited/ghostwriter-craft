@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const window = {};
-const context = vm.createContext({ window, Garnish: { Base: { extend: (proto) => proto } }, $: () => {}, Craft: {}, console });
+const context = vm.createContext({ window, Garnish: { Base: { extend: (proto) => proto } }, $: () => {}, Craft: { t: (category, message, params) => message.replace(/\{(\w+)\}/g, (m, name) => params?.[name] ?? m) }, console, setTimeout, clearTimeout });
 context.window = context;
 vm.runInContext(readFileSync(new URL('../../src/web/assets/cp/dist/finish.js', import.meta.url), 'utf8'), context);
 const H = context.Ghostwriter.FinishHelpers;
@@ -172,3 +172,66 @@ test('a gap keeps its identity when Craft gives the draft\'s blocks new IDs', ()
     assert.notEqual(Ghostwriter().key(before), Ghostwriter().key({ ...after, occurrence: 1 }));
 });
 
+
+// The guide's own methods, run against stand-ins for the page.
+const guide = () => context.Ghostwriter.Finish;
+const emitter = () => {
+    const handlers = {};
+
+    return {
+        on(name, fn) { (handlers[name] ??= []).push(fn); },
+        off(name, fn) { handlers[name] = (handlers[name] ?? []).filter((h) => h !== fn); },
+        emit(name) { (handlers[name] ?? []).slice().forEach((fn) => fn()); },
+    };
+};
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('a cancelled picker leaves the field as it was: no replace pending, its type put back', async () => {
+    const modal = emitter();
+    const input = { ...emitter(), modal, _$replaceElement: ['placeholder chip'] };
+    const calls = [];
+    const self = { fixed: () => calls.push('fixed'), paint: () => calls.push('paint'), clearPlaceholderLabel: () => calls.push('label') };
+
+    guide().watchPicker.call(self, input, { id: 'g' }, {}, () => calls.push('restored'));
+    modal.emit('hide');
+    await wait(450);
+
+    assert.equal(input._$replaceElement, null);
+    assert.deepEqual(calls, ['restored', 'paint']);
+});
+
+test('a choice made in the picker is checked like any fix', async () => {
+    const modal = emitter();
+    const input = { ...emitter(), modal, _$replaceElement: null };
+    const calls = [];
+    const self = { fixed: () => calls.push('fixed'), paint() {}, clearPlaceholderLabel: () => calls.push('label') };
+
+    guide().watchPicker.call(self, input, { id: 'g' }, {}, () => calls.push('restored'));
+    input.emit('selectElements');
+    modal.emit('hide');
+    await wait(450);
+
+    assert.deepEqual(calls, ['label', 'fixed']);
+});
+
+test('a fix that left the field as it was does not count, and says so', () => {
+    const gap = { id: 'g', kind: 'ask' };
+    const said = [];
+    const self = {
+        before: { id: 'g', value: 'same' },
+        steps: [{ gap, status: 'open' }],
+        index: 0,
+        locate: () => ({}),
+        readField: () => 'same',
+        announce: (text) => said.push(text),
+        paint() {},
+        advance: () => said.push('advanced'),
+    };
+
+    guide().fixed.call(self, gap);
+
+    assert.equal(self.steps[0].status, 'open');
+    assert.equal(self.unchangedId, 'g');
+    assert.equal(said.length, 1);
+    assert.match(said[0], /didn’t change the field/);
+});

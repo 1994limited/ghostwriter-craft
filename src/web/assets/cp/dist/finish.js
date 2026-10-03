@@ -237,6 +237,9 @@
         init(config) {
             this.config = config;
             this.strings = config.strings ?? {};
+
+            // The page's guide, for anything that needs to ask it (and for checking it by hand).
+            Ghostwriter.finish = this;
             this.gaps = [];
             this.steps = [];
             this.index = 0;
@@ -732,6 +735,8 @@
 
             const notes = [];
 
+            if (this.unchangedId === gap.id) notes.push(t('That didn’t change the field. Try another fix, or change it yourself.'));
+
             // Fact messages say it already; links don't.
             if (gap.reason && !fixed && gap.kind.startsWith('link')) notes.push(gap.reason);
             if (numbers.suggestion) notes.push(t('A suggestion: it won’t stop the page going live.'));
@@ -861,6 +866,7 @@
                 if (!text || put) return;
 
                 put = true;
+                this.before = { id: gap.id, value: this.readField(this.locate(gap)) };
 
                 if (await this.replaceMarker(gap, text)) {
                     this.fixed(gap);
@@ -977,6 +983,17 @@
 
         /** Marked done straight away; the next check takes it off the list. */
         fixed(gap) {
+            const field = this.locate(gap);
+
+            // Nothing in the form changed: not fixed, whatever was clicked.
+            if (this.before?.id === gap.id && field && this.readField(field) === this.before.value) {
+                this.unchangedId = gap.id;
+                this.announce(t('That didn’t change the field. Try another fix, or change it yourself.'));
+                this.paint();
+
+                return;
+            }
+
             const step = this.steps.find((s) => s.gap.id === gap.id);
 
             if (step) step.status = 'fixed';
@@ -1581,6 +1598,11 @@
         async fix(gap, fix) {
             const field = await this.reveal(gap);
 
+            // What the field held before, so a fix counts only once the
+            // form really holds something else.
+            this.before = { id: gap.id, value: this.readField(field) };
+            this.unchangedId = null;
+
             switch (fix.action) {
                 case 'link':
                     return this.linkTo(gap, field, fix.value, fix);
@@ -1694,7 +1716,19 @@
 
                 editor.model.change((writer) => {
                     const attributes = Object.fromEntries(range.start.textNode?.getAttributes?.() ?? []);
-                    writer.remove(range);
+                    let gone = range;
+
+                    // Taken out between two spaces: one space stays, as it would in a plain field.
+                    if (!text) {
+                        const after = range.end.textNode?.data?.[range.end.offset - (range.end.textNode?.startOffset ?? 0)];
+                        const before = range.start.textNode?.data?.[range.start.offset - (range.start.textNode?.startOffset ?? 0) - 1];
+
+                        if (after === ' ' && (before === ' ' || before === undefined)) {
+                            gone = editor.model.createRange(range.start, range.end.getShiftedBy(1));
+                        }
+                    }
+
+                    writer.remove(gone);
 
                     if (text) writer.insertText(text, attributes, range.start);
                 });
@@ -1766,8 +1800,22 @@
 
                 if (!html) return false;
 
+                const info = { id, siteId, label, $element: $(html) };
+
                 input.$elements.each((i, element) => input.removeElement($(element)));
-                input.selectElements([{ id, siteId, label, $element: $(html) }]);
+                await input.selectElements([info]);
+
+                // Craft's Link field writes its stored value only when the
+                // picker's "selectElements" fires (from the modal); a chip
+                // put in any other way shows but isn't saved. So, as the
+                // modal would, say what was chosen.
+                const stored = input.$container.next('input');
+                const ref = new RegExp(`^\\{entry:${id}@`);
+
+                if (stored.length && !ref.test(String(stored.val()))) {
+                    input.trigger('selectElements', { elements: [info] });
+                }
+
                 this.clearPlaceholderLabel(field);
                 await Craft.appendHeadHtml(data.headHtml);
                 await Craft.appendBodyHtml(data.bodyHtml);
@@ -1792,10 +1840,65 @@
         chooseAsset(gap, field) {
             const input = this.selectInput(field);
 
-            // The autosave that follows the choice brings the next check.
             if (!Ghostwriter.FinishHelpers.openPicker(input, gap.meta?.asset?.id ?? gap.stock?.assetId ?? null)) {
                 this.focus(gap, field);
+
+                return;
             }
+
+            this.watchPicker(input, gap, field);
+        },
+
+        /**
+         * After Craft's own picker closes: a choice counts once the field
+         * reads back different; a cancel leaves the field as it was,
+         * including the replace Craft was holding and anything set up to
+         * open the picker (`restore`).
+         */
+        watchPicker(input, gap, field, restore = null) {
+            const modal = input.modal;
+            let chose = false;
+
+            if (!modal?.on) return;
+
+            const selected = () => (chose = true);
+            const hidden = () => {
+                modal.off('hide', hidden);
+                input.off?.('selectElements', selected);
+
+                setTimeout(() => {
+                    if (!chose) {
+                        input._$replaceElement = null;
+                        restore?.();
+                        this.paint();
+
+                        return;
+                    }
+
+                    this.clearPlaceholderLabel(field);
+                    this.fixed(gap);
+                }, 400);
+            };
+
+            input.on?.('selectElements', selected);
+            modal.on('hide', hidden);
+        },
+
+        /**
+         * A field as the form holds it now: every input's name and value,
+         * CKEditor's data and the elements chosen. Two readings differ
+         * only if the field changed.
+         */
+        readField(field) {
+            if (!field) return '';
+
+            const values = [...field.querySelectorAll('input, select, textarea')]
+                .filter((input) => input.name && !(input.type === 'checkbox' || input.type === 'radio') || input.checked)
+                .map((input) => `${input.name}=${input.value}`);
+            const editor = this.ckeditorIn(field);
+            const chips = [...field.querySelectorAll('.elementselect .element[data-id]')].map((chip) => `#${chip.dataset.id}`);
+
+            return JSON.stringify([values, editor ? editor.getData() : null, chips]);
         },
 
         /**
@@ -1817,6 +1920,7 @@
 
             if (!editor || !gap.meta?.inline) {
                 const $select = $(field).find('select.fieldtoggle').first();
+                const type = $select.val();
 
                 if ($select.length && $select.find('option[value="entry"]').length) {
                     $select.val('entry').trigger('change');
@@ -1825,17 +1929,16 @@
                 const input = this.selectInput(field, 'entry') ?? this.selectInput(field);
 
                 if (!Ghostwriter.FinishHelpers.openPicker(input)) {
+                    if ($select.length) $select.val(type).trigger('change');
                     this.focus(gap, field);
 
                     return;
                 }
 
-                const chosen = () => {
-                    input.off?.('selectElements', chosen);
-                    this.clearPlaceholderLabel(field);
-                };
-
-                input.on?.('selectElements', chosen);
+                // Cancelled: the field goes back to the type it had (its URL kept).
+                this.watchPicker(input, gap, field, () => {
+                    if ($select.length && $select.val() !== type) $select.val(type).trigger('change');
+                });
 
                 return;
             }
@@ -1875,7 +1978,21 @@
 
             if (button) {
                 button.open();
-                $(holder).one('change', () => this.check());
+
+                // A photo put in counts once the field reads back different.
+                const gap = this.steps[this.index]?.gap;
+                const hidden = () => {
+                    button.modal?.off?.('hide', hidden);
+                    setTimeout(() => {
+                        if (gap && this.before?.id === gap.id && this.readField(field) !== this.before.value) {
+                            this.fixed(gap);
+                        } else {
+                            this.check();
+                        }
+                    }, 400);
+                };
+
+                button.modal?.on?.('hide', hidden);
 
                 return;
             }

@@ -44,7 +44,7 @@ class FinishGuide
         'Alt+Shift+N for the next step, Alt+Shift+P for the one before, Alt+Shift+G to open or minimise.',
         'What should it say?', 'Put it in', 'Show me', 'Open block', 'uses Ghostwriter',
         'License', 'License ({cost})', 'Request licence', 'Refresh preview', 'Choose another', 'Download again and replace', 'Licence requested by {name}',
-        'Ghostwriter couldn’t find that gap in the field any more.', 'Something went wrong.',
+        'Ghostwriter couldn’t find that gap in the field any more.', 'Something went wrong.', 'That didn’t change the field. Try another fix, or change it yourself.',
     ];
 
     public static function buttonFor(Entry $entry): string
