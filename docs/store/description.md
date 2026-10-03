@@ -69,7 +69,7 @@ Conversations are shared with everyone who can use Ghostwriter, so a colleague c
 
 ## Built to be trusted
 
-- **Your keys stay yours.** They're read from your `.env` and never stored. A gateway or proxy can be set per provider.
+- **Your keys stay on your site.** Ghostwriter sends them only to the provider you chose, never to us. A gateway or proxy can be set per provider.
 - **No invented facts.** The writer uses only what's in the brief and the conversation: no made-up figures, quotes or client names.
 - **Nothing published for you.** Drafts go into Craft's own drafts, for a person to check and save, and new entries Ghostwriter fills start disabled (a setting, on by default).
 - **Nothing sent until you ask.** Content goes to your chosen provider only when someone in the control panel starts something.

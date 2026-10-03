@@ -18,8 +18,11 @@ use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
 $target = dirname(__DIR__) . '/src/translations/en/ghostwriter.php';
 $strings = [];
 
+// Strings Craft words differently from core, kept as they are here.
+$wording = require dirname(__DIR__) . '/src/translations/wording.php';
+
 foreach (Message::strings() as $key => $text) {
-    $strings["gaps.{$key}"] = (string) preg_replace('/:([a-z][a-z_]*)/', '{$1}', $text);
+    $strings["gaps.{$key}"] = (string) preg_replace('/:([a-z][a-z_]*)/', '{$1}', $wording[$key] ?? $text);
 }
 
 $lines = ["<?php", "", "/*", " * Ghostwriter's English strings with keys rather than source text: those", " * for \"Finish this page\", copied from ghostwriter-core's", " * resources/lang/en/gaps.php by bin/sync-gap-strings. Don't edit by hand.", " */", "", "return ["];

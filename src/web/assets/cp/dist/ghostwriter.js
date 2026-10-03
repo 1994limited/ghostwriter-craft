@@ -1060,14 +1060,14 @@
 
                     <div class="gw-box">
                         <h3>${esc(t('Quick brief'))}</h3>
-                        <p class="light">${esc(t('Give it a title and anything you already know. Ghostwriter fills in the questions below with its best guess, for you to check and change.'))}</p>
+                        <p class="light">${esc(t('Give it a title and anything you already know. Ghostwriter fills in the questions below, for you to check and change.'))}</p>
                         <input class="text fullwidth" data-model="quick-title" placeholder="${esc(t('Working title'))}" value="${esc(this.quick.title)}" ${this.guessing ? 'disabled' : ''}>
                         <textarea class="text fullwidth" rows="3" data-model="quick-notes" placeholder="${esc(t('Notes: the angle, who it is for, points to make, projects to mention…'))}" ${this.guessing ? 'disabled' : ''}>${esc(this.quick.notes)}</textarea>
                         <div class="flex flex-justify gw-row">
                             <span class="light ${this.guessing ? 'gw-busy-note' : ''}" role="status">${this.guessing
                                 ? `<span class="spinner small"></span> ${esc(t('Filling in the brief from your title and notes. This usually takes under a minute.'))}`
                                 : esc(this.guessed ? t('Filled in below. Anything in [square brackets] needs you.') : t('Optional. You can also just answer the questions.'))}</span>
-                            <button type="button" class="btn ${this.guessing ? 'loading' : ''} ${!this.quick.title.trim() ? 'disabled' : ''}" data-action="guess" ${!this.info.configured || this.guessing || !this.quick.title.trim() ? 'disabled' : ''}>${esc(this.guessed ? t('Guess again') : t('Fill in the brief'))}</button>
+                            <button type="button" class="btn ${this.guessing ? 'loading' : ''} ${!this.quick.title.trim() ? 'disabled' : ''}" data-action="guess" ${!this.info.configured || this.guessing || !this.quick.title.trim() ? 'disabled' : ''}>${esc(this.guessed ? t('Try again') : t('Fill in the brief'))}</button>
                         </div>
                     </div>
 

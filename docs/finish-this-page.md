@@ -16,7 +16,7 @@ Finding them never calls a model. It works on any entry in a section Ghostwriter
 
 On an entry with something that stops publishing, a count sits beside **Save**: "8 things to finish". Each field with a gap is outlined, with a numbered tag beside its name ("3 · Needs a link"; "4–7 · 4 to do" for a field with several); inside CKEditor the words themselves are marked. Click the count, or a tag, to open the guide in the corner. It takes you through each one, the things to finish first ("2 of 8") and then any suggestions ("Suggestion 1 of 1"), which never stop the page going live:
 
-- **The step:** what's missing, and where, in plain words. "I left a gap in the Text block: starting price. I didn't want to guess. What should it say?"
+- **The step:** what's missing, and where, in plain words. "I left a gap in the Text block: starting price. Only you know this. What should it say?"
 - **The fixes**, the most likely first:
 
   | What | Fixes |

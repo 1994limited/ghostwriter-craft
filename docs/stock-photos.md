@@ -23,7 +23,7 @@ Every stock photo, free or paid, is recorded in the [ledger](#the-stock-images-s
 | Getty Images and iStock | `GETTY_API_KEY`, `GETTY_API_SECRET` | **Coming.** A key and secret from your own Getty Images or iStock account rep, under your own agreement. An iStock key works here too. |
 | Shutterstock | `SHUTTERSTOCK_API_KEY`, `SHUTTERSTOCK_API_SECRET` | Your own app's consumer key and secret. Searching needs only those; licensing needs a Shutterstock **API plan** (a shutterstock.com web plan can't license through the API) and your account **connected** in the settings. See [Shutterstock](#shutterstock). |
 
-You always license from **your own account**, with your own key and secret. Ghostwriter never licenses on your behalf, never routes calls through 1994's servers, and keys are read from `.env` each time, never stored or shown.
+You always license from **your own account**, with your own key and secret. Ghostwriter never licenses on your behalf, and never routes calls through 1994's servers. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us.
 
 ### Shutterstock
 
