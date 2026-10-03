@@ -1,0 +1,41 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * Copies core's English strings with keys into Craft's translation file for
+ * the `ghostwriter` category: "Finish this page" (resources/lang/en/gaps.php)
+ * as `gaps.<key>`, and the brief in the conversation
+ * (resources/lang/en/brief.php) as `brief.<key>`, with Craft's `{name}`
+ * parameters in place of Laravel's `:name`. Run it after updating core; a
+ * test fails while the two differ.
+ *
+ *     php bin/sync-core-strings
+ */
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
+
+$target = dirname(__DIR__) . '/src/translations/en/ghostwriter.php';
+$craft = fn(string $text): string => (string) preg_replace('/:([a-z][a-z_]*)/', '{$1}', $text);
+$strings = [];
+
+foreach (Message::strings() as $key => $text) {
+    $strings["gaps.{$key}"] = $craft($text);
+}
+
+foreach (require dirname(__DIR__) . '/vendor/1994/ghostwriter-core/resources/lang/en/brief.php' as $key => $text) {
+    $strings["brief.{$key}"] = $craft($text);
+}
+
+$lines = ["<?php", "", "/*", " * Ghostwriter's English strings with keys rather than source text: those", " * for \"Finish this page\" and the brief in the conversation, copied from", " * ghostwriter-core's resources/lang/en/gaps.php and brief.php by", " * bin/sync-core-strings. Don't edit by hand.", " */", "", "return ["];
+
+foreach ($strings as $key => $text) {
+    $lines[] = '    ' . var_export($key, true) . ' => ' . var_export($text, true) . ',';
+}
+
+$lines[] = '];';
+
+file_put_contents($target, implode("\n", $lines) . "\n");
+
+echo count($strings) . " strings written to src/translations/en/ghostwriter.php\n";

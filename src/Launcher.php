@@ -16,6 +16,12 @@ use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
  */
 class Launcher
 {
+    /** The keyed strings the panel uses for the brief card. */
+    public const BRIEF_STRINGS = [
+        'brief.ask', 'brief.filling', 'brief.filled', 'brief.failed', 'brief.region', 'brief.title', 'brief.model-on',
+        'brief.agree', 'brief.try-again', 'brief.show', 'brief.hide', 'brief.save', 'brief.saved',
+    ];
+
     /**
      * The button's HTML, or nothing where Ghostwriter has no business: not
      * the control panel, not a section it writes for, not someone who may
@@ -59,6 +65,8 @@ class Launcher
             'editing' => $editing,
         ];
 
+        // The brief in the conversation's words, by key (core's brief.php).
+        $view->registerTranslations('ghostwriter', self::BRIEF_STRINGS);
         $view->registerJs('new Ghostwriter.Launcher(' . Json::encode($config) . ');');
 
         return Html::button(Html::tag('span', '', ['class' => 'gw-mark', 'aria-hidden' => 'true']) . Html::encode($editing ? Craft::t('ghostwriter', 'Edit with Ghostwriter') : Craft::t('ghostwriter', 'Write with Ghostwriter')), [

@@ -7,6 +7,7 @@ use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use DateTime;
 use InvalidArgumentException;
+use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
@@ -153,6 +154,24 @@ class Presenter
     }
 
     /**
+     * The messages the conversation shows. A piece that started by editing
+     * an entry opens with a note to the writer, which isn't shown.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function visible(Session $session): array
+    {
+        $messages = BriefThread::visible($session);
+        $first = $session->messages[0] ?? null;
+
+        if ($session->isEditing() && is_array($first) && $first['role'] === 'user' && BriefThread::step($first) === null && BriefThread::text($session) === null && BriefThread::card($session) === null) {
+            unset($messages[0]);
+        }
+
+        return $messages;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function detail(Session $session): array
@@ -177,12 +196,19 @@ class Presenter
         }
 
         $last = $session->messages === [] ? null : $session->messages[array_key_last($session->messages)];
+        $stage = BriefThread::stage($session);
+        $card = BriefThread::card($session);
 
         return [
             'id' => $session->id,
             'editing' => $session->isEditing(),
-            // Whether the writer has asked something and is waiting for an answer.
-            'waitingOnYou' => $session->status === Session::IDLE
+            // Where the piece has got to, from the quick details to the draft.
+            'stage' => $stage->value,
+            // Whether the writer has asked something and is waiting for an
+            // answer. The brief's own question and card are answered in
+            // their own way.
+            'waitingOnYou' => $stage->agreed()
+                && $session->status === Session::IDLE
                 && $last !== null
                 && $last['role'] === 'assistant'
                 && ($last['asks'] ?? ($session->draft === null && !$session->isEditing())),
@@ -190,16 +216,27 @@ class Presenter
             'title' => $session->title(),
             'status' => $session->status,
             'error' => $session->error,
+            // The brief card: the working title, an answer for every
+            // question (anything only the person knows in [square
+            // brackets]) and the entries to model it on.
+            'card' => $card ? $card->toArray() + ['open' => $card->open(), 'agreed' => BriefThread::agreed($session)] : null,
+            // A piece started from the brief screen before 1.6 shows its
+            // brief as it was written.
+            'briefText' => $card ? null : BriefThread::text($session),
+            // When the work under way was asked for, to count from.
+            'since' => $last['at'] ?? null,
             // Replies use lists and bold, so they are shown as markdown, with
             // any HTML in them escaped. What the person typed stays as typed.
             // A person's message says who sent it, since others may carry on
-            // the same conversation. Older ones were the starter's.
-            'messages' => array_map(fn(array $message) => $message['role'] === 'assistant'
+            // the same conversation. Older ones were the starter's. Only what
+            // the conversation shows: the latest brief card, and none of the
+            // brief's workings.
+            'messages' => array_values(array_map(fn(array $message) => ['step' => BriefThread::step($message)] + ($message['role'] === 'assistant'
                 ? $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
                 : $message + [
                     'mine' => self::user($message['by'] ?? $session->startedBy) === $this->me(),
                     'from' => self::name(self::user($message['by'] ?? $session->startedBy)),
-                ], $session->messages),
+                ]), $this->visible($session))),
             'draft' => $session->draft,
             'draftProblem' => $problem,
             'preview' => $preview,

@@ -1,5 +1,16 @@
 # Release Notes for Ghostwriter
 
+## Unreleased
+
+Requires `1994/ghostwriter-core` ^1.6.
+
+### Changed
+- **The brief is in the conversation.** The separate brief screen is gone. After you choose what you're writing, Ghostwriter asks in one message for the quick details ("What’s it called, and what should it say? A line or two is plenty."), fills in the whole brief for that kind from your answer (one model call) and shows it in the conversation as an editable brief card: the working title, every question with its answer, and **Model it on** with the entries it will follow ticked. Anything only you know stays in `[square brackets]`; facts about your organisation are never made up. **Looks right, start writing** starts the writing; **Try again** fills it in again, keeping the answers you changed. The questions, **Just draft it with what you have**, the draft and changes work as before. Once agreed, the card folds away to **Show the brief** and stays editable (**Save the brief**). See [Writing a new entry](docs/writing.md#the-brief).
+- **Draft this** on the content plan skips the question: the brief card arrives already filled in from the idea. Pieces carried on, and shared conversations, show the card in the thread. Pieces started from the old brief screen still show their brief behind **Show the brief**.
+- The brief card is a labelled region, and its arrival is announced to screen readers. **⌘↵** in the card agrees to it.
+- New control panel actions: `ghostwriter/sessions/open`, `from-idea`, `try-again`, `agree` and `edit-brief`, and a `FillBrief` queue job. `ghostwriter/sessions/brief` and `ghostwriter/sessions/start` are removed. Nothing is stored until you answer the first question, so choosing a kind and closing the panel leaves no empty piece behind.
+- Core's English for the brief is copied into Craft's translations as `brief.*` keys, by `bin/sync-core-strings` (was `bin/sync-gap-strings`). The temporary "Finish this page" wording overrides (`src/translations/wording.php`) are gone now that core words them the same way.
+
 ## 1.1.1 - 2026-10-03
 
 ### Fixed

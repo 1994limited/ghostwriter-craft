@@ -412,6 +412,14 @@ abstract class TestCase extends CraftTestCase
     }
 
     /**
+     * Forget every job waiting in the queue.
+     */
+    protected function clearQueue(): void
+    {
+        Craft::$app->getDb()->createCommand()->delete('{{%queue}}')->execute();
+    }
+
+    /**
      * @return array<int, object> The jobs waiting in the queue.
      */
     protected function queued(string $class): array

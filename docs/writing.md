@@ -18,10 +18,10 @@ Choose what this entry is:
 
 ![The writing panel asking What are you writing?, with ideas from the content plan, a learned kind, Something else and Or carry on with](images/writing-choose.png)
 
-- **From the content plan**, shown first: ideas on the [content plan](content-plan.md) for this section. Its title and notes go into the quick brief, and Ghostwriter fills in the brief from them straight away.
+- **From the content plan**, shown first: ideas on the [content plan](content-plan.md) for this section. Ghostwriter fills in the brief from the idea's title and notes straight away, without asking first.
 - **A kind you taught it**, such as "Case study". It asks that kind's own questions, and models the entry on that kind's examples. See [Kinds of content](kinds.md).
 - **Something like what is already here**: groups of entries built the same way (the same Matrix or Neo blocks), found from the section's own entries, such as "3 entries built the same way". Choosing one starts the general brief, modelled on those entries. Shown only for sections whose entries come in more than one shape.
-- **Something else**: a general brief for anything. Tick up to six entries to **Model it on**, or leave them all unticked to let Ghostwriter choose the shape.
+- **Something else**: a general brief for anything. Tick up to six entries under **Model it on** in the brief, or leave them all unticked to let Ghostwriter choose the shape.
 
 **Teach a kind**, beside the heading, teaches one for this section (see [Teaching a kind yourself](kinds.md#teaching-a-kind-yourself)).
 
@@ -29,23 +29,38 @@ Below these, **Or carry on with** lists the pieces in this section whose entry i
 
 ## The brief
 
-Answer the questions. Short answers are fine; Ghostwriter asks for anything it still needs before it writes.
+Once you've chosen, the conversation opens and Ghostwriter asks for the quick details in one message: "What’s it called, and what should it say? A line or two is plenty." Answer in the box below it: a working title and a line or two is enough. Press **⌘↵** (or **Ctrl+↵**) or click **Send**.
+
+![The conversation opening with Ghostwriter's question What’s it called, and what should it say? A line or two is plenty., and a working title and a line about it typed in the answer box](images/writing-ask.png)
 
 Without a [voice guide](guides.md), a notice says Ghostwriter will still write, but in a plain voice rather than yours.
 
-**Quick brief.** If you'd rather not fill in every question, give a **Working title** and a few notes, then click **Fill in the brief**. Ghostwriter fills in the questions from them, and the button becomes **Try again**. Check them over: anything in `[square brackets]` needs you.
+Ghostwriter then fills in the whole brief for that kind of content from your answer ("Filling in the brief…", one model call), and shows it in the conversation as the **brief card**:
 
-Then click **Start writing**.
+- **Working title**.
+- Every one of the kind's questions, with its answer.
+- **Model it on**, with the entries it will follow ticked (the kind's own examples, when it has them). Tick or untick up to six.
 
-![The quick brief for Something else, with a working title and notes, the questions filled in, an entry ticked under Model it on, and Start writing](images/writing-brief.png)
+Anything only you can know, such as a figure, a quote or a client's name, is left in `[square brackets]` for you, and the card says so. Ghostwriter never makes up facts about your organisation: a figure or quote you didn't give is replaced with `[Add: the figure]` or `[Add: the quote]`.
 
-An idea from the [content plan](content-plan.md) fills the brief by itself: its title and notes go into the quick brief, and Ghostwriter fills in the questions from them.
+Change any answer in the card, then:
+
+- **Looks right, start writing** keeps the brief on the piece and starts the writing. Anything still in square brackets is fine: Ghostwriter asks about it, or leaves the gap marked in the draft. A required question can't be left empty.
+- **Try again** fills in the brief again from what you said. The answers you changed are kept exactly as you wrote them; the rest are answered afresh.
+
+![The brief card in the conversation: the working title, each question with its answer, gaps left in square brackets, Model it on, and Looks right, start writing and Try again](images/writing-brief.png)
+
+**Draft this** on an idea in the [content plan](content-plan.md) skips the question: the brief card arrives already filled in from the idea, ready to check.
+
+Once agreed, the card folds away to **Show the brief**. Open it to read or change the brief at any time and click **Save the brief**: nothing is rewritten straight away, and Ghostwriter works from the changed brief from your next message. It can't be changed while Ghostwriter is working.
+
+The card is a labelled region, and screen readers hear "The brief is filled in. Check it, then start writing." when it arrives. Press **⌘↵** (or **Ctrl+↵**) in the card to agree to it (or to save it, once agreed).
 
 > Ghostwriter uses only facts from the brief and the conversation. It doesn't invent figures, quotes or client names. Where it needs something it doesn't have, it asks, or leaves a `[note in square brackets]` for you.
 
 ## The conversation
 
-While Ghostwriter works, a line says what it's probably doing ("Reading the brief…", "Thinking it through…", "Writing. Long drafts take a while…"; "Revising the draft…" for a change).
+After **Looks right, start writing**, the conversation carries on. While Ghostwriter works, a line says what it's probably doing ("Reading the brief…", "Thinking it through…", "Writing. Long drafts take a while…"; "Revising the draft…" for a change).
 
 If Ghostwriter needs more before it can write, it asks. Its question is highlighted, headed **Ghostwriter needs your answer**. Above the answer box it says "Your turn: answer the questions above and the draft follows." (or, once there is a draft, "Your turn: answer above to carry on."). Answer there, or click **Just draft it with what you have** to have it write now and mark the gaps in `[square brackets]`.
 
@@ -59,11 +74,11 @@ Once there is a draft, ask for changes in plain words:
 - "Add a section on cost, after the process."
 - "Less formal."
 
-Press **⌘↵** (or **Ctrl+↵**) to send, or click **Send**. A draft usually takes a minute or two. **Show the brief** shows what you asked for at the start.
+Press **⌘↵** (or **Ctrl+↵**) to send, or click **Send**. A draft usually takes a minute or two. **Show the brief** opens the brief card again (see [The brief](#the-brief)).
 
 Each draft adds a line to the conversation, such as "Draft written · 294 words" or "Draft updated · 270 → 279 words (+9)".
 
-If a turn fails (the provider was busy, say), the panel says **That didn’t work** with the reason, and **Try again** sends the same message again. See [Troubleshooting](troubleshooting.md#that-didnt-work).
+If a turn fails (the provider was busy, say), the panel says **That didn’t work** with the reason, and **Try again** sends the same message again. If filling in the brief fails, **Try again** fills it in again. See [Troubleshooting](troubleshooting.md#that-didnt-work).
 
 ## The draft
 
@@ -106,4 +121,4 @@ A piece leaves **In progress** once its entry is saved. A draft put into the ent
 
 ## Sharing conversations
 
-Conversations are shared with everyone who may use Ghostwriter, so a colleague can pick a piece up where you left it. Each message shows who sent it, and **Or carry on with** says who started each piece and who last changed it. See [Shared conversations](permissions.md#shared-conversations).
+Conversations are shared with everyone who may use Ghostwriter, so a colleague can pick a piece up where you left it, brief card and all. Each message shows who sent it, and **Or carry on with** says who started each piece and who last changed it. See [Shared conversations](permissions.md#shared-conversations).

@@ -37,7 +37,7 @@ Under **Add your own**, give a working title, choose the section, add notes if y
 
 ## Writing an idea
 
-Click **Draft this** on an idea. A new entry in that section opens with Ghostwriter open, its title and notes in the [quick brief](writing.md#the-brief), and the brief filled in from them (one model call). Open ideas for a section are also offered in the panel itself, first, under **From the content plan**.
+Click **Draft this** on an idea. A new entry in that section opens with Ghostwriter open, and the [brief card](writing.md#the-brief) arrives in the conversation already filled in from the idea's title and notes (one model call), ready to check. Open ideas for a section are also offered in the panel itself, first, under **From the content plan**.
 
 Once you start writing it (not when the entry opens), the idea moves to **In progress**, and **Resume** reopens the piece. **Back to ideas** returns it to the open ideas, as does deleting the piece's conversation. A finished piece can't go back.
 
