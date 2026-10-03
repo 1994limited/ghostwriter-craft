@@ -1,0 +1,74 @@
+{
+    "upper": {
+        "kept": true,
+        "visible": "SHADE, YEAR-ROUND INTEREST AND SOMEWHERE"
+    },
+    "lower": {
+        "kept": true,
+        "visible": "shade, year-round interest and somewhere"
+    },
+    "title": {
+        "kept": true,
+        "visible": "Shade, Year-Round Interest And Somewhere"
+    },
+    "capitalize": {
+        "kept": true,
+        "visible": "shade, year-round interest and somewhere"
+    },
+    "striptags": {
+        "kept": true,
+        "visible": "Shade, year-round interest and somewhere"
+    },
+    "escape": {
+        "kept": true,
+        "visible": "Shade, year-round interest and somewhere"
+    },
+    "slice(0, 20)": {
+        "kept": true,
+        "visible": "Shade, year-r"
+    },
+    "length": {
+        "kept": false,
+        "visible": "56"
+    },
+    "kebab": {
+        "kept": false,
+        "visible": "shade-year-round-interest-and-somewhere-"
+    },
+    "camel": {
+        "kept": true,
+        "visible": "Shade,YearRoundInterestAndSomewhereToWai"
+    },
+    "markdown": {
+        "kept": true,
+        "visible": "<p>Shade, year-round interest and somewh"
+    },
+    "widont": {
+        "kept": true,
+        "visible": "Shade, year-round interest and somewhere"
+    },
+    "replace({\"Shade\": \"Sun\"})": {
+        "kept": true,
+        "visible": "Sun, year-round interest and somewhere t"
+    },
+    "split(\" \")|first": {
+        "kept": true,
+        "visible": "Shade,"
+    },
+    "trim": {
+        "kept": true,
+        "visible": "Shade, year-round interest and somewhere"
+    },
+    "nl2br": {
+        "kept": true,
+        "visible": "Shade, year-round interest and somewhere"
+    },
+    "url_encode": {
+        "kept": false,
+        "visible": "%F3%A0%81%A7%F3%A0%81%B7%F3%A0%81%A2%F3%"
+    },
+    "json_encode": {
+        "kept": false,
+        "visible": "\"\\udb40\\udc67\\udb40\\udc77\\udb40\\udc62\\ud"
+    }
+}

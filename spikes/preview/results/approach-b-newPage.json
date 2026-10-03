@@ -1,0 +1,1 @@
+{"case":"newPage","error":"yii\\base\\InvalidArgumentException: Cannot create a draft from another draft or revision."}

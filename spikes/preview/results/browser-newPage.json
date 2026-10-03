@@ -1,0 +1,80 @@
+{
+    "signedIn": "/admin/content/entries/pages",
+    "sameOrigin": true,
+    "loadMs": 60,
+    "url": "/gw-spike-a-preview/newPage",
+    "title": "Gardens for places people wait – Northfold",
+    "flag": "isPreview=yes ghostwriterPreview=yes",
+    "analyticsTag": false,
+    "parentReach": true,
+    "locator": {
+        "sameWidth": [
+            {
+                "font": "Georgia, serif",
+                "plain": 176.6875,
+                "marked": 176.6875,
+                "markedStart": 176.6875
+            },
+            {
+                "font": "system-ui, sans-serif",
+                "plain": 176.78125,
+                "marked": 176.78125,
+                "markedStart": 176.78125
+            }
+        ],
+        "markerWidths": {
+            "count": 15,
+            "max": 0,
+            "wide": []
+        },
+        "textNodes": 59,
+        "stripped": 16,
+        "leftover": 0,
+        "found": [
+            "f:title",
+            "b0",
+            "b1s0",
+            "b1s1",
+            "n101",
+            "b2",
+            "b3",
+            "b4s0",
+            "b4s1",
+            "b4s2",
+            "b5"
+        ],
+        "missing": [],
+        "assets": [],
+        "regions": {
+            "f:title": "header 256,0 768x90",
+            "b0": "section.hero 272,106 736x654",
+            "b1s0": "h2 272,792 736x43",
+            "b1s1": "p 272,857 736x29",
+            "b1": "main 256,90 768x2035",
+            "b2": "figure 312,1042 656x467",
+            "b3": "blockquote 272,1532 736x108",
+            "b4s0": "h2 272,1664 736x43",
+            "b4s1": "li 312,1730 696x29",
+            "b4s2": "li 312,1758 696x29",
+            "b4": "main 256,90 768x2035",
+            "b5": "section.hero 272,1805 736x196",
+            "n101": "blockquote.nested-entry 272,910 736x108"
+        },
+        "ms": 3.8
+    },
+    "after": {
+        "frameUrl": "/gw-spike-a-preview/newPage",
+        "parentUrl": "/admin/content/entries/pages"
+    },
+    "blocked": [
+        "csp"
+    ],
+    "console": [
+        "[security] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.",
+        "[security] Loading the script 'https://analytics.example.invalid/gtm.js?id=GTM-TEST' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+        "[security] Blocked form submission to '' because the form's frame is sandboxed and the 'allow-forms' permission is not set."
+    ],
+    "thirdParty": [
+        "https://analytics.example.invalid/gtm.js?id=GTM-TEST"
+    ]
+}

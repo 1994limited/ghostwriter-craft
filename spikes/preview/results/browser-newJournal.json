@@ -1,0 +1,76 @@
+{
+    "signedIn": "/admin/content/entries/pages",
+    "sameOrigin": true,
+    "loadMs": 31,
+    "url": "/gw-spike-a-preview/newJournal",
+    "title": "Rain gardens for small yards – Northfold",
+    "flag": "isPreview=yes ghostwriterPreview=yes",
+    "analyticsTag": false,
+    "parentReach": true,
+    "locator": {
+        "sameWidth": [
+            {
+                "font": "Georgia, serif",
+                "plain": 176.6875,
+                "marked": 176.6875,
+                "markedStart": 176.6875
+            },
+            {
+                "font": "system-ui, sans-serif",
+                "plain": 176.78125,
+                "marked": 176.78125,
+                "markedStart": 176.78125
+            }
+        ],
+        "markerWidths": {
+            "count": 9,
+            "max": 0,
+            "wide": []
+        },
+        "textNodes": 43,
+        "stripped": 10,
+        "leftover": 0,
+        "found": [
+            "f:title",
+            "f:excerpt",
+            "f:bodys0",
+            "f:bodys1",
+            "f:bodys2",
+            "f:bodys3",
+            "f:bodys4",
+            "n101",
+            "f:heroImage"
+        ],
+        "missing": [],
+        "assets": {
+            "f:heroImage": "https://gw-test-craft.test/uploads/images/grasses-moving-in-the-wind-demo-demo-02_2026-10-03-031247_izaf.jpg"
+        },
+        "regions": {
+            "f:title": "h1 272,621 736x58",
+            "f:excerpt": "p 272,749 736x29",
+            "f:heroImage": "img 272,106 736x491",
+            "f:bodys0": "p 272,796 736x29",
+            "f:bodys1": "h2 272,847 736x43",
+            "f:bodys2": "p 272,913 736x29",
+            "f:bodys3": "blockquote 272,965 736x29",
+            "f:bodys4": "p 291,965 717x29",
+            "n101": "blockquote.nested-entry 272,1018 736x108"
+        },
+        "ms": 2.6
+    },
+    "after": {
+        "frameUrl": "/gw-spike-a-preview/newJournal",
+        "parentUrl": "/admin/content/entries/pages"
+    },
+    "blocked": [
+        "csp"
+    ],
+    "console": [
+        "[security] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.",
+        "[security] Loading the script 'https://analytics.example.invalid/gtm.js?id=GTM-TEST' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+        "[security] Blocked form submission to '' because the form's frame is sandboxed and the 'allow-forms' permission is not set."
+    ],
+    "thirdParty": [
+        "https://analytics.example.invalid/gtm.js?id=GTM-TEST"
+    ]
+}
