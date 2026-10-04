@@ -103,15 +103,16 @@
 .gw-asks__list > li::marker { font-weight: 600; color: var(--light-text-color, #606d7b); }
 .gw-asks__field { display: grid; gap: 4px; margin: 0 !important; border: 0; padding: 0; min-width: 0; }
 .gw-asks__field .heading { margin: 0; }
-.gw-asks__field .heading label, .gw-asks__field legend span { font-weight: 600; }
+.gw-asks__field .heading label, .gw-asks__label { font-weight: 600; }
 .gw-asks__field .instructions { margin: 0; }
 .gw-asks__field .instructions p { margin: 0; }
 .gw-asks__input { resize: none; overflow: hidden; min-height: 34px; max-height: 240px; field-sizing: content; }
 .gw-asks__options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .gw-asks__option { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.gw-asks__option input { margin: 0; accent-color: var(--gw-accent, #3b4bd8); }
 .gw-asks__skip { justify-self: end; font-size: 12px; font-weight: 400; }
 .gw-asks__skipped { margin: 0; font-style: italic; }
-.gw-asks__field--skipped .heading label, .gw-asks__field--skipped legend span { opacity: .6; text-decoration: line-through; }
+.gw-asks__field--skipped .heading label, .gw-asks__field--skipped .gw-asks__label { opacity: .6; text-decoration: line-through; }
 .gw-asks__question { font-weight: 600; }
 .gw-asks__answer { white-space: pre-line; }
 .gw-asks__answer--none { color: var(--light-text-color, #606d7b); font-style: italic; }
