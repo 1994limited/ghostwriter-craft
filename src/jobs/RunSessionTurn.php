@@ -54,7 +54,7 @@ class RunSessionTurn extends Job
             // planner runs, so nothing is changed under it, but it shows.
             $apply = function(Session $session) use ($response, &$planning, &$before): void {
                 $before = $session->draft;
-                $session->answer($response->reply, $response->document, $response->inputTokens, $response->outputTokens);
+                $session->answer($response->reply, $response->document, $response->inputTokens, $response->outputTokens, questions: $response->questions);
                 $planning = ($before === null || trim($before) === '') && $response->document !== null;
 
                 if ($planning) {

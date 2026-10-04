@@ -96,6 +96,25 @@
 .gw-bubble--asking { background: var(--amber-050, #fffbeb); box-shadow: inset 0 0 0 1px var(--amber-300, #fcd34d); }
 .gw-bubble__who { margin-bottom: 3px; font-size: 11.5px; font-weight: 600; color: var(--light-text-color, #606d7b); }
 .gw-bubble__flag { color: var(--amber-700, #b45309); }
+/* The writer's questions: one box each, then each with its answer. */
+.gw-asks { max-width: 100%; align-self: stretch; display: grid; gap: 8px; }
+.gw-asks__intro { margin: 0; }
+.gw-asks__list { display: grid; gap: 12px; margin: 0; padding-inline-start: 20px; list-style: decimal; }
+.gw-asks__list > li::marker { font-weight: 600; color: var(--light-text-color, #606d7b); }
+.gw-asks__field { display: grid; gap: 4px; margin: 0 !important; border: 0; padding: 0; min-width: 0; }
+.gw-asks__field .heading { margin: 0; }
+.gw-asks__field .heading label, .gw-asks__field legend span { font-weight: 600; }
+.gw-asks__field .instructions { margin: 0; }
+.gw-asks__field .instructions p { margin: 0; }
+.gw-asks__input { resize: none; overflow: hidden; min-height: 34px; max-height: 240px; field-sizing: content; }
+.gw-asks__options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.gw-asks__option { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.gw-asks__skip { justify-self: end; font-size: 12px; font-weight: 400; }
+.gw-asks__skipped { margin: 0; font-style: italic; }
+.gw-asks__field--skipped .heading label, .gw-asks__field--skipped legend span { opacity: .6; text-decoration: line-through; }
+.gw-asks__question { font-weight: 600; }
+.gw-asks__answer { white-space: pre-line; }
+.gw-asks__answer--none { color: var(--light-text-color, #606d7b); font-style: italic; }
 .gw-bubble__draft { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .1)); font-size: 12px; color: var(--green-700, #15803d); }
 /* The brief card: filled in by Ghostwriter, checked and changed by the person. */
 .gw-brief-card { align-self: stretch; display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); border-inline-start: 3px solid var(--gw-accent, #3b4bd8); border-radius: var(--large-border-radius, 6px); background: var(--white, #fff); font-size: 13.5px; }

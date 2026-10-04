@@ -330,6 +330,43 @@ class WritingTest extends TestCase
         $this->assertSame(409, $this->action('ghostwriter/sessions/edit-brief', ['id' => $session->id, 'answers' => ['avoid' => 'Nothing.']])['status']);
     }
 
+    public function testTheWritersQuestionsAreAnsweredOneBoxEachAsOneMessage(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->proposed();
+        $this->action('ghostwriter/sessions/agree', ['id' => $session->id, 'answers' => ['what' => 'A faceted search.'], 'examples' => []]);
+
+        $this->fake->respond('writer', "<reply>A few things only you know.</reply>\n<questions>\n- id: client\n  question: Which client was it for?\n  hint: Name, if they agreed\n- id: when\n  question: When did it launch?\n  kind: choice\n  options: [This year, Last year]\n  optional: true\n</questions>");
+        $this->runTurn($this->plugin->sessions->find($session->id));
+
+        $detail = (new Presenter())->detail($this->plugin->sessions->find($session->id));
+        $this->assertTrue($detail['waitingOnYou']);
+        $asked = end($detail['messages'])['asked'];
+        $this->assertSame('A few things only you know.', $asked['intro']);
+        $this->assertSame(['client', 'when'], array_column($asked['questions'], 'id'));
+        $this->assertSame(['This year', 'Last year'], $asked['questions'][1]['options']);
+        $this->assertFalse($asked['answered']);
+
+        // Nothing answered: nothing sent.
+        $this->assertSame(409, $this->action('ghostwriter/sessions/answers', ['id' => $session->id, 'answers' => ['client' => ' ']])['status']);
+        $this->assertCount(1, $this->queued(RunSessionTurn::class));
+
+        $sent = $this->action('ghostwriter/sessions/answers', ['id' => $session->id, 'answers' => ['client' => 'Harbour Books', 'when' => ''], 'more' => 'Keep it short.'])['data'];
+        $this->assertSame(Session::WORKING, $sent['status']);
+        $this->assertCount(2, $this->queued(RunSessionTurn::class));
+
+        $stored = $this->plugin->sessions->find($session->id);
+        $this->assertSame("Which client was it for? → Harbour Books\n\nWhen did it launch? → skipped\n\nAlso: Keep it short.", end($stored->messages)['content']);
+
+        // The card now shows each answer, read-only, and who answered.
+        $card = $sent['messages'][count($sent['messages']) - 2]['asked'];
+        $this->assertTrue($card['answered']);
+        $this->assertSame(['Harbour Books', null], array_column($card['questions'], 'answer'));
+        $this->assertSame('you', $card['answeredBy']);
+        $this->assertSame('Keep it short.', end($sent['messages'])['more']);
+    }
+
     public function testAFailedFillIsTriedAgainAsAFill(): void
     {
         $this->signIn();

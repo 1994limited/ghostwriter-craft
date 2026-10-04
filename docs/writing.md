@@ -62,7 +62,7 @@ The card is a labelled region, and screen readers hear "The brief is filled in. 
 
 After **Looks right, start writing**, the conversation carries on. While Ghostwriter works, a line says what it's probably doing ("Reading the brief…", "Thinking it through…", "Writing. Long drafts take a while…"; "Revising the draft…" for a change).
 
-If Ghostwriter needs more before it can write, it asks. Its question is highlighted, headed **Ghostwriter needs your answer**. Above the answer box it says "Your turn: answer the questions above and the draft follows." (or, once there is a draft, "Your turn: answer above to carry on."). Answer there, or click **Just draft it with what you have** to have it write now and mark the gaps in `[square brackets]`.
+If Ghostwriter needs facts only you know before it can write, it asks first: four short questions at most, headed **Ghostwriter needs your answer** and announced to screen readers. Each question has its own box, labelled with the question, with a hint under it when one helps; a question with a few set answers has radio buttons instead, and one it can do without is marked *(optional)*. **Skip** a question you can't answer: Ghostwriter writes around it or marks the place for you to fill in. **Add anything else** opens a box for anything more. **Send answers** (or ⌘↵ / Ctrl+↵ in any box) sends them all as one message; **Just draft it with what you have** has it write now and mark the gaps in `[square brackets]`. Once sent, the questions stay in the conversation with your answers under them.
 
 ![Ghostwriter's questions headed Ghostwriter needs your answer, with Your turn: answer the questions above and the draft follows. above the answer box, and Just draft it with what you have](images/writing-questions.png)
 
