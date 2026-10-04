@@ -57,6 +57,39 @@ class DashboardController extends Controller
             'planOpen' => count(array_filter($plugin->domain->ideas(), fn(Idea $idea) => $idea->isOpen())),
             'isAdmin' => Craft::$app->getUser()->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
             'stock' => \nineteenninetyfour\ghostwriter\stock\StockView::summary(),
+            'revisit' => $this->revisit(),
         ]);
+    }
+
+    /**
+     * Content to revisit at a glance: pages worth a look on this site, and
+     * the top few with their first reason. Read from the list; no model.
+     *
+     * @return array<string, mixed>
+     */
+    private function revisit(): array
+    {
+        $plugin = Plugin::getInstance();
+        $site = (int) (\craft\helpers\Cp::requestedSite() ?? Craft::$app->getSites()->getPrimarySite())->id;
+        $now = new \DateTimeImmutable();
+        $user = Craft::$app->getUser()->getIdentity();
+        $visible = [];
+
+        foreach ($plugin->types->sections() as $section) {
+            if ($user?->can("viewEntries:{$section->uid}")) {
+                $visible[] = $section->handle;
+            }
+        }
+
+        $top = array_slice(array_values(array_filter($plugin->revisitStore->top($site, null, 20, 0, [], $now), fn($row) => in_array($row->entry->group, $visible, true))), 0, 3);
+
+        return [
+            'worth' => (int) ($plugin->revisitStore->stats($site, $now)['worth-a-look'] ?? 0),
+            'top' => array_map(fn($row) => [
+                'title' => $row->title,
+                'reason' => $row->reasons !== [] ? \nineteenninetyfour\ghostwriter\suggest\SuggestEdits::text($row->reasons[0]->message(), sentence: false) : '',
+            ], $top),
+            'url' => \craft\helpers\UrlHelper::cpUrl('ghostwriter/revisit'),
+        ];
     }
 }

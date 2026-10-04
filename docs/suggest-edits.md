@@ -93,6 +93,17 @@ Rows are kept in `{{%ghostwriter_revisit}}`, the links each page holds in `{{%gh
 
 A link counts as broken only after it fails twice in a row (404, 410, or a name that no longer resolves). Anything else (a timeout, 401, 403, 429, a server error) says nothing about the page and is never shown. Links to your own pages are always checked, with no request.
 
+### The list
+
+**Ghostwriter → Content to revisit** (and a tile on the Overview with the pages worth a look and the top three):
+
+- **Tiles**: pages worth a look (a priority of Medium or High), pages mentioning a past year as current, broken links, images without alt text. Each filters the list; click it again for everything.
+- **The list**, highest priority first, 25 a page, for the site you're on (a site switcher on a multi-site install), and only the sections whose entries you can view: the page and its section, when it was last updated, why (the most important reasons first), and its priority as a bar and a word (High, Medium, Low). A section filter narrows it.
+- **Review** opens the page with Suggest edits ready to run: the confirm, with its cost, or a review that still fits the page.
+- **⌄**: **Snooze for 90 days** (off the list for everyone; needs permission to save the page) and **Open without reviewing**.
+- Opened before the daily pass has ever run, every page is read once in the background; when the list is over a day old it says when it last ran and the cron line that keeps it daily.
+- On a phone, each page is a card.
+
 ## Settings
 
 In **Settings → Plugins → Ghostwriter**, under **Suggest edits and Content to revisit**. Each can be set in `config/ghostwriter.php` instead, which locks it on the screen.

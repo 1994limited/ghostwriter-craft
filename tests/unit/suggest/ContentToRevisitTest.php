@@ -150,6 +150,67 @@ class ContentToRevisitTest extends TestCase
         $this->assertSame(LinkStatus::Broken, $this->row($this->services)->external['https://example.org/gone']->status);
     }
 
+    public function test_the_list_ranks_pages_with_their_reasons_and_a_review_link(): void
+    {
+        $this->signIn(extra: ['viewEntries:' . $this->section->uid, 'saveEntries:' . $this->section->uid]);
+        $this->plugin->revisit->daily(full: true);
+
+        $page = $this->action('ghostwriter/revisit/show', [], 'GET');
+        $this->assertSame(200, $page['status']);
+        $this->assertSame('ghostwriter/revisit', $page['data']['template']);
+        $rows = $page['data']['variables']['rows'];
+        $this->assertSame('Services', $rows[0]['title']);
+        $this->assertSame('high', $rows[0]['reasons'][0]['severity']);
+        $this->assertStringEndsWith('ghostwriter=suggest', (string) $rows[0]['reviewUrl']);
+        $this->assertFalse($page['data']['variables']['reading']);
+
+        $this->assertSame([], $this->action('ghostwriter/revisit/show', ['show' => 'missing-alt'], 'GET')['data']['variables']['rows']);
+
+        $overview = $this->action('ghostwriter/dashboard/index', [], 'GET');
+        $this->assertSame('Services', $overview['data']['variables']['revisit']['top'][0]['title']);
+        $this->assertSame([], $this->fake->requests(), 'No model.');
+    }
+
+    public function test_only_sections_the_person_can_view_are_listed(): void
+    {
+        $this->signIn();
+        $this->plugin->revisit->daily(full: true);
+
+        $this->assertSame([], $this->action('ghostwriter/revisit/show', [], 'GET')['data']['variables']['rows']);
+    }
+
+    public function test_a_snoozed_page_leaves_the_list_for_everyone_and_needs_the_right_to_save_it(): void
+    {
+        $this->signIn(extra: ['viewEntries:' . $this->section->uid]);
+        $key = EntryChecks::ref($this->services)->key();
+
+        $this->assertSame(403, $this->action('ghostwriter/revisit/snooze', ['key' => $key])['status']);
+
+        $this->signIn(extra: ['viewEntries:' . $this->section->uid, 'saveEntries:' . $this->section->uid, 'viewPeerEntries:' . $this->section->uid, 'savePeerEntries:' . $this->section->uid]);
+        $this->assertSame(200, $this->action('ghostwriter/revisit/snooze', ['key' => $key])['status']);
+        $this->assertNotNull($this->row($this->services)->snoozedUntil);
+        $this->assertSame([], $this->action('ghostwriter/revisit/show', [], 'GET')['data']['variables']['rows']);
+    }
+
+    public function test_opening_the_list_queues_the_daily_pass_when_it_is_due(): void
+    {
+        $this->signIn(extra: ['viewEntries:' . $this->section->uid]);
+        $this->clearQueue();
+
+        $page = $this->action('ghostwriter/revisit/show', [], 'GET')['data']['variables'];
+
+        $this->assertTrue($page['reading']);
+        $this->assertTrue($page['stale']);
+        $this->assertCount(1, $this->queued(RefreshRevisit::class));
+    }
+
+    public function test_the_tables_are_installed(): void
+    {
+        foreach ([\nineteenninetyfour\ghostwriter\Store::EDIT_REVIEWS, \nineteenninetyfour\ghostwriter\Store::REVISIT, \nineteenninetyfour\ghostwriter\Store::REVISIT_LINKS, \nineteenninetyfour\ghostwriter\Store::ENTRY_INDEX] as $table) {
+            $this->assertTrue(Craft::$app->getDb()->tableExists($table), $table);
+        }
+    }
+
     public function test_the_three_settings_have_their_defaults(): void
     {
         $settings = new \nineteenninetyfour\ghostwriter\models\Settings();
