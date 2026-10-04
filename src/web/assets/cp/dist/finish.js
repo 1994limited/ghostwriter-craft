@@ -109,6 +109,31 @@
             return open >= 0 ? open : steps.length;
         },
 
+        /**
+         * Where the guide opens when asked to: the first open step, else the
+         * first skipped one, so a count of "1 to finish" always lands on it.
+         */
+        firstToDo(steps) {
+            const open = this.firstOpen(steps);
+
+            if (open < steps.length) return open;
+
+            const skipped = steps.findIndex((step) => !this.isSuggestion(step.gap) && step.status !== 'fixed');
+
+            return skipped >= 0 ? skipped : steps.length;
+        },
+
+        /**
+         * What is left to finish as everything outside the guide says it:
+         * the menu's badge and row, and Suggest edits' "1 thing still to
+         * finish". Nothing until the guide is out (a required field left
+         * empty doesn't bring it out on its own), so no count ever points
+         * at a guide that isn't there.
+         */
+        published(steps, index, shown) {
+            return shown ? this.counts(steps, index).count : 0;
+        },
+
         /** The next open step from `from`, coming round to the start; the end when none is open. */
         nextOpen(steps, from) {
             for (let i = from; i < steps.length; i++) {
@@ -281,16 +306,38 @@
         /**
          * Which side of the mark its words go: the reading side when they
          * fit in the window, the other side when not, else under it,
-         * leaning away from the nearer edge.
+         * leaning away from the nearer edge. With `covers` (side → whether
+         * the words there would sit on the page's text), a side that fits
+         * and covers nothing wins: either side, then above, then below;
+         * when every side covers something, the first that fits.
          */
-        saySide(x, label, width, { size = 44, mirror = false } = {}) {
+        saySide(x, label, width, { size = 44, mirror = false, covers = null, y = null, height = 20 } = {}) {
             const room = { right: width - (x + size + 2) - 8, left: x - 2 - 8 };
             const [first, second] = mirror ? ['left', 'right'] : ['right', 'left'];
+            const lean = x + size / 2 > width / 2 ? ['left', 'right'] : ['right', 'left'];
+            const under = `below-${lean[0]}`;
+            const fits = [first, second].filter((side) => label <= room[side]);
 
-            if (label <= room[first]) return first;
-            if (label <= room[second]) return second;
+            if (covers) {
+                const vertical = (where) => lean.map((side) => `${where}-${side}`).filter((side) => (side.endsWith('left') ? x + size : width - x) >= label + 4);
+                const above = y === null || y - height - 4 >= 4 ? vertical('above') : [];
+                const clear = [...fits, ...above, ...vertical('below')].find((side) => !covers(side));
 
-            return x + size / 2 > width / 2 ? 'below-left' : 'below-right';
+                if (clear) return clear;
+            }
+
+            return fits[0] ?? under;
+        },
+
+        /**
+         * Where the mark's words would sit on screen for a side (saySide),
+         * the mark at (x, y): beside it at its top, or above or below it.
+         */
+        sayRect(side, x, y, label, height, size = 44) {
+            const left = side === 'right' ? x + size + 2 : side === 'left' ? x - 2 - label : side.endsWith('-left') ? x + size - label : x;
+            const top = side.startsWith('above') ? y - height - 4 : side.startsWith('below') ? y + size + 2 : y + 2;
+
+            return { left, top, right: left + label, bottom: top + height };
         },
 
         /**
@@ -475,10 +522,7 @@
             onPhone();
 
             // "Finish this page" in the menu beside Edit with Ghostwriter.
-            this.addListener(Garnish.$doc, 'ghostwriter:finish-show', () => {
-                this.minimise(false);
-                this.go(this.firstOpen());
-            });
+            this.addListener(Garnish.$doc, 'ghostwriter:finish-show', () => this.open());
 
             // Craft's element editor autosaves the draft as the form changes;
             // each time, look again at what is left.
@@ -614,6 +658,23 @@
             return Ghostwriter.FinishHelpers.counts(this.steps, this.index).count;
         },
 
+        /** What is left to finish as the menu and Suggest edits show it (FinishHelpers.published). */
+        left() {
+            return Ghostwriter.FinishHelpers.published(this.steps, this.index, this.shown);
+        },
+
+        /**
+         * Open the guide on what is left, from the menu or from Suggest
+         * edits: brought out if it wasn't, so whatever counted a step
+         * always opens onto it.
+         */
+        open() {
+            this.shown = true;
+            this.minimise(false);
+            this.paint();
+            this.go(Ghostwriter.FinishHelpers.firstToDo(this.steps));
+        },
+
         countText(count) {
             return count === 1 ? this.strings.countOne : (this.strings.count ?? '').replace('{count}', count);
         },
@@ -696,7 +757,7 @@
         paint() {
             const count = this.count();
 
-            this.paintMenu(count);
+            this.paintMenu();
             this.paintDock(count);
             this.paintFields();
             this.paintEditors();
@@ -740,8 +801,8 @@
         },
 
         /** The count on the menu beside Edit with Ghostwriter: nothing until the guide is out. */
-        paintMenu(count) {
-            document.dispatchEvent(new CustomEvent('ghostwriter:counts', { detail: { finish: this.shown ? count : 0 } }));
+        paintMenu() {
+            document.dispatchEvent(new CustomEvent('ghostwriter:counts', { detail: { finish: this.left() } }));
         },
 
         paintDock(count) {
@@ -1476,7 +1537,12 @@
                 $say.text(this.flySpeech ?? '');
                 x = Math.max(4, x);
                 y = Math.max(4, y);
-                this.$flyer.attr('data-say', H.saySide(x, $say[0].offsetWidth, window.innerWidth, { mirror }));
+                const label = $say[0].offsetWidth;
+                const tall = $say[0].offsetHeight || 20;
+                // Its words go where they cover none of the page's own (the sidebar's dates, a label).
+                const covers = (side) => this.coversText(H.sayRect(side, x, y, label, tall));
+
+                this.$flyer.attr('data-say', H.saySide(x, label, window.innerWidth, { mirror, covers: label ? covers : null, y, height: tall }));
                 this.move(x, y);
                 this.lastX = x;
 
@@ -1485,6 +1551,33 @@
                     this.$flyer.addClass('gw-finish-flyer--arrived');
                     this.$flyer.find('.gw-finish-flyer__tilt').css('transform', 'rotate(0deg)');
                 }, this.reduced || !flying ? 0 : FLIGHT);
+            });
+        },
+
+        /**
+         * Whether a box on screen would sit on the page's text: a few points
+         * in it, each over the words of the topmost element there that isn't
+         * Ghostwriter's own (or over a text box).
+         */
+        coversText(rect) {
+            const points = [[rect.left + 2, rect.top + 2], [rect.right - 2, rect.top + 2], [rect.left + 2, rect.bottom - 2], [rect.right - 2, rect.bottom - 2], [(rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2]];
+
+            return points.some(([px, py]) => {
+                if (px < 0 || py < 0 || px > window.innerWidth || py > window.innerHeight) return false;
+
+                const el = document.elementsFromPoint(px, py).find((node) => !node.closest('.gw-finish-flyer, .gw-finish-flash'));
+
+                if (!el || el === document.body || el === document.documentElement) return false;
+                if (el.matches('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]')) return true;
+
+                return [...el.childNodes].some((node) => {
+                    if (node.nodeType !== 3 || !node.textContent.trim()) return false;
+
+                    const range = document.createRange();
+                    range.selectNodeContents(node);
+
+                    return [...range.getClientRects()].some((box) => px >= box.left && px <= box.right && py >= box.top && py <= box.bottom);
+                });
             });
         },
 

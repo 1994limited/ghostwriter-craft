@@ -151,13 +151,10 @@ class SuggestEdits extends Component
             }
         }
 
-        $checked = $latest !== null && is_array($latest->toArray()['checked'] ?? null) ? count($latest->toArray()['checked']) : 0;
-
         return [
             'configured' => $plugin->studio->configured(),
             'calls' => $this->calls($entry),
             'candidates' => count($preview['findings']),
-            'checked' => $checked,
             'review' => $latest === null ? null : [
                 'id' => $latest->id,
                 'status' => $stale ? 'failed' : $latest->status->value,

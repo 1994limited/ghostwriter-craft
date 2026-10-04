@@ -157,7 +157,24 @@
     font-size: 12px;
 }
 
+.gw-s-status__line {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    line-height: 16px;
+}
+
+.gw-s-status__text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .gw-s-spinner {
+    flex: none;
+    box-sizing: border-box;
+    margin-top: 2px;
     width: 12px;
     height: 12px;
     border-radius: 50%;

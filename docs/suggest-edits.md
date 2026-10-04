@@ -7,7 +7,6 @@
 On an existing entry, open the Ghostwriter menu beside **Edit with Ghostwriter** and choose **Suggest edits**. A confirm says what it does and what it costs before anything is sent:
 
 - **Two calls to your AI provider** for a page: one reviews the page, a second double-checks every suggestion before you see it. A long page is read in parts, and the confirm says how many calls that makes.
-- How many things the free checks found already, to be checked in context.
 
 The review reads the page as your form has it: your provisional draft, unsaved changes and all. That includes the entries nested in a CKEditor field (a pull quote, a call to action), each read as a Matrix entry is. It runs on the queue. While it runs, the menu beside **Edit with Ghostwriter** has **Review suggestions** (which opens the guide) and the guide shows its progress ("Reviewing… then double-checking"). You can keep working on the page; a decision made meanwhile is sent once the review is ready.
 
