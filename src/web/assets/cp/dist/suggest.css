@@ -25,14 +25,13 @@
 
 /* Suggest edits in the menu beside Edit with Ghostwriter, with its hint */
 
-.gw-menu [data-ghostwriter-suggest] {
-    flex-wrap: wrap;
+.gw-menu [data-ghostwriter-suggest] span:has(> .gw-menu-row-info) {
+    flex-direction: column;
     align-items: flex-start;
 }
 
 .gw-menu-row-info {
     display: block;
-    flex-basis: 100%;
     max-width: 260px;
     margin-top: 2px;
     white-space: normal;
