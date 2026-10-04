@@ -28,6 +28,12 @@
     </div>
 {% endfor %}
 
+{% for note in linkNotes ?? [] %}
+    <div class="warning with-icon" style="margin-bottom: 24px;">
+        <strong>{{ 'Link index'|t('ghostwriter') }}:</strong> {{ note }}
+    </div>
+{% endfor %}
+
 <h2>{{ 'Sections'|t('ghostwriter') }}</h2>
 
 {{ forms.checkboxSelectField({

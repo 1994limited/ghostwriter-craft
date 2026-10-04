@@ -16,6 +16,7 @@ class Install extends Migration
         self::createTables($this);
         self::createStockTables($this);
         self::createSuggestTables($this);
+        self::createLinkIndex($this);
         (new FileImport($this))->run();
 
         return true;
@@ -32,7 +33,7 @@ class Install extends Migration
             LedgerExport::beforeUninstall($this->db);
         }
 
-        foreach ([Store::REVISIT_LINKS, Store::REVISIT, Store::ENTRY_INDEX, Store::EDIT_REVIEWS, Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
+        foreach ([Store::INDEX_STEMS, Store::REVISIT_LINKS, Store::REVISIT, Store::ENTRY_INDEX, Store::EDIT_REVIEWS, Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
             $this->dropTableIfExists($table);
         }
 
@@ -228,6 +229,54 @@ class Install extends Migration
             ]);
             $migration->createIndex(null, Store::ENTRY_INDEX, ['entryKey'], true);
             $migration->createIndex(null, Store::ENTRY_INDEX, ['site']);
+        }
+    }
+
+    /**
+     * The link index (SEO layer §7.1): the entry index keeps link rows
+     * (pages of every routable section and category group, as link targets
+     * only) beside its full rows, saying which each is, with the columns
+     * the daily pass and related() query by; the rest of the row is in
+     * `data`. And each row's stems, for narrowing a big site's candidates.
+     */
+    public static function createLinkIndex(Migration $migration): void
+    {
+        $columns = [
+            // full: one of Ghostwriter's sections (shingles, a revisit row); link: a link target only.
+            'scope' => $migration->string(8)->notNull()->defaultValue('full'),
+            // entry or category.
+            'kind' => $migration->string(16)->notNull()->defaultValue('entry'),
+            'liveFrom' => $migration->dateTime(),
+            'liveUntil' => $migration->dateTime(),
+            'noindex' => $migration->boolean()->notNull()->defaultValue(false),
+            'keyPage' => $migration->boolean()->notNull()->defaultValue(false),
+            // When the page was last changed, and when its row was written.
+            'pageUpdated' => $migration->dateTime(),
+            'indexed' => $migration->dateTime(),
+        ];
+
+        $table = $migration->db->getTableSchema(Store::ENTRY_INDEX, true);
+
+        foreach ($columns as $name => $type) {
+            if ($table !== null && $table->getColumn($name) === null) {
+                $migration->addColumn(Store::ENTRY_INDEX, $name, $type);
+            }
+        }
+
+        if ($table !== null && $table->getColumn('scope') === null) {
+            $migration->createIndex(null, Store::ENTRY_INDEX, ['site', 'scope']);
+            $migration->createIndex(null, Store::ENTRY_INDEX, ['site', 'groupHandle']);
+        }
+
+        if (!$migration->db->tableExists(Store::INDEX_STEMS)) {
+            $migration->createTable(Store::INDEX_STEMS, [
+                'id' => $migration->bigPrimaryKey(),
+                'stem' => $migration->string(64)->notNull(),
+                'entryKey' => $migration->string(255)->notNull(),
+                'site' => $migration->string(64)->notNull()->defaultValue(''),
+            ]);
+            $migration->createIndex(null, Store::INDEX_STEMS, ['site', 'stem']);
+            $migration->createIndex(null, Store::INDEX_STEMS, ['entryKey']);
         }
     }
 }

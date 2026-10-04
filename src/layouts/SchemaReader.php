@@ -65,6 +65,17 @@ class SchemaReader
     }
 
     /**
+     * The fields of any element's layout (a category group's), with the
+     * title first where it has one.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function readLayout(FieldLayout $layout, bool $title = true): array
+    {
+        return $this->layout($layout, $title, 0);
+    }
+
+    /**
      * The same, as core's schema model, for the layout algorithms.
      */
     public function schema(EntryType $type): Schema

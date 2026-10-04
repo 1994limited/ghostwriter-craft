@@ -3,6 +3,8 @@
 namespace nineteenninetyfour\ghostwriter\suggest;
 
 use Craft;
+use craft\base\ElementInterface;
+use craft\elements\Category;
 use craft\elements\Entry;
 use craft\helpers\ElementHelper;
 use DateTimeImmutable;
@@ -14,6 +16,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Revisit\RevisitOptions;
 use NineteenNinetyFour\Ghostwriter\Core\Revisit\RevisitScanner;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\EditReviews;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\EntryRef;
+use NineteenNinetyFour\Ghostwriter\Core\Suggest\IndexScope;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\Quieted;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\jobs\RefreshRevisit;
@@ -28,11 +31,13 @@ use yii\base\Component;
  *
  * - saved(): one entry saved: its row, its paragraphs in the index, and
  *   its latest review's Done and Stale (core's Reconciler);
+ * - linkSaved(): a page of any other section with URLs (or a category)
+ *   saved: its link row in the index (SEO layer §7.1), nothing else;
  * - deleted(): its row, index entry and reviews forgotten, and every
  *   page that linked to it checked again;
  * - daily(): entries saved since the last run and rows whose day has
- *   come, a full pass once a week (and the first time), and suggestions
- *   nobody acted on for 14 days expired;
+ *   come, a full pass once a week (and the first time), the link rows
+ *   (LinkRows), and suggestions nobody acted on for 14 days expired;
  * - links(): the weekly check of links to other sites, only when an admin
  *   has turned it on.
  *
@@ -62,7 +67,14 @@ class Revisit extends Component
 
     private ?EntryChecks $checks = null;
 
+    /** @var array<int, array{written: int, forgotten: int, promoted: int, pending: int}> What the last daily() did to each site's link rows. */
+    public array $linkResults = [];
+
     private ?CraftEntrySource $source = null;
+
+    private ?CraftLinkSource $linkSource = null;
+
+    private ?LinkRows $linkRows = null;
 
     public function checks(): EntryChecks
     {
@@ -78,6 +90,16 @@ class Revisit extends Component
      * Core's Suggest edits service over the plugin's store, lock and
      * Studio. Made each time, so a faked provider applies at once.
      */
+    public function linkSource(): CraftLinkSource
+    {
+        return $this->linkSource ??= new CraftLinkSource();
+    }
+
+    public function linkRows(): LinkRows
+    {
+        return $this->linkRows ??= new LinkRows($this);
+    }
+
     public function reviews(): EditReviews
     {
         $plugin = Plugin::getInstance();
@@ -132,15 +154,27 @@ class Revisit extends Component
     }
 
     /**
-     * Queue an entry's refresh once: a second save while it waits finds
-     * it queued, as the job reads the entry when it runs.
+     * Whether a save of this element is the link index's business only: a
+     * page of a section with URLs that isn't one of Ghostwriter's, or a
+     * category of a group with URLs (SEO layer §7.1).
      */
-    public static function queue(Entry $entry): void
+    public static function linksTo(ElementInterface $element): bool
     {
-        $key = RefreshRevisitEntry::cacheKey((int) $entry->id, (int) $entry->siteId);
+        return CraftLinkSource::linkable($element) && !($element instanceof Entry && self::follows($element));
+    }
+
+    /**
+     * Queue an entry's (or a category's) refresh once: a second save
+     * while it waits finds it queued, as the job reads the element when
+     * it runs.
+     */
+    public static function queue(Entry|Category $element): void
+    {
+        $category = $element instanceof Category;
+        $key = RefreshRevisitEntry::cacheKey((int) $element->id, (int) $element->siteId, $category);
 
         if (Craft::$app->getCache()->add($key, 1, 600)) {
-            RefreshRevisitEntry::start(['entryId' => (int) $entry->id, 'siteId' => (int) $entry->siteId]);
+            RefreshRevisitEntry::start(['entryId' => (int) $element->id, 'siteId' => (int) $element->siteId, 'category' => $category]);
         }
     }
 
@@ -150,7 +184,7 @@ class Revisit extends Component
         $ref = EntryChecks::ref($entry);
         $context = $this->checks()->context($entry, $now);
 
-        Plugin::getInstance()->entryIndex->put($ref, (string) $entry->title, $entry->getUrl(), $context, self::summary($entry));
+        Plugin::getInstance()->entryIndex->put($ref, (string) $entry->title, $entry->getUrl(), $context, self::summary($entry), $this->linkSource()->row($entry, IndexScope::Full, $now));
         $this->index()->refreshOne($this->source(), $ref, $now);
 
         try {
@@ -161,23 +195,39 @@ class Revisit extends Component
     }
 
     /**
-     * An entry deleted: its rows and index entries on every site
-     * forgotten, and every page that linked to it checked again. Its
+     * A page of a section with URLs that isn't one of Ghostwriter's, or a
+     * category, saved: its link row written again, or forgotten when it
+     * can't be linked to any more (disabled, no URI, no text of its own).
+     */
+    public function linkSaved(Entry|Category $element, ?DateTimeImmutable $now = null): void
+    {
+        $row = $this->linkSource()->row($element, IndexScope::Link, $now);
+
+        if ($row !== null) {
+            Plugin::getInstance()->entryIndex->putRow($row);
+        }
+    }
+
+    /**
+     * An entry or category deleted: its rows and index entries on every
+     * site forgotten, and every page that linked to it checked again. Its
      * reviews go only when it's gone for good (not in the trash).
      */
-    public function deleted(Entry $entry, ?DateTimeImmutable $now = null): void
+    public function deleted(Entry|Category $entry, ?DateTimeImmutable $now = null): void
     {
         $now ??= new DateTimeImmutable();
         $plugin = Plugin::getInstance();
-        $section = (string) ($entry->getSection()?->handle ?? '');
+        $category = $entry instanceof Category;
+        $group = $category ? CraftLinkSource::CATEGORY . $entry->getGroup()->handle : (string) ($entry->getSection()?->handle ?? '');
+        $target = $category ? "{category:{$entry->id}}" : "{entry:{$entry->id}}";
 
         foreach (Craft::$app->getSites()->getAllSiteIds(true) as $siteId) {
-            $ref = new EntryRef($section, (int) $entry->id, (int) $siteId);
+            $ref = new EntryRef($group, (int) $entry->id, (int) $siteId);
 
             $plugin->entryIndex->forget($ref);
-            $this->index()->deleted($this->source(), $ref, $now, ["{entry:{$entry->id}}"]);
+            $this->index()->deleted($this->source(), $ref, $now, [$target]);
 
-            if ($entry->hardDelete) {
+            if ($entry->hardDelete && !$category) {
                 foreach ($plugin->editReviewStore->history($ref) as $review) {
                     $plugin->editReviewStore->delete($review->id);
                 }
@@ -206,12 +256,21 @@ class Revisit extends Component
                     $entry = Entry::find()->id((int) $snapshot->ref->id)->siteId((int) $siteId)->one();
 
                     if ($entry instanceof Entry) {
-                        Plugin::getInstance()->entryIndex->put($snapshot->ref, $snapshot->title, $entry->getUrl(), $snapshot->context, self::summary($entry));
+                        Plugin::getInstance()->entryIndex->put($snapshot->ref, $snapshot->title, $entry->getUrl(), $snapshot->context, self::summary($entry), $this->linkSource()->row($entry, IndexScope::Full, $now));
                     }
                 }
             }
 
             $read += $this->index()->refresh($this->source(), $now, $whole ? null : $last, (int) $siteId, $whole);
+
+            // Link rows: every other routable page of the site (SEO layer §7.1).
+            try {
+                $this->linkRows()->pass((int) $siteId, $now, $whole);
+                $this->linkResults[(int) $siteId] = $this->linkRows()->last;
+            } catch (Throwable $exception) {
+                Craft::warning("Ghostwriter couldn't bring the link index up to date for site {$siteId}: {$exception->getMessage()}", 'ghostwriter');
+            }
+
             $state['sites'][$key] = ['run' => $now->format(DATE_ATOM), 'full' => $whole ? $now->format(DATE_ATOM) : ($state['sites'][$key]['full'] ?? null)];
             $store->putState(self::STATE, $state);
         }
