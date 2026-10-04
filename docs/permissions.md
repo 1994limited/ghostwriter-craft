@@ -8,15 +8,17 @@ Ghostwriter adds two permissions under **Settings → Users → User Groups** (o
 
 People with it see:
 
-- Ghostwriter in the control panel's navigation, with the Overview, Content plan, Voice guide and Image style
+- Ghostwriter in the control panel's navigation, with the Overview, Content plan, Content to revisit, Voice guide, Image style and Stock images
 - **Write with Ghostwriter** on new entries, and beside **New entry** on the entry index, in the sections Ghostwriter writes for
-- **Edit with Ghostwriter** on existing entries in those sections
+- **Edit with Ghostwriter** on existing entries in those sections, with its menu: [Finish this page](finish-this-page.md), and [Suggest edits](suggest-edits.md) for people who can save the entry
 - the image button on Assets fields
 - the Ghostwriter widget, which they can add to Craft's Dashboard
 
 They also share the voice guide, image style guide, kinds of content and content plan, and can change them: edit or rewrite a guide, edit or delete a kind, add, dismiss or delete ideas. These are the writing team's shared tools, like the entries themselves.
 
 Writing into an entry still needs Craft's own permission to save entries in that section. Ghostwriter never lets anyone change an entry they couldn't change by hand.
+
+Content to revisit lists only the sections whose entries each person can view. Snoozing a page needs permission to save it, and saving alt text from Suggest edits needs permission to save the volume's assets.
 
 ## Licensing stock images
 

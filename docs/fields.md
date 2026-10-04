@@ -18,6 +18,12 @@ Each field is reduced to a kind. The writer fills in the writing; everything els
 
 A Matrix or Neo field with nothing in it to write, such as a gallery of images, is treated as a reference.
 
+Ghostwriter also reads:
+
+- **Each CKEditor field's heading levels**, from its toolbar's Heading options. The writer uses only those, and a deeper heading becomes a bold lead-in. A field without the Heading button gets no headings. See [Headings](writing.md#headings).
+- **A Plain Text field's character limit**, which the writer keeps to, and which Suggest edits and Content to revisit check an SEO field against.
+- **Entries nested in a CKEditor field** (a pull quote, a call to action). A new draft can add them; they render in the Preview through their entry type's partial template. [Suggest edits](suggest-edits.md) and [Content to revisit](suggest-edits.md#content-to-revisit) read their words as they read Matrix blocks.
+
 ## Learning from your entries
 
 Without any setup, Ghostwriter reads a section's entries and learns:
@@ -43,7 +49,7 @@ A link from a page to itself, such as the last breadcrumb, is recognised as one.
 
 ### Links it can't decide
 
-If a block should have a link (the field is required, or that kind of block usually has one), but the examples don't agree on where it goes, Ghostwriter points it at `https://example.com` with the text "Link to choose". The page still works, and the gap is easy to spot. The notification after **Use this draft** lists each one as "(links to example.com for now)". Set them before publishing.
+If a block should have a link (the field is required, or that kind of block usually has one), but the examples don't agree on where it goes, Ghostwriter points it at `https://example.com/#gw-link:<hint>` with the text "Link to choose". The notification after **Use this draft** lists each one as "(link still to choose)", and [Finish this page](finish-this-page.md) makes it a step, with the pages its hint suggests. The page can't go live until it's set (or, in warn mode, goes live with the link going nowhere).
 
 This works for Hyper and Craft's Link field. Fields that can only hold entries can't take a web address, so they're simply listed as still to set.
 

@@ -19,6 +19,15 @@ The writer only writes words. Everything else comes from your own pages, so a dr
 
 Choose what you're writing, and Ghostwriter asks: "What's it called, and what should it say?" From your reply it fills in the whole brief for that kind of content, as a card you can edit: every question answered, and the entries to model it on ticked. Anything it can't know stays in [square brackets] for you. **Looks right, start writing**, or **Try again**.
 
+## See the page before anything is saved
+
+The draft shows in a **Preview**, rendered by the section's own template, so you see the page it would make. Nothing is saved.
+
+- **Layouts to choose from.** A first draft comes laid out up to three ways, with the same words. Each says what it changes ("Quote moved up", "Call to action added"), and switching scrolls to the change.
+- **Comment on the page.** Click a block, or select some words, and say what should change. **Apply** sends your comments together, and only those parts are revised.
+- **Links to your other pages.** A first draft links to a few of your existing pages where they help the reader, each checked to be live and to read naturally. Every one is marked for you to keep or remove.
+- **Headings that fit.** Headings start below the page's own H1, never skip a level, and use only the levels each CKEditor field offers.
+
 ## Your voice, written down
 
 Ghostwriter reads a sample of your published entries and writes a **voice guide**: who is talking and to whom, how pieces are shaped, the words you use and the ones you never do, with real examples from your site. Edit it by hand, or ask for changes in plain words: "We never say solutions."
@@ -58,6 +67,12 @@ Licensing has its own permission, so only the people you choose can buy photos. 
 Ghostwriter never makes up a price, a date or a name. Where a draft needs a fact it doesn't have, it marks the place, and a link it can't settle points nowhere until you choose.
 
 Every gap is highlighted in the entry form, and a guide with the Ghostwriter mark walks you through them one by one: type in the fact, link to the right page, swap the placeholder image, license the preview. **The page can't go live while one of them remains.** Prefer a warning? Choose that in the settings.
+
+## Keep existing pages current
+
+**Suggest edits** reads an existing page against your voice guide and suggests small changes: a date written as current that has passed, a sentence that runs on, a missing link, alt text. Each suggestion is checked twice before you see it, and you step through them on the form: accept, edit, try another version, or dismiss. Nothing is saved until you save.
+
+**Content to revisit** ranks your live pages by checks that need no AI: past years written as current, closing dates gone by, broken links, images without alt text, empty fields and age. **Review** opens a page with Suggest edits ready.
 
 ## Know what to write next
 

@@ -12,8 +12,8 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 
 ## Using Ghostwriter
 
-- [Writing a new entry](writing.md)
-- [Editing an existing entry](editing.md)
+- [Writing a new entry](writing.md): the brief, the draft, the Preview, layouts, comments, and links to your other pages.
+- [Editing an existing entry](editing.md): changes in conversation, and the Ghostwriter menu beside the button.
 - [Voice guide and image style](guides.md)
 - [Kinds of content](kinds.md)
 - [Images](images.md)
@@ -28,6 +28,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 - [How Ghostwriter reads your fields](fields.md): field types, Matrix and Neo, house style.
 - [Privacy](privacy.md): what is sent where, and what is kept.
 - [Troubleshooting](troubleshooting.md)
+- [Scripted replies for end-to-end tests](testing.md): for Ghostwriter's own browser tests, on local sites in Dev Mode only.
 
 ## Requirements
 

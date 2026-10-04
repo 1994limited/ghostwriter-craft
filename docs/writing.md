@@ -48,7 +48,7 @@ Change any answer in the card, then:
 - **Looks right, start writing** keeps the brief on the piece and starts the writing. Anything still in square brackets is fine: Ghostwriter asks about it, or leaves the gap marked in the draft. A required question can't be left empty.
 - **Try again** fills in the brief again from what you said. The answers you changed are kept exactly as you wrote them; the rest are answered afresh.
 
-![The brief card in the conversation: the working title, each question with its answer, gaps left in square brackets, Model it on, and Looks right, start writing and Try again](images/writing-brief.png)
+![The brief card in the conversation: the working title, each question with its answer, Model it on with five pages ticked, and Looks right, start writing and Try again](images/writing-brief-card.png)
 
 **Draft this** on an idea in the [content plan](content-plan.md) skips the question: the brief card arrives already filled in from the idea, ready to check.
 
@@ -64,7 +64,7 @@ After **Looks right, start writing**, the conversation carries on. While Ghostwr
 
 If Ghostwriter needs facts only you know before it can write, it asks first: four short questions at most, headed **Ghostwriter needs your answer** and announced to screen readers. Each question has its own box, labelled with the question, with a hint under it when one helps; a question with a few set answers has radio buttons instead, and one it can do without is marked *(optional)*. **Skip** a question you can't answer: Ghostwriter writes around it or marks the place for you to fill in. **Add anything else** opens a box for anything more. **Send answers** (or ⌘↵ / Ctrl+↵ in any box) sends them all as one message; **Just draft it with what you have** has it write now and mark the gaps in `[square brackets]`. Once sent, the questions stay in the conversation with your answers under them.
 
-![Ghostwriter's questions headed Ghostwriter needs your answer, with Your turn: answer the questions above and the draft follows. above the answer box, and Just draft it with what you have](images/writing-questions.png)
+![Ghostwriter needs your answer: two numbered questions, each with its own box, a hint and Skip, the second marked optional, then Add anything else, Just draft it with what you have and Send answers](images/writing-questions.png)
 
 Ghostwriter's replies are shown with their formatting: lists, bold and links.
 
@@ -88,22 +88,25 @@ The draft sits on the right, in three tabs:
 - **Blocks** lays it out the way the entry is built: its fields, and its Matrix or Neo blocks in order.
 - **Text** shows just the words.
 
-The arrow keys move between the tabs.
+The arrow keys move between the tabs. In **Blocks** and **Text**:
 
-In a narrow window (a tablet or a phone), the conversation and the draft take turns: **Conversation** and **Draft** at the top switch between them. A dot on Draft means the draft has changed since you looked; a dot on Conversation means Ghostwriter is working, or (amber) waiting for your answer. The box for your message stays at the bottom of the conversation.
 - **In Text, gaps show as chips** (facts to add, counts to check, links to choose), as in the Preview, and a chip opens the same [box to deal with it](#preview). Writing with a chip in it starts editing when you click its words, or Tab to it and press **Enter** (or start typing): then you see it exactly as it's kept, raw markers and all, and that is what's saved.
 - **Change any writing where it's shown.** The draft says "Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back." Click it, or press **Tab** to reach it, and type. It's saved when you leave it. **Esc** puts it back as it was, and **Enter** finishes a one-line piece such as a heading.
 - **Edit YAML** opens the whole draft as text, to add, move or remove blocks. Most people never need it.
 
 While Ghostwriter is working, the draft can't be changed, since what it writes would replace the change.
 
+In a narrow window (a tablet or a phone), the conversation and the draft take turns: **Conversation** and **Draft** at the top switch between them. A dot on Draft means the draft has changed since you looked; a dot on Conversation means Ghostwriter is working, or (amber) waiting for your answer. The box for your message stays at the bottom of the conversation.
+
 The word count is shown at the top. A block type the section doesn't allow is flagged, and left out when the draft is used. A block with nothing to write says "Uses its usual settings."
 
-![The draft of a page in Blocks view, with one piece of writing being changed in place, the word count, Edit YAML and Use this draft](images/writing-draft.png)
+![The draft of a page in Blocks view: the Hero and Text blocks with their fields, the word count, the Layout row with As written and Quote up top, Edit YAML and Use this draft (As written)](images/writing-draft.png)
 
 ### Preview
 
 **Preview** renders the draft through the section's own page template, as Craft's own preview does, so you see the page as it would look. "Rendered with the site’s own templates. Hover to see the blocks. Nothing is saved until you use the draft." The frame's bar reads **Preview · not saved**.
+
+![The draft in the Preview tab: the page rendered by the site's own template, with Preview · not saved in its bar, the Layout row with As written (Suggested) and Quote up top, and Desktop, Phone, Comment, Edit YAML and Use this draft (As written) above it](images/writing-layouts.png)
 
 - **Nothing is saved.** Ghostwriter builds exactly what **Use this draft** would put in, and renders it without saving any draft, entry or nested entry. Image fields show what **Use this draft** would put there: an image you've chosen, a stock photo's preview (to editors, as in Live Preview), or the striped placeholder once Ghostwriter has made one in that volume.
 - **Hover to see the blocks.** Each block of the page builder, each section of rich text and each top-level field is outlined with its name as the pointer moves over it ("Where to put one · in Body"). The outlines follow the page as it resizes and loads.
@@ -111,6 +114,8 @@ The word count is shown at the top. A block type the section doesn't allow is fl
 - **Desktop / Phone** switches the width: the panel's width, or 390 px. On a phone, Desktop shows the page laid out at 1280 px, scaled to fit.
 - **After a change** (a new draft, a change in the conversation, or writing changed in Blocks or Text), the preview renders again once the changes stop. "Updating preview…" shows in the bar while it does, and the last version stays in view.
 - **Gaps show as what they are**, not as raw text. A fact only you know (`[[ask: adult ticket price]]` in the draft) is an amber chip reading "adult ticket price", titled "Only you know this: add it before publishing". A [count to check](finish-this-page.md#counts-to-check) shows its number ("3 areas") with a dotted amber underline, titled "Counted from '…'. Check it before publishing". A link still to choose has a dashed amber underline, titled "Link to choose". Screen readers hear "Fact to add:", "Count to check:" and "(link to choose)". The layout cards' thumbnails show them too. Until you deal with them, the draft keeps the markers, and so does the entry once you use it, so [Finish this page](finish-this-page.md) finds them.
+
+  ![A page in the Preview with its gaps as chips: an amber chip for the adult ticket price, a dotted underline under "3 areas", a dashed underline under a link to choose, and a Stats table below with Check: 3 and Add: years trading chips under its cells](images/gap-chips-preview-desktop.png)
 - **Click a chip (or Tab to it and press Enter) to deal with it here**, in the draft, before you use it. A small box opens at the chip:
   - a fact to add: "Only you know this: adult ticket price", with a box for your answer, **Add it** and **Leave it for later**. Your answer goes into the draft exactly as you type it: no model is asked, and nothing is reworded;
   - a count to check: "Counted from ‘Northumberland, Durham and the Tyne Valley’. 3 areas, is that right?", with **Looks right**, **Change it** and **Remove it**;
@@ -165,20 +170,21 @@ Adding, editing, resolving and putting back cost nothing. Only **Apply** asks th
 
 ### Layouts
 
-The first draft comes laid out more than one way. Above the draft, up to three **layout cards** show the same words arranged differently: the writer's own layout first (**As written**), then up to two others. Each card has a small live picture of the page it makes (rendered with your templates, like the Preview), its name, a line on what it does, how many blocks it has, and **Suggested** on the one most like your existing pages. *Suggested* means "like your pages", not "best".
+The first draft comes laid out more than one way: the same words arranged differently, the writer's own layout first (**As written**), then up to two others. They're in the **Layout** row above the draft, as a row of names with the chosen one marked, so the Preview has the room. Beside each name, a few words say what it changes against *As written*: "Quote moved up", "Call to action added", "Text split into 3 blocks · A section moved down". **Suggested** marks the one most like your existing pages; it means "like your pages", not "best".
 
-- **Choose a card** and the Preview, Blocks and Text show that layout, and the button reads **Use this draft (Sections apart)**. The choice is kept on the piece, so everyone working on it sees the same one. Choosing costs nothing: no model call.
+- **Compare layouts** shows them as cards, each with a small live picture of the page it makes (rendered with your templates, like the Preview), its name, a line on what it does and how many blocks it has. **Hide thumbnails** puts the row back. Your choice is remembered in this browser.
+- **Choose a layout** and the Preview, Blocks and Text show it, and the button reads **Use this draft (Quote up top)**. The choice is kept on the piece, so everyone working on it sees the same one. Choosing costs nothing: no model call.
+- **Switching points at the change.** Once the new layout shows, the draft's column scrolls to the first block it changes, and every changed block is outlined for about two seconds, in the Preview and in Blocks and Text. With reduced motion, the column jumps there and the outline is still, then gone. Only switching does this, never opening a piece.
 - **The words are the same in every layout.** A layout only moves them between blocks, splits or joins them, and may place an extra (below). It never writes words of its own. Change writing where it's shown, as usual, and every layout follows. In a layout other than *As written*, words the layout put together from several places in the draft are shown but not edited there ("Put together for this layout…"): change them in *As written*, or ask in the conversation.
-- **While the other layouts are found** (one more model call, after the draft), the draft already shows, and two cards say "Finding other layouts…".
+- **While the other layouts are found** (one more model call, after the draft), the draft already shows, and the row says "Finding other layouts…".
 - **After you change the draft**, the other layouts follow it. One that no longer fits says **Needs refreshing** and can't be chosen; **Refresh layouts** asks again (one model call).
 - **Only layouts that look noticeably different are offered.** One that only sets a line as a quote, or turns a list into paragraphs, near the foot of the page is dropped before you see it, and so is one too like another on offer.
-- The row is hidden when there's only one layout: an entry that's being edited, a page with too little to arrange, when no other layout came back, or when none looked different enough. The button is then plain **Use this draft**. Nothing is shown as an error.
-- **Each layout says what it changes** against *As written*, beside its name: "Call to action added", "Text split into 3 blocks · A section moved down", "Paragraphs as lists".
-- **Switching layout points at the change.** Once the new layout shows, the draft's column scrolls to the first block it changes, and every changed block is outlined for about two seconds, in the Preview and in Blocks and Text. With reduced motion, the column jumps there and the outline is still, then gone. Only switching does this, never opening a piece.
-- **The row stays small.** The layouts show as a row of names, the chosen one marked, so the Preview has the room. **Compare layouts** shows the cards with their pictures; **Hide thumbnails** puts the row back (remembered in your browser). Under the draft's toolbar, the layouts, the draft and the Preview scroll as one column: the page is shown whole, as tall as it is, so there is one scrollbar, not one for the panel and another for the page.
-- On a phone the cards scroll sideways. The cards are buttons: **Tab** reaches them, **←** and **→** move between them, **Enter** or **Space** chooses.
+- **The row is hidden when there's only one layout**: an entry that's being edited, a page with too little to arrange, when no other layout came back, or when none looked different enough. The button is then plain **Use this draft**. Nothing is shown as an error.
+- **Keyboard and phones.** The layouts are buttons: **Tab** reaches them, **←** and **→** move between them, **Enter** or **Space** chooses. On a phone the cards scroll sideways.
 
-There's no setting: this is how drafting works (a first draft is two model calls, the writer and the layout planner; later changes are one).
+Under the draft's toolbar, the layouts, the draft and the Preview scroll as one column: the page is shown whole, as tall as it is, so there's one scrollbar, not one for the panel and another for the page.
+
+There's no setting: this is how drafting works. A first draft is four model calls: the writer, two for [links to your other pages](#links-to-your-other-pages), and the layout planner. Later changes are one.
 
 ### Extras
 
@@ -193,6 +199,8 @@ They're at the foot of the **Text** tab: "Prepared with the draft, only from wha
 - **Click an item to change it.** It's saved when you leave it. Enter finishes, and Esc puts it back as it was.
 - **✕** deletes an extra (or one item of it). A layout that used it is arranged again without it.
 
+![The Extras list: a pull quote with an amber chip for the adult ticket price, marked your words, and a call to action with "3 areas" underlined, Counted from your brief and Needs review](images/gap-chips-extras-desktop.png)
+
 ### Headings
 
 Ghostwriter fits every draft's headings to the page, with no setting:
@@ -202,6 +210,20 @@ Ghostwriter fits every draft's headings to the page, with no setting:
 - **No skipped levels**, no empty headings, and a bold line used as a heading becomes a real one. Words are never changed.
 
 A template that prints no H1, a logo as the H1, or more than one, is noted at the top of Ghostwriter's plugin settings. Ghostwriter still starts the text at H2; the fix belongs in the template.
+
+### Links to your other pages
+
+A first draft comes with a few links to your other pages, where they help the reader: about one for every 250 words, two to five in all, counting links the draft has already. Ghostwriter picks the words and the pages, checks in code that each page is real and can be linked to, then a second call reads each link in its paragraph and keeps it only if it reads naturally. So a first draft is two more calls; later changes add none.
+
+- **What it can link to.** Every live page on the site that has an address: entries in any section with URLs (singles too), and categories with pages of their own and at least 40 words of their own text. Not pages that are disabled, not yet live or expired, set to *noindex* (in SEOmatic, or by a `noindex` lightswitch), the home page, pages such as search, login or checkout, or the page itself. Key pages such as Contact or About can be offered whatever the draft is about.
+- **While it looks**, the draft pane says "Draft ready. Checking headings and links…". You can read the draft, but **Use this draft**, Edit YAML and changing the writing wait until it's done. The other layouts are found meanwhile, and every layout carries the same links.
+- **It says what it did.** A line under the first draft names the pages: "I linked to 2 of your pages: Winter structure: plants that earn their keep in January, Contact." If nothing was close enough: "I didn't find pages close enough to link to."
+- **The links it added are marked** in the Text and Blocks tabs with a dotted underline and a small mark. Hover over one, click it or put the caret in it to see where it goes: the page's title and type, its address and why it was chosen, with **Open page** and **Remove link**. Removing a link keeps the words, and it isn't put back by a later change. The marks are only in the panel; nothing about them is saved.
+- **Later changes keep to real pages.** If you ask for a change and the writer adds a link to an address it wasn't given, it becomes a link to choose instead, so a made-up address never reaches the entry.
+
+![A draft in the Text tab with two dotted links Ghostwriter added, the popover on one showing Contact, Pages, /contact, why it was chosen, Open page and Remove link, and I linked to 2 of your pages under the first draft in the conversation](images/writing-links.png)
+
+After **Use this draft**, each link it added is a suggestion in [Finish this page](finish-this-page.md#the-guide), so someone checks where it goes. In the entry, a link is kept as Craft's own reference to the entry (`{entry:12@1:url}`), so it follows the page if its address changes.
 
 ## Use this draft
 
@@ -216,10 +238,12 @@ A template that prints no H1, a logo as the H1, or more than one, is noted at th
 A notification says "Draft added to the form. Check it over, then save." If there's anything still for you to do, it lists it, and stays until you close it. For example:
 
 - **Still to choose by hand**: related entries, categories, dates, images.
-- **Still to set by hand, as it differs from page to page**: links the [house style](fields.md#house-style) couldn't settle, which point to `https://example.com` for now.
-- **A striped placeholder marks each image still to pick**, where the section's entries usually have a picture. Replace them with the [image button](images.md).
+- **Still to set by hand, as it differs from page to page**: links the [house style](fields.md#house-style) couldn't settle, marked "(link still to choose)".
+- **Ghostwriter drafts start unpublished. Switch on Enabled when you're ready.**
 
-![The new entry after Use this draft, with the notification Draft added to the form. Check it over, then save., listing what is still to choose and set by hand and the images still to pick](images/writing-used.png)
+A striped placeholder marks each image still to pick, where the section's entries usually have a picture, and [Finish this page](finish-this-page.md) opens by itself to take you through it and anything else left.
+
+![A new entry after Use this draft: Enabled switched off, the notification listing what is still to choose and set by hand, the Image field with its striped placeholder outlined, and the Finish this page guide on its first step with Find a photo and Choose from Assets](images/writing-used.png)
 
 ## Carrying on later
 

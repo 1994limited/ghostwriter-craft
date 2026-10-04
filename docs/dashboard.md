@@ -6,7 +6,7 @@ This page covers the Overview, Ghostwriter's own home in the control panel, and 
 
 **Ghostwriter → Overview.** Clicking **Ghostwriter** in the navigation opens it. It's called the Overview so it isn't mistaken for Craft's own Dashboard.
 
-![The Overview, with the You're set up card, four tiles, the sections with Kinds and Write, and the pieces in progress](images/overview.png)
+![The Overview, with the Get started card and its next step, the tiles for the voice guide, image style, content plan, stock images, Content to revisit and In progress, and the sections with Kinds and Write](images/overview.png)
 
 ### At the top
 
@@ -16,11 +16,13 @@ This page covers the Overview, Ghostwriter's own home in the control panel, and 
 
 ### The tiles
 
-Four tiles. Click one to open what it counts.
+Click a tile to open what it counts.
 
 - **Voice guide**: **Written** or **Not written yet**, and when it was updated.
 - **Image style**: **Written** or **Not written yet**, and when it was updated.
 - **Content plan**: open ideas waiting on the [plan](content-plan.md).
+- **Stock images**, while there are any: stock previews still to license, and how many are on live entries. See [Stock photos](stock-photos.md).
+- **Content to revisit**: how many pages are worth a look, and the top three with their main reason ("Spring planting places (closing date passed)"). See [Content to revisit](suggest-edits.md#content-to-revisit).
 - **In progress**: pieces being written. With [shared conversations](permissions.md#shared-conversations) on, that's everyone's.
 
 ### Sections
