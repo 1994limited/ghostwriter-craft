@@ -173,6 +173,7 @@ return [
     'suggest.review.cut-off' => 'I ran out of room; these are the first {count}.',
     'suggest.review.nothing' => 'Nothing to suggest. The page reads well against your guide.',
     'suggest.review.failed' => 'I couldn\'t finish reading the page: {reason}',
+    'suggest.review.error.unreadable' => 'the answer came back in a shape I couldn\'t read. Try again.',
     'suggest.review.stale' => 'This text has changed since the review.',
     'suggest.review.another-none' => 'I couldn\'t find another way to say it that keeps to the facts.',
     'suggest.review.write-another' => 'Write another (uses Ghostwriter)',
