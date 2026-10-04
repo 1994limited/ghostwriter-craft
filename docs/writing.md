@@ -171,6 +171,7 @@ The first draft comes laid out more than one way. Above the draft, up to three *
 - **While the other layouts are found** (one more model call, after the draft), the draft already shows, and two cards say "Finding other layouts…".
 - **After you change the draft**, the other layouts follow it. One that no longer fits says **Needs refreshing** and can't be chosen; **Refresh layouts** asks again (one model call).
 - The row is hidden when there's only one layout: an entry that's being edited, a page with too little to arrange, or when no other layout came back. Nothing is shown as an error.
+- **The row stays small.** The layouts show as a row of names, the chosen one marked, so the Preview has the room. **Compare layouts** shows the cards with their pictures; **Hide thumbnails** puts the row back (remembered in your browser). Under the draft's toolbar, the layouts, the draft and the Preview scroll as one column, and the Preview is as tall as the panel.
 - On a phone the cards scroll sideways. The cards are buttons: **Tab** reaches them, **←** and **→** move between them, **Enter** or **Space** chooses.
 
 There's no setting: this is how drafting works (a first draft is two model calls, the writer and the layout planner; later changes are one).

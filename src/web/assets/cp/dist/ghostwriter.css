@@ -130,6 +130,9 @@
 .gw-draft__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); }
 .gw-draft__toolbar .flex { gap: 6px; }
 .gw-draft__body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+/* Under the toolbar, one column scrolls: the layouts, the draft, and the page preview. */
+.gw-draft__scroll { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+.gw-draft__scroll > .gw-draft__body { flex: 1 0 auto; min-height: auto; overflow: visible; }
 .gw-applied { margin-top: 0; }
 .gw-raw { min-height: 50vh; font-size: 12px; }
 .gw-preview { display: grid; gap: 18px; }
@@ -488,10 +491,10 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-draft__body--slim { flex: 0 0 auto; padding: 0; }
 .gw-draft__body--slim:empty { display: none; }
 .gw-draft__body--slim > * { margin: 12px 16px 0; }
-.gw-page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 16px 16px; }
+.gw-page { flex: none; display: flex; flex-direction: column; padding: 12px 16px 16px; }
 .gw-page[hidden] { display: none; }
 .gw-page__hint { margin: 0 0 8px; font-size: 12px; }
-.gw-page__window { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); border-radius: var(--large-border-radius, 6px); overflow: hidden; background: var(--gray-050, #f3f7fc); }
+.gw-page__window { flex: none; display: flex; flex-direction: column; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); border-radius: var(--large-border-radius, 6px); overflow: hidden; background: var(--gray-050, #f3f7fc); }
 .gw-page__bar { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 12px; background: var(--gray-100, #e4edf6); border-bottom: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); }
 .gw-page__address { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--light-text-color, #606d7b); }
 .gw-page__tag { white-space: nowrap; border-radius: 999px; padding: 0 8px; background: var(--yellow-050, #fffbeb); color: var(--yellow-800, #854d0e); border: 1px solid var(--yellow-300, #fcd34d); }
@@ -499,7 +502,7 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-page__status[hidden] { display: none; }
 .gw-page__busy { width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: gw-page-turn .8s linear infinite; }
 @keyframes gw-page-turn { to { transform: rotate(360deg); } }
-.gw-page__stage { position: relative; flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; }
+.gw-page__stage { position: relative; flex: none; height: 320px; overflow: hidden; display: flex; justify-content: center; }
 .gw-page__frame { display: block; flex: none; border: 0; background: #fff; transform-origin: top left; }
 .gw-page[data-width="phone"] .gw-page__frame { transform-origin: top center; box-shadow: 0 0 0 1px var(--hairline-color, rgba(51, 64, 77, .15)); }
 .gw-page[data-width="desktop"] .gw-page__stage { justify-content: flex-start; }
@@ -513,11 +516,8 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
     .gw-page.is-rendering .gw-page__frame { transition: none; }
     .gw-page__busy { animation: none; border-right-color: currentColor; opacity: .6; }
 }
-@media (max-width: 900px) {
-    .gw-page { flex: none; height: 75vh; min-height: 420px; }
-}
 @media (max-width: 640px) {
-    .gw-page { padding: 8px; height: 70vh; }
+    .gw-page { padding: 8px; }
     .gw-page__tag { display: none; }
 }
 
@@ -559,6 +559,24 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
     .gw-layout-card { flex: 0 0 160px; scroll-snap-align: start; }
     .gw-layout-card__thumb { height: 90px; }
 }
+
+/*
+    Compact layouts: a row of chips, the chosen one marked, so the page
+    preview has the room. Compare layouts shows the cards with thumbnails.
+*/
+.gw-layouts__toggle { margin-inline-start: auto; }
+.gw-layouts.is-compact { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 16px; }
+.gw-layouts.is-compact .gw-layouts__head { display: contents; }
+.gw-layouts.is-compact .gw-layouts__cards { order: 1; display: flex; flex-wrap: wrap; gap: 6px; overflow: visible; scroll-snap-type: none; padding-bottom: 0; }
+.gw-layouts.is-compact .gw-layouts__note, .gw-layouts.is-compact [data-layout-action="refresh"] { order: 2; }
+.gw-layouts.is-compact .gw-layouts__toggle { order: 3; }
+.gw-layouts.is-compact .gw-layout-card { flex: none; flex-direction: row; align-items: center; min-width: 0; max-width: 100%; padding: 2px 10px; border-radius: 999px; scroll-snap-align: none; }
+.gw-layouts.is-compact .gw-layout-card:hover:not([aria-disabled="true"]) { transform: none; }
+.gw-layouts.is-compact .gw-layout-card.is-chosen { background: rgba(91, 76, 240, .08); }
+.gw-layouts.is-compact .gw-layout-card__thumb, .gw-layouts.is-compact .gw-layout-card__desc, .gw-layouts.is-compact .gw-layout-card__count, .gw-layouts.is-compact .gw-layout-card.is-skeleton { display: none; }
+.gw-layouts.is-compact .gw-layout-card__title { margin-top: 0; flex-wrap: nowrap; align-items: center; font-size: 12.5px; line-height: 22px; }
+.gw-layouts.is-compact .gw-layout-card__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gw-layouts.is-compact .gw-layout-card__badge { margin-top: 0; }
 
 /* Words a layout put together from several places: shown, not edited. */
 .gw-assembled { border-radius: 4px; padding: 2px 4px; background: var(--gray-050, #f3f7fc); }
