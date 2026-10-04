@@ -1457,7 +1457,7 @@
                         }
                     }
 
-                    this.placeFlash();
+                    this.placeTint();
                 }
 
                 if (x === undefined) {
@@ -1532,35 +1532,38 @@
                 target.scrollIntoView({ block: 'center', behavior: this.reduced ? 'auto' : 'smooth' });
             }
 
-            if (inline) this.flash(field);
+            if (inline) this.tint(field);
         },
 
         /**
          * A tint over the gap's words that fades, so the eye finds them.
          * It stays still under reduced motion, then goes.
          */
-        flash(field) {
-            this.$flash?.remove();
-            this.flashTarget = field;
-            this.$flash = $('<div class="gw-finish-flash" aria-hidden="true"></div>').appendTo(this.$root);
-            this.placeFlash();
-            clearTimeout(this.flashTimer);
-            this.flashTimer = setTimeout(() => {
-                this.$flash?.remove();
-                this.$flash = null;
-                this.flashTarget = null;
+        tint(field) {
+            this.$tint?.remove();
+            this.tintField = field;
+            this.$tint = $('<div class="gw-finish-flash" aria-hidden="true"></div>').appendTo(this.$root);
+            this.placeTint();
+            clearTimeout(this.tintTimer);
+            this.tintTimer = setTimeout(() => {
+                this.$tint?.remove();
+                this.$tint = null;
+                this.tintField = null;
             }, 1800);
         },
 
-        placeFlash() {
-            if (!this.$flash || !this.flashTarget) return;
+        placeTint() {
+            if (!this.$tint || !this.tintField) return;
 
-            const marks = this.flashTarget.isConnected ? [...this.flashTarget.querySelectorAll(this.inlineSelector ?? '.gw-gap-mark--current')] : [];
+            const marks = this.tintField.isConnected ? [...this.tintField.querySelectorAll(this.inlineSelector ?? '.gw-gap-mark--current')] : [];
             const rects = marks.flatMap((mark) => [...mark.getClientRects()]);
 
-            this.$flash.empty();
-            rects.forEach((rect) => {
-                $('<span class="gw-finish-flash__line"></span>').css({ left: rect.left - 3, top: rect.top - 2, width: rect.width + 6, height: rect.height + 4 }).appendTo(this.$flash);
+            // Moved, not drawn again, as the page scrolls: the fade carries on.
+            const lines = this.$tint.children().toArray();
+
+            lines.slice(rects.length).forEach((line) => line.remove());
+            rects.forEach((rect, i) => {
+                $(lines[i] ?? $('<span class="gw-finish-flash__line"></span>').appendTo(this.$tint)[0]).css({ left: rect.left - 3, top: rect.top - 2, width: rect.width + 6, height: rect.height + 4 });
             });
         },
 
