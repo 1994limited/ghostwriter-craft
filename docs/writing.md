@@ -114,7 +114,7 @@ The word count is shown at the top. A block type the section doesn't allow is fl
 - **Click a chip (or Tab to it and press Enter) to deal with it here**, in the draft, before you use it. A small box opens at the chip:
   - a fact to add: "Only you know this: adult ticket price", with a box for your answer, **Add it** and **Leave it for later**. Your answer goes into the draft exactly as you type it: no model is asked, and nothing is reworded;
   - a count to check: "Counted from ‘Northumberland, Durham and the Tyne Valley’. 3 areas, is that right?", with **Looks right**, **Change it** and **Remove it**;
-  - a link to choose: the pages its hint suggests ("Link to About"), or **Choose an entry** to find one by its title. A link in the writing points at the page's address, and so does a button's Link field.
+  - a link to choose: the page Ghostwriter suggested for it first, then the pages its hint suggests ("Link to About"), or **Choose an entry** to find one by its title. A link in the writing points at the page's address, and so does a button's Link field.
 
   The preview, the layouts, Blocks and Text follow at once, and in a shared conversation everyone sees the change. A gap dealt with here is gone from the draft, so Finish this page won't ask about it after **Use this draft**; one you leave for later still shows there. Esc closes the box and puts you back on the chip.
 - **Links in the preview do nothing**, so you stay on the draft. Forms can't be sent from it.

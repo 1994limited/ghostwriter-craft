@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Changed
+- **The writer's own links** (core main, 1994limited/ghostwriter-core#92, decisions 22–24):
+  - A link the writer makes to a real, live page of the site (`{entry:12@1:url||…}` or its address) is kept, as CKEditor stores it, instead of becoming a link to choose. `DbEntryIndex` implements core's `LinkLookup` (`linkRow()`). Disabled, noindex and utility pages, other sites and the page itself still become links to choose.
+  - The writer's links to choose no longer count towards the links a draft is given, so a draft whose own markers met its target still gets links to your pages.
+  - For each link to choose the writer left, the SEO pass suggests the page it most likely means (checked by the link verifier). **Finish this page** offers it first, "Link to Contact us", before the title matches (not repeated) and **Choose an entry**; one click links the words in CKEditor, nested entries included. It's never put in for you.
 - **Finish this page leaves required fields to Craft, and prompts for a needed image** (core main, 1994limited/ghostwriter-core#82):
   - A required text, date or dropdown field left empty is no longer a step or counted. Craft's own validation reports it on save.
   - An empty image the page looks like it needs is counted in the menu beside **Edit with Ghostwriter** and brings the guide out on load. It looks needed when it is required, when it is the hero (the block the template prints the H1 from, or a hero-like name when there are too few live entries to go by), or when at least 70% of the section's newest live entries of the type have one. The step says why, for example "Hero image is required. Add one?" or "Hero image is empty, but most Journal entries have one. Add one?", and keeps **Find a photo** and **Choose from Assets**.

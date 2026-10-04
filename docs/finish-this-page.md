@@ -24,7 +24,7 @@ On an entry with something that stops publishing, or an empty image the page nee
   | --- | --- |
   | A fact to add | A box to type it into: **Enter**, or leaving the box, puts it in the field in place of the marker; **Esc** leaves it. **Write around it** rewrites the sentence without the fact. Ghostwriter never suggests the fact itself. |
   | A count to check | **Looks right** (the count goes in as the page will say it), **Change it** (a box with the count, to correct), or **Remove it**. When the list has changed since, **Use “4 counties”** first |
-  | A link to choose | **Link to Contact** where an entry's title or slug matches the hint, **Choose an entry** (Craft's own picker), or **Remove the link** (the words stay) |
+  | A link to choose | **Link to Contact us** first, where Ghostwriter suggested a page for a link the writer left (checked by a second look, never put in for you); **Link to Contact** where an entry's title or slug matches the hint (the suggested page isn't repeated), **Choose an entry** (Craft's own picker), or **Remove the link** (the words stay) |
   | An image placeholder | **Find a photo** (Ghostwriter's image dialog for that field), **Choose from Assets** (the field's own picker, replacing the placeholder), or **Leave it empty** when the field isn't required |
   | An empty image the page needs | The step says why ("Hero image is required. Add one?", "Hero image is empty, but most Journal entries have one. Add one?"), then **Find a photo** or **Choose from Assets** |
   | A stock photo preview | **License**, through the stock photos' own License & replace dialog, which shows what it costs; **Request licence** without the permission; **Choose another** |
