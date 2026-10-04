@@ -3,8 +3,8 @@
  * design, §7 and §8.2): what an editor must still finish in the entry,
  * highlighted in the form, with a guide that walks through it.
  *
- *   the pill    beside the entry's buttons: "5 things to finish", then
- *               "Ready to publish"
+ *   the count   on the menu beside Edit with Ghostwriter (ghostwriter.js
+ *               paints it from the `ghostwriter:counts` events sent here)
  *   highlights  amber outlines with numbered tags on each field; the
  *               current one purple, fixed ones green. In CKEditor, the
  *               marker itself, through CKEditor's own markers
@@ -41,11 +41,29 @@
      * tested on its own (tests/js).
      */
     Ghostwriter.FinishHelpers = {
+        /**
+         * The menu's one count beside Edit with Ghostwriter: what is left to
+         * finish plus the suggestions, amber ("finish") while anything is
+         * left to finish, and its words read out ("10 items: 3 to finish,
+         * 7 suggestions"). No count at 0.
+         */
+        menuBadge(finish, suggestions) {
+            const toFinish = t('{count} to finish', { count: finish });
+            const suggested = suggestions === 1 ? t('1 suggestion') : t('{count} suggestions', { count: suggestions });
+            const total = finish + suggestions;
+
+            return {
+                total,
+                tone: finish > 0 ? 'finish' : 'suggest',
+                label: finish && suggestions ? t('{count} items: {finish}, {suggestions}', { count: total, finish: toFinish, suggestions: suggested }) : finish ? toFinish : suggestions ? suggested : '',
+            };
+        },
+
         /*
          * The guide's state, kept apart from the page so it can be tested,
          * as the Statamic addon keeps it (resources/js/finish/state.js):
          * one live list of gaps, straight from the latest check, drives the
-         * count by Save, the guide's "2 of 5", its bar and every field's
+         * menu's count, the guide's "2 of 5", its bar and every field's
          * highlight.
          *
          * - Steps are the gaps the last check found, nothing else: a gap
@@ -106,7 +124,7 @@
 
         /**
          * The numbers every part of the guide shows, from the one live list:
-         * `count` for the pill and the dock (what blocks or is required and
+         * `count` for the menu and the dock (what blocks or is required and
          * isn't done), `total` for "n of total", and the step's own number
          * (suggestions numbered on their own).
          */
@@ -362,7 +380,6 @@
         },
 
         start() {
-            this.$pill = $('#gw-finish-pill');
             this.build();
 
             const reduce = window.matchMedia(REDUCED);
@@ -383,7 +400,8 @@
             onReduce();
             onPhone();
 
-            this.addListener(this.$pill, 'click', () => {
+            // "Finish this page" in the menu beside Edit with Ghostwriter.
+            this.addListener(Garnish.$doc, 'ghostwriter:finish-show', () => {
                 this.minimise(false);
                 this.go(this.firstOpen());
             });
@@ -517,7 +535,7 @@
             this.lastCount = count;
         },
 
-        /** The pill's number: what blocks or Craft requires, not yet done. */
+        /** The menu's number: what blocks or Craft requires, not yet done. */
         count() {
             return Ghostwriter.FinishHelpers.counts(this.steps, this.index).count;
         },
@@ -604,7 +622,7 @@
         paint() {
             const count = this.count();
 
-            this.paintPill(count);
+            this.paintMenu(count);
             this.paintDock(count);
             this.paintFields();
             this.paintEditors();
@@ -647,19 +665,9 @@
             }
         },
 
-        paintPill(count) {
-            const $text = this.$pill.find('.gw-finish-pill__text');
-
-            if (!this.shown) {
-                this.$pill.addClass('hidden');
-
-                return;
-            }
-
-            this.$pill.removeClass('hidden').toggleClass('gw-finish-pill--ready', count === 0);
-            $text.text(count ? this.countText(count) : this.strings.ready);
-            this.$pill.attr('aria-label', `${this.strings.title}: ${count ? this.countText(count) : this.strings.ready}`);
-            this.$pill.attr('title', t('Alt+Shift+G opens or minimises the guide'));
+        /** The count on the menu beside Edit with Ghostwriter: nothing until the guide is out. */
+        paintMenu(count) {
+            document.dispatchEvent(new CustomEvent('ghostwriter:counts', { detail: { finish: this.shown ? count : 0 } }));
         },
 
         paintDock(count) {
@@ -2324,4 +2332,79 @@
             } catch (error) {}
         },
     });
+    /**
+     * The menu beside Edit with Ghostwriter (Launcher::buttonFor()): its
+     * button's count and the two rows that open the guides, each shown
+     * while its count isn't 0. The guides send their counts as
+     * `ghostwriter:counts` events ({ finish } from Finish this page;
+     * { suggestions, reviewing } from Suggest edits, where there is one),
+     * and a row asks its guide to open with `ghostwriter:<guide>-show`.
+     */
+    Ghostwriter.HeaderMenu = {
+        counts: { finish: 0, suggestions: 0, reviewing: false },
+
+        listen() {
+            document.addEventListener('ghostwriter:counts', (event) => {
+                const next = { ...this.counts, ...(event.detail ?? {}) };
+
+                if (JSON.stringify(next) === JSON.stringify(this.counts)) return;
+
+                this.counts = next;
+                this.paint();
+            });
+
+            document.addEventListener('click', (event) => {
+                const row = event.target.closest?.('[data-gw-menu-open]');
+
+                if (row) document.dispatchEvent(new CustomEvent(`ghostwriter:${row.dataset.gwMenuOpen}-show`));
+            });
+        },
+
+        paint() {
+            const { finish, suggestions, reviewing } = this.counts;
+            const badge = Ghostwriter.FinishHelpers.menuBadge(finish, suggestions);
+
+            document.querySelectorAll('[data-gw-menu-btn]').forEach((button) => {
+                const total = button.querySelector('[data-gw-menu-total]');
+
+                button.setAttribute('aria-label', badge.total ? `${button.dataset.gwName} (${badge.label})` : button.dataset.gwName);
+
+                if (!total) return;
+
+                total.textContent = badge.total ? String(badge.total) : '';
+                total.setAttribute('aria-label', badge.label);
+                total.classList.toggle('hidden', !badge.total);
+                total.classList.toggle('gw-count--finish', badge.tone === 'finish');
+                total.classList.toggle('gw-count--suggest', badge.tone !== 'finish');
+            });
+
+            const row = (open, count, show) => {
+                document.querySelectorAll(`[data-gw-menu-row="${open}"]`).forEach((li) => {
+                    li.classList.toggle('hidden', !show);
+                    const n = li.querySelector('[data-gw-menu-count]');
+                    if (n) n.textContent = count ? String(count) : '…';
+                });
+            };
+
+            row('finish', finish, finish > 0);
+            // While a review runs, its row stays, to open the guide's progress.
+            row('suggest', suggestions, suggestions > 0 || reviewing);
+
+            // The rows' group goes when both rows do; with nothing in the
+            // menu its button goes too, and Edit with Ghostwriter gets its
+            // right-hand corners back.
+            const empty = !(finish > 0 || suggestions > 0 || reviewing);
+
+            document.querySelectorAll('.gw-menu .menu-group').forEach((group) => group.classList.toggle('hidden', empty));
+            document.querySelectorAll('[data-gw-menu-btn]').forEach((button) => {
+                button.classList.toggle('hidden', empty);
+                button.closest('.btngroup')?.querySelector('#ghostwriter-launch')?.classList.toggle('btngroup-btn-last', empty);
+            });
+        },
+    };
+
+    if (typeof document !== 'undefined') {
+        Ghostwriter.HeaderMenu.listen();
+        $(() => Ghostwriter.HeaderMenu.paint());
+    }
 })();

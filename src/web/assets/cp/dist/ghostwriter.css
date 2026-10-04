@@ -20,6 +20,23 @@
 .btn .gw-mark { margin-inline-end: 6px; color: var(--gw-accent); }
 .btn.submit .gw-mark { color: inherit; }
 
+/*
+ * The launcher and its menu (Launcher::buttonFor()), joined like Craft's
+ * Save button. The menu's button carries one count before its chevron:
+ * amber while something is left to finish (it stops publishing), grey
+ * with only suggestions. The rows show their own counts at the end.
+ */
+.gw-launch .gw-menu-btn { gap: 0; }
+.gw-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; padding-inline: 6px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg-subtle, #606d7b); background: var(--gray-100, #edf2f6); box-shadow: inset 0 0 0 1px var(--gray-200, #dfe5ea); }
+.gw-count.hidden { display: none; }
+.gw-count--finish { color: var(--gw-amber, #9a6400); background: var(--gw-amber-fill, #fff4e0); box-shadow: inset 0 0 0 1px var(--gw-amber-line, #e0a83a); }
+.gw-menu .gw-menu-row .menu-item-label { flex: 1; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+/* On a phone or tablet only the mark shows, so the header keeps to its line. */
+@media (max-width: 1023px) {
+    .gw-launch .gw-launch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .gw-launch #ghostwriter-launch .gw-mark { margin-inline-end: 0; }
+}
+
 .gw-alert { margin-bottom: 24px; }
 .gw-section { margin-block: 24px; }
 .gw-row { gap: 24px; align-items: center; flex-wrap: nowrap; }

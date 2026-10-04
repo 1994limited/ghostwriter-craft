@@ -4,6 +4,7 @@ namespace nineteenninetyfour\ghostwriter;
 
 use Craft;
 use craft\elements\Entry;
+use craft\helpers\Cp;
 use craft\helpers\Html;
 use craft\helpers\Json;
 use craft\helpers\UrlHelper;
@@ -13,6 +14,16 @@ use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
  * The "Write with Ghostwriter" button on an entry's edit screen, and the
  * script that opens the panel in a modal over the form, so the editor
  * never leaves the page.
+ *
+ * Beside it, a disclosure menu whose button carries one count: what is
+ * left to finish plus the suggestions to review, amber while anything is
+ * left to finish, plain with only suggestions, none at 0. The menu lists
+ * Finish this page and Review suggestions with their counts, each only
+ * while it has one (the button itself isn't repeated in it). With nothing
+ * in the menu its button is hidden, and Edit with Ghostwriter stands alone. The guides report their
+ * counts as `ghostwriter:counts` events on the document (ghostwriter.js
+ * paints them), and the rows open them with `ghostwriter:finish-show` and
+ * `ghostwriter:suggest-show`.
  */
 class Launcher
 {
@@ -22,12 +33,19 @@ class Launcher
         'brief.agree', 'brief.try-again', 'brief.show', 'brief.hide', 'brief.save', 'brief.saved',
     ];
 
+    /** The menu's words, for the count read out (ghostwriter.js). */
+    public const MENU_STRINGS = [
+        '{count} to finish', '{count} suggestions', '1 suggestion', '{count} items: {finish}, {suggestions}',
+    ];
+
     /**
-     * The button's HTML, or nothing where Ghostwriter has no business: not
-     * the control panel, not a section it writes for, not someone who may
-     * use it and save this entry.
+     * The button and its menu, or nothing where Ghostwriter has no
+     * business: not the control panel, not a section it writes for, not
+     * someone who may use it and save this entry. `$finish` says whether
+     * Finish this page is on the screen (FinishGuide::register()): its row
+     * is in the menu, and without the button the menu is there on its own.
      */
-    public static function buttonFor(Entry $entry): string
+    public static function buttonFor(Entry $entry, bool $finish = false): string
     {
         $plugin = Plugin::getInstance();
         $request = Craft::$app->getRequest();
@@ -35,11 +53,11 @@ class Launcher
         $section = $entry->getSection();
 
         if (!$request->getIsCpRequest() || !$user || !$section) {
-            return '';
+            return $finish ? self::menu(null) : '';
         }
 
         if (!$user->can(Plugin::PERMISSION) || !$plugin->types->enabled($section->handle) || !Craft::$app->getElements()->canSave($entry, $user)) {
-            return '';
+            return $finish ? self::menu(null) : '';
         }
 
         // A new entry is written; one that exists already is edited, its
@@ -71,10 +89,59 @@ class Launcher
         $view->registerTranslations('ghostwriter', self::BRIEF_STRINGS);
         $view->registerJs('new Ghostwriter.Launcher(' . Json::encode($config) . ');');
 
-        return Html::button(Html::tag('span', '', ['class' => 'gw-mark', 'aria-hidden' => 'true']) . Html::encode($editing ? Craft::t('ghostwriter', 'Edit with Ghostwriter') : Craft::t('ghostwriter', 'Write with Ghostwriter')), [
+        $label = $editing ? Craft::t('ghostwriter', 'Edit with Ghostwriter') : Craft::t('ghostwriter', 'Write with Ghostwriter');
+
+        // Joined with its menu, like Craft's own Save button.
+        return Html::tag('div', Html::button(Html::tag('span', '', ['class' => 'gw-mark', 'aria-hidden' => 'true']) . Html::tag('span', Html::encode($label), ['class' => 'gw-launch-label']), [
             'type' => 'button',
-            'class' => 'btn',
+            // Square on the right only while the menu's button shows (ghostwriter.js).
+            'class' => 'btn btngroup-btn-last',
             'id' => 'ghostwriter-launch',
+            'title' => $label,
+        ]) . self::menu($label), ['class' => 'btngroup gw-launch']);
+    }
+
+    /**
+     * The menu: the two count rows, hidden until their guide has a count.
+     * Its button shows the count before Craft's chevron, and is hidden
+     * while there is nothing in the menu.
+     */
+    private static function menu(?string $launch): string
+    {
+        $view = Craft::$app->getView();
+        $view->registerAssetBundle(GhostwriterAsset::class);
+        $view->registerTranslations('ghostwriter', self::MENU_STRINGS);
+
+        $row = fn(string $open, string $label, string $tone) => [
+            'html' => Html::tag('span', Html::encode($label), ['class' => 'gw-menu-row-label'])
+                . Html::tag('span', '', ['class' => "gw-count gw-count--{$tone}", 'data-gw-menu-count' => $open, 'aria-hidden' => 'true']),
+            'icon' => $open === 'finish' ? 'list-check' : 'lightbulb',
+            'liAttributes' => ['class' => 'hidden', 'data-gw-menu-row' => $open],
+            'attributes' => ['class' => ['gw-menu-row'], 'data' => ['gw-menu-open' => $open]],
+        ];
+
+        $items = [[
+            'type' => 'group',
+            // Until a guide has a count (ghostwriter.js shows it).
+            'hidden' => true,
+            'items' => [
+                $row('finish', Craft::t('ghostwriter', 'Finish this page'), 'finish'),
+                $row('suggest', Craft::t('ghostwriter', 'Review suggestions'), 'suggest'),
+            ],
+        ]];
+
+        $name = $launch !== null ? Craft::t('ghostwriter', 'More ways to edit with Ghostwriter') : Craft::t('ghostwriter', 'Ghostwriter');
+
+        return Cp::disclosureMenu($items, [
+            'id' => 'gw-menu',
+            'class' => 'gw-menu',
+            'hiddenLabel' => $name,
+            'buttonHtml' => ($launch === null ? Html::tag('span', Html::encode($name)) : '')
+                . Html::tag('span', '', ['class' => 'gw-count gw-count--total hidden', 'data-gw-menu-total' => true, 'role' => 'img']),
+            'buttonAttributes' => [
+                'class' => ['gw-menu-btn', 'hidden'],
+                'data' => ['gw-menu-btn' => true, 'gw-name' => $name],
+            ],
         ]);
     }
 

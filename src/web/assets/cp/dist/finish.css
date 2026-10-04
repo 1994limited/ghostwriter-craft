@@ -1,5 +1,5 @@
 /*
- * "Finish this page": the pill, the field highlights and tags, the guide,
+ * "Finish this page": the field highlights and tags, the guide,
  * the dock and the flying mark, in Craft's control panel look. Craft 5's
  * control panel has no dark mode, so these are light only. Every animation
  * is off under prefers-reduced-motion.
@@ -20,29 +20,6 @@
     --gw-surface: #fff;
     --gw-cream: #f3eee4;
     --gw-shadow: 0 0 0 1px rgba(31, 41, 51, 0.1), 0 6px 24px rgba(31, 41, 51, 0.22);
-}
-
-/* The pill, beside the entry's buttons */
-
-.gw-finish-pill.btn {
-    background: var(--gw-amber-fill);
-    color: var(--gw-amber);
-    box-shadow: inset 0 0 0 1px var(--gw-amber-line);
-    border-radius: 999px;
-}
-
-.gw-finish-pill.btn:hover {
-    background: #ffeccc;
-}
-
-.gw-finish-pill--ready.btn {
-    background: var(--gw-green-fill);
-    color: var(--gw-green);
-    box-shadow: inset 0 0 0 1px var(--gw-green-line);
-}
-
-.gw-finish-pill .gw-mark {
-    margin-inline-end: 6px;
 }
 
 /* Fields with a gap: an outline, a soft fill and a numbered tag */
@@ -651,10 +628,6 @@
 
     .gw-finish-flyer {
         display: none;
-    }
-
-    .gw-finish-pill .gw-finish-pill__text {
-        font-size: 12px;
     }
 
     .gw-gap-tag {

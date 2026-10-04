@@ -64,7 +64,7 @@ class Gaps extends Component
     }
 
     /**
-     * What is unfinished in the entry, for the pill and the guide.
+     * What is unfinished in the entry, for the menu's count and the guide.
      */
     public function report(Entry $entry): GapReport
     {
@@ -209,7 +209,7 @@ class Gaps extends Component
     }
 
     /**
-     * Everything the guide needs, translated: the count for the pill, each
+     * Everything the guide needs, translated: the count for the menu, each
      * gap with its message, speech label, fixes and where it is in the
      * form, and the stock badge for previews.
      *
