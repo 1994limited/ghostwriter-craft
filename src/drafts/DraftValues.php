@@ -9,6 +9,8 @@ use craft\fields\Assets;
 use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\BuiltEntry;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
@@ -68,7 +70,10 @@ class DraftValues
 
         // The chosen layout (or the one asked for): the draft's own words,
         // arranged. With the writer's layout chosen this is the draft.
-        $draft = new Draft((new DraftLayouts())->draftData($session, $model, $plan), $draft->raw);
+        // Without the links chosen for fields it doesn't hold (`gw_links`): they aren't a field to build.
+        $words = (new DraftLayouts())->draftData($session, $model, $plan);
+        unset($words[MarkerResolver::CHOSEN_LINKS]);
+        $draft = new Draft($words, $draft->raw);
 
         $editing = $session->isEditing();
         $existing = [];
@@ -105,6 +110,16 @@ class DraftValues
             if ($note = $house->note()) {
                 $notes[] = $note;
             }
+        }
+
+        // Links chosen from the preview for fields the draft doesn't hold (a
+        // button's link): kept in the session's draft by hint, put in
+        // wherever the house style's sentinel for it turned up. Craft's link
+        // fields take the entry's address.
+        if (($chosen = MarkerResolver::chosenLinks(Draft::parse($session->draft)->data)) !== []) {
+            $data = MarkerResolver::withChosenLinks($data, $chosen, references: false);
+            $notes = self::withoutChosen($notes, $chosen, $data);
+            $housePlaces = self::withoutChosen($housePlaces, $chosen, $data, places: true);
         }
 
         // An image already in the entry's own image fields, chosen with the
@@ -186,5 +201,48 @@ class DraftValues
         });
 
         return $ids;
+    }
+
+    /**
+     * The build's notes (or the house style's places) without the links
+     * since chosen: "Still to choose by hand: Hero: Image; Hero: Button
+     * link." loses "Hero: Button link" once a "button link" is chosen, and
+     * "(link still to choose)" places go once no link is left to choose.
+     *
+     * @param array<int, mixed> $notes
+     * @param array<string, mixed> $chosen From MarkerResolver::chosenLinks().
+     * @param array<string, mixed> $data
+     * @return array<int, mixed>
+     */
+    public static function withoutChosen(array $notes, array $chosen, array $data, bool $places = false): array
+    {
+        $left = str_contains((string) json_encode($data), Markers::LINK_PREFIX);
+        $keep = function(string $item) use ($chosen, $left): bool {
+            $field = preg_match('/: ([^:]+)\z/u', $item, $named) === 1 ? Markers::normaliseHint($named[1]) : null;
+
+            return !(($field !== null && isset($chosen[$field])) || (!$left && str_ends_with($item, '(link still to choose)')));
+        };
+
+        if ($places) {
+            return array_values(array_filter($notes, fn($place) => !is_string($place) || $keep($place)));
+        }
+
+        $out = [];
+
+        foreach ($notes as $note) {
+            if (!is_string($note) || preg_match('/\A(Still to (?:choose|set) by hand[^:]*: )(.*)\.\z/su', $note, $match) !== 1) {
+                $out[] = $note;
+
+                continue;
+            }
+
+            $items = array_values(array_filter(explode('; ', $match[2]), $keep));
+
+            if ($items !== []) {
+                $out[] = $match[1] . implode('; ', $items) . '.';
+            }
+        }
+
+        return $out;
     }
 }

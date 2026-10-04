@@ -14,12 +14,16 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\NotFound;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefStage;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\Extras;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\LinkTarget;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
 use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use nineteenninetyfour\ghostwriter\drafts\Applier;
+use nineteenninetyfour\ghostwriter\gaps\CraftLinkTargets;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RefreshLayouts;
@@ -410,6 +414,144 @@ class SessionsController extends Controller
 
             return trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
         }, inPlace: true);
+    }
+
+    /**
+     * A gap resolved from its chip, in the draft itself, before "Use this
+     * draft": the Preview and the Text tab show markers as chips, and a
+     * chip's popover answers an ask, confirms, changes or removes a count,
+     * or chooses a link. The answer goes in exactly as typed (core's
+     * Gaps\MarkerResolver); no model. Saved like any hand edit, under the
+     * session's lock (E7), and the layouts follow without a call. A gap
+     * resolved here never reaches the entry, so Finish this page never
+     * lists it.
+     *
+     * A chip in the Text tab says where it is: `path` (the draft) or `item`
+     * and `part` (an extra). One in the Preview is found by its kind, hint
+     * and order. A link in a field the draft doesn't hold (a button's
+     * link, which the house style fills when the page is built) is kept in
+     * the draft by its hint and put in wherever its sentinel turns up.
+     */
+    public function actionResolveGap(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $kind = (string) $this->request->getRequiredBodyParam('kind');
+        $hint = (string) $this->request->getBodyParam('hint', '');
+        $list = $this->request->getBodyParam('list');
+        $occurrence = max(0, (int) $this->request->getBodyParam('occurrence', 0));
+        $value = str_replace("\r", '', (string) $this->request->getBodyParam('value', ''));
+        $reference = (string) $this->request->getBodyParam('reference', '');
+        $path = json_decode((string) $this->request->getBodyParam('path', ''), true);
+        $item = (string) $this->request->getBodyParam('item', '');
+        $part = (string) $this->request->getBodyParam('part', '');
+
+        if (!in_array($kind, MarkerResolver::KINDS, true) || mb_strlen($value) > 5000 || mb_strlen($hint) > 400) {
+            return $this->refuse(Craft::t('ghostwriter', 'That gap isn’t in the draft any more.'));
+        }
+
+        $domain = Plugin::getInstance()->domain;
+        $layouts = new DraftLayouts();
+        $refusal = null;
+        $gone = Craft::t('ghostwriter', 'That gap isn’t in the draft any more.');
+
+        try {
+            $session = $domain->sessions()->edit($session->id, $domain->viewer(), function(Session $session) use ($kind, $hint, $list, $occurrence, $value, $reference, $path, $item, $part, $layouts, $gone, &$refusal): ?bool {
+                if ($session->draft === null) {
+                    $refusal = $this->refuse(Craft::t('ghostwriter', 'There is no draft yet.'));
+
+                    return false;
+                }
+
+                $data = Draft::parse($session->draft)->data;
+                $extras = $layouts->core()->extras($session);
+
+                if ($item !== '') {
+                    $texts = self::extraText($extras, $item, $part);
+                } elseif (is_array($path) && $path !== []) {
+                    $texts = self::draftText($data, $path);
+                } else {
+                    $texts = [...MarkerResolver::leaves($data), ...self::extraTexts($extras)];
+                }
+
+                $found = MarkerResolver::find($texts, $kind, $hint, is_string($list) ? $list : null, $occurrence);
+
+                // A link field the draft doesn't hold: kept by its hint.
+                if ($found === null && $kind === 'link' && $item === '' && !is_array($path) && $value !== '') {
+                    $before = $session->draft;
+                    $session->draft = self::dump(MarkerResolver::chooseLink($data, $hint, $reference !== '' ? $reference : $value, $value));
+                    $layouts->afterEdit($session, $before);
+
+                    return null;
+                }
+
+                if ($found === null) {
+                    $refusal = $this->refuse($gone);
+
+                    return false;
+                }
+
+                if ($found['whole'] && $reference !== '') {
+                    $value = $reference;
+                }
+
+                if ($found['path'][0] === self::EXTRA) {
+                    try {
+                        self::resolveExtra($session, $extras, $found, $value, $layouts);
+                    } catch (InvalidArgumentException $exception) {
+                        $refusal = $this->refuse(Craft::t('ghostwriter', $exception->getMessage()));
+
+                        return false;
+                    }
+
+                    return null;
+                }
+
+                $node = &$data;
+
+                foreach ($found['path'] as $step) {
+                    $node = &$node[$step];
+                }
+
+                $node = MarkerResolver::apply($node, $found, $value);
+                unset($node);
+
+                // The same piece of writing in the same place: its unit keeps its id.
+                $session->draft = self::dump($data);
+                $layouts->afterEdit($session, $session->draft);
+
+                return null;
+            });
+        } catch (Busy $busy) {
+            return $this->busy($busy);
+        } catch (NotFound|NotAllowed) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        return $refusal ?? $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * Entries a link to choose could point at: the hint's best matches, or
+     * what the person typed into "Choose an entry". No model.
+     */
+    public function actionLinks(): Response
+    {
+        $session = $this->session();
+        $q = trim((string) $this->request->getRequiredParam('q'));
+
+        if ($q === '' || mb_strlen($q) > 200) {
+            return $this->asJson(['entries' => []]);
+        }
+
+        $targets = (new CraftLinkTargets($session->siteId ? (int) $session->siteId : null))->search($q, 6);
+
+        return $this->asJson(['entries' => array_map(fn(LinkTarget $target) => [
+            'title' => $target->title,
+            'url' => $target->url,
+            'value' => $target->value,
+        ], $targets)]);
     }
 
     /**
@@ -872,6 +1014,113 @@ class SessionsController extends Controller
         }
 
         return $refusal ?? $this->asJson((new Presenter())->detail($session));
+    }
+
+    /** Where an extra item's words are, in a found marker's path: `['@extra', itemId, part]`. */
+    private const EXTRA = '@extra';
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function dump(array $data): string
+    {
+        return trim(\Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+    }
+
+    /**
+     * The one text a chip in the Text tab is in.
+     *
+     * @param array<string, mixed> $data
+     * @param array<int, mixed> $path
+     * @return list<array{path: list<int|string>, text: string}>
+     */
+    private static function draftText(array $data, array $path): array
+    {
+        $node = $data;
+
+        foreach ($path as $step) {
+            if (!is_array($node) || !(is_int($step) || is_string($step)) || !array_key_exists($step, $node)) {
+                return [];
+            }
+
+            $node = $node[$step];
+        }
+
+        return is_string($node) ? [['path' => array_values($path), 'text' => $node]] : [];
+    }
+
+    /**
+     * @return list<array{path: list<int|string>, text: string}>
+     */
+    private static function extraText(Extras $extras, string $item, string $part): array
+    {
+        $found = $extras->item($item);
+        $part = $part === '' ? 'text' : $part;
+        $text = $found === null ? null : ($part === 'text' ? $found->text : ($found->parts[$part] ?? null));
+
+        return is_string($text) ? [['path' => [self::EXTRA, $found->id, $part], 'text' => $text]] : [];
+    }
+
+    /**
+     * Each extra item's words: its text, and the parts that aren't in it.
+     *
+     * @return list<array{path: list<int|string>, text: string}>
+     */
+    private static function extraTexts(Extras $extras): array
+    {
+        $texts = [];
+
+        foreach ($extras->items() as $item) {
+            $texts[] = ['path' => [self::EXTRA, $item->id, 'text'], 'text' => $item->text];
+
+            foreach ($item->parts as $part => $words) {
+                if (is_string($words) && $words !== '' && !str_contains($item->text, $words)) {
+                    $texts[] = ['path' => [self::EXTRA, $item->id, (string) $part], 'text' => $words];
+                }
+            }
+        }
+
+        return $texts;
+    }
+
+    /**
+     * The marker resolved in the extra, and the rest of the item kept in
+     * step: a stat's count is in its text and its number. Confirmed, every
+     * count from the same list becomes its value; changed or removed, a
+     * stat's text is its new number and its label.
+     *
+     * @param array{path: list<int|string>, text: string, kind: string, match: string, occurrence: int, whole: bool} $found
+     */
+    private static function resolveExtra(Session $session, Extras $extras, array $found, string $value, DraftLayouts $layouts): void
+    {
+        $item = $extras->item((string) $found['path'][1]) ?? throw new InvalidArgumentException('That extra is no longer there.');
+        $field = (string) $found['path'][2];
+        $words = ['text' => $item->text, ...array_map('strval', $item->parts)];
+        $words[$field] = MarkerResolver::apply($words[$field], $found, $value);
+
+        if ($found['kind'] === 'check') {
+            $marker = Markers::checks($found['match'])[0] ?? null;
+            $confirmed = $marker !== null && Markers::normaliseHint($marker['value']) === Markers::normaliseHint($value);
+
+            if (!$confirmed && isset($item->parts['value'], $item->parts['label']) && $field === 'value') {
+                $words['text'] = trim($words['value'] . ' ' . Markers::withoutChecks($words['label']));
+            }
+
+            foreach ($words as $name => $text) {
+                $words[$name] = (string) preg_replace_callback(Markers::CHECK_PATTERN, fn(array $m) => $marker !== null && Markers::normaliseHint(trim($m[2])) === Markers::normaliseHint($marker['list']) ? trim($m[1]) : $m[0], $text);
+            }
+        } else {
+            foreach ($words as $name => $text) {
+                if ($name !== $field && str_contains($text, $found['match'])) {
+                    $words[$name] = MarkerResolver::apply($text, [...$found, 'occurrence' => 0], $value);
+                }
+            }
+        }
+
+        $text = trim($words['text']);
+        unset($words['text']);
+
+        $layouts->core()->editExtra($session, $item->id, $text, $words === [] ? null : $words, $layouts->context($session));
     }
 
     /**

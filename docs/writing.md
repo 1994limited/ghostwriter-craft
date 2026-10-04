@@ -89,6 +89,9 @@ The draft sits on the right, in three tabs:
 - **Text** shows just the words.
 
 The arrow keys move between the tabs.
+
+In a narrow window (a tablet or a phone), the conversation and the draft take turns: **Conversation** and **Draft** at the top switch between them. A dot on Draft means the draft has changed since you looked; a dot on Conversation means Ghostwriter is working, or (amber) waiting for your answer. The box for your message stays at the bottom of the conversation.
+- **In Text, gaps show as chips** (facts to add, counts to check, links to choose), as in the Preview, and a chip opens the same [box to deal with it](#preview). Writing with a chip in it starts editing when you click its words, or Tab to it and press **Enter** (or start typing): then you see it exactly as it's kept, raw markers and all, and that is what's saved.
 - **Change any writing where it's shown.** The draft says "Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back." Click it, or press **Tab** to reach it, and type. It's saved when you leave it. **Esc** puts it back as it was, and **Enter** finishes a one-line piece such as a heading.
 - **Edit YAML** opens the whole draft as text, to add, move or remove blocks. Most people never need it.
 
@@ -106,7 +109,13 @@ The word count is shown at the top. A block type the section doesn't allow is fl
 - **Hover to see the blocks.** Each block of the page builder, each section of rich text and each top-level field is outlined with its name as the pointer moves over it ("Where to put one · in Body"). The outlines follow the page as it resizes and loads.
 - **Desktop / Phone** switches the width: the panel's width, or 390 px. On a phone, Desktop shows the page laid out at 1280 px, scaled to fit.
 - **After a change** (a new draft, a change in the conversation, or writing changed in Blocks or Text), the preview renders again once the changes stop. "Updating preview…" shows in the bar while it does, and the last version stays in view.
-- **Gaps show as what they are**, not as raw text. A fact only you know (`[[ask: adult ticket price]]` in the draft) is an amber chip reading "adult ticket price", titled "Only you know this: add it before publishing". A [count to check](finish-this-page.md#counts-to-check) shows its number ("3 areas") with a dotted amber underline, titled "Counted from '…'. Check it before publishing". A link still to choose has a dashed amber underline, titled "Link to choose". Screen readers hear "Fact to add:", "Count to check:" and "(link to choose)". The chips are only shown: the draft, and the entry once you use it, keep the markers, so [Finish this page](finish-this-page.md) finds them. The layout cards' thumbnails show them too. Clicking a chip doesn't open the guide yet, because the guide works on the entry's form, which doesn't have the draft until you use it.
+- **Gaps show as what they are**, not as raw text. A fact only you know (`[[ask: adult ticket price]]` in the draft) is an amber chip reading "adult ticket price", titled "Only you know this: add it before publishing". A [count to check](finish-this-page.md#counts-to-check) shows its number ("3 areas") with a dotted amber underline, titled "Counted from '…'. Check it before publishing". A link still to choose has a dashed amber underline, titled "Link to choose". Screen readers hear "Fact to add:", "Count to check:" and "(link to choose)". The layout cards' thumbnails show them too. Until you deal with them, the draft keeps the markers, and so does the entry once you use it, so [Finish this page](finish-this-page.md) finds them.
+- **Click a chip (or Tab to it and press Enter) to deal with it here**, in the draft, before you use it. A small box opens at the chip:
+  - a fact to add: "Only you know this: adult ticket price", with a box for your answer, **Add it** and **Leave it for later**. Your answer goes into the draft exactly as you type it: no model is asked, and nothing is reworded;
+  - a count to check: "Counted from ‘Northumberland, Durham and the Tyne Valley’. 3 areas, is that right?", with **Looks right**, **Change it** and **Remove it**;
+  - a link to choose: the pages its hint suggests ("Link to About"), or **Choose an entry** to find one by its title. A link in the writing points at the page's address, and so does a button's Link field.
+
+  The preview, the layouts, Blocks and Text follow at once, and in a shared conversation everyone sees the change. A gap dealt with here is gone from the draft, so Finish this page won't ask about it after **Use this draft**; one you leave for later still shows there. Esc closes the box and puts you back on the chip.
 - **Links in the preview do nothing**, so you stay on the draft. Forms can't be sent from it.
 - **Edits** of an existing entry are previewed the same way: the entry with the changes, unsaved.
 
@@ -156,7 +165,7 @@ They're at the foot of the **Text** tab: "Prepared with the draft, only from wha
 - Each extra says whether the chosen layout uses it (**Used in Sections apart**), and each item where it came from: *from your brief*, *from your answer · question 2*, *from the draft*, *from* one of your pages (linked), or *your words* once you've changed it.
 - **Nothing is made up.** An item whose facts aren't in what you gave Ghostwriter is dropped. One waiting on a fact only you know says **Needs your answer**.
 - **A count it worked out** ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, not the model, and says **Counted from your brief: “…”** and **Needs review**. It's a step in [Finish this page](finish-this-page.md#counts-to-check) before the page can go live.
-- **A fact to add or a count to check shows as a chip**, as in the Preview. Click it to change it, and you'll see the words as they're kept, markers included (`[[ask: years trading]]`).
+- **A fact to add or a count to check shows as a chip**, as in the Preview, and clicking the chip opens the same box to answer or check it there. Click the words around it (or Tab to them and press Enter) to change them, and you'll see them as they're kept, markers included (`[[ask: years trading]]`).
 - **Click an item to change it.** It's saved when you leave it. Enter finishes, and Esc puts it back as it was.
 - **✕** deletes an extra (or one item of it). A layout that used it is arranged again without it.
 

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "18f9f43d0d6d24be5b1519540ca2c026",
+    "content-hash": "f0154f5df0116472e5bd69da7ca65099",
     "packages": [
         {
             "name": "1994/ghostwriter-core",
-            "version": "v1.8.2",
+            "version": "v1.8.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/1994limited/ghostwriter-core.git",
-                "reference": "714e92a4a4a35a0cac6108c0096535e4dcad252c"
+                "reference": "b61d6b02ed94eede72cf4e5651a968037a972068"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/714e92a4a4a35a0cac6108c0096535e4dcad252c",
-                "reference": "714e92a4a4a35a0cac6108c0096535e4dcad252c",
+                "url": "https://api.github.com/repos/1994limited/ghostwriter-core/zipball/b61d6b02ed94eede72cf4e5651a968037a972068",
+                "reference": "b61d6b02ed94eede72cf4e5651a968037a972068",
                 "shasum": ""
             },
             "require": {
@@ -80,7 +80,7 @@
                 "issues": "https://github.com/1994limited/ghostwriter-core/issues",
                 "source": "https://github.com/1994limited/ghostwriter-core"
             },
-            "time": "2026-10-03T23:18:43+00:00"
+            "time": "2026-10-04T00:44:24+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",

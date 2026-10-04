@@ -48,9 +48,10 @@ export const LABELS = {
     linkRow: 'Choose a link: :hint',
 };
 
-/** The class every chip carries, and the attribute naming its kind. */
+/** The class every chip carries, the attribute naming its kind, and the one keeping the marker as written. */
 export const CHIP = 'gw-gap';
 export const KIND = 'data-gw-gap-kind';
+export const MATCH = 'data-gw-gap-match';
 
 /** The styles: injected into the frame (or the CP page) once, never into the site's CSS. */
 export const STYLES = `
@@ -129,7 +130,8 @@ export function linkHint(href) {
  * A string as pieces: `{kind: 'text', text}`, `{kind: 'ask', text, hint}`,
  * `{kind: 'check', text, hint, value, list}`, and, for markdown links to
  * choose (`[words](#gw-link:hint)`) when `links` is true, `{kind: 'link',
- * text, hint}`. `text` is what to show.
+ * text, hint}`. `text` is what to show; each marker piece also has `match`,
+ * the marker as written.
  */
 export function segments(text, { links = true } = {}) {
     const value = String(text ?? '');
@@ -152,9 +154,9 @@ export function segments(text, { links = true } = {}) {
         if (mark.index < at) continue;
         if (mark.index > at) pieces.push({ kind: 'text', text: value.slice(at, mark.index) });
 
-        if (mark.kind === 'ask') pieces.push({ kind: 'ask', text: mark.hint, hint: mark.hint });
-        else if (mark.kind === 'check') pieces.push({ kind: 'check', text: mark.value, hint: mark.hint, value: mark.value, list: mark.list });
-        else pieces.push({ kind: 'link', text: mark.words, hint: mark.hint });
+        if (mark.kind === 'ask') pieces.push({ kind: 'ask', text: mark.hint, hint: mark.hint, match: mark.match });
+        else if (mark.kind === 'check') pieces.push({ kind: 'check', text: mark.value, hint: mark.hint, value: mark.value, list: mark.list, match: mark.match });
+        else pieces.push({ kind: 'link', text: mark.words, hint: mark.hint, match: mark.match });
 
         at = mark.index + mark.length;
     }
@@ -187,8 +189,9 @@ export function toHtml(text, { labels = {} } = {}) {
         if (piece.kind === 'text') return escape(piece.text);
 
         const { title, spoken } = describe(piece, l);
+        const list = piece.kind === 'check' ? ` data-gw-gap-list="${escape(piece.list)}"` : '';
 
-        return `<span class="${CHIP} gw-gap-${piece.kind}" ${KIND}="${piece.kind}" title="${escape(title)}"><span class="gw-gap-sr">${escape(spoken)} </span>${escape(piece.text)}</span>`;
+        return `<span class="${CHIP} gw-gap-${piece.kind}" ${KIND}="${piece.kind}" data-gw-gap-hint="${escape(piece.hint)}"${list} ${MATCH}="${escape(piece.match)}" title="${escape(title)}"><span class="gw-gap-sr">${escape(spoken)} </span>${escape(piece.text)}</span>`;
     }).join('');
 }
 
@@ -260,10 +263,14 @@ export function chipRow(doc, text, { labels = {} } = {}) {
  *   left alone, so running it again changes nothing.
  * - `a[href*="#gw-link:"]` gets `gw-gap gw-gap-link`, a `title` and a hidden
  *   "(link to choose)".
- * - With `onActivate(chip)`, chips are focusable buttons: a click, Enter or
- *   Space calls it with `{kind, hint, value?, list?, element}`.
+ * - With `onActivate(chip)`, chips are focusable buttons that open a
+ *   dialog: a click, Enter or Space calls it with `{kind, hint, value?,
+ *   list?, match, occurrence, element}`. `occurrence` is which of the
+ *   chips under the root with that kind and hint (and list) it is, from 0,
+ *   so the addon can find the same marker in what it stores
+ *   (Gaps\MarkerResolver::find()).
  *
- * @returns {Array<{kind: string, hint: string, value?: string, list?: string, element: object}>} every chip under the root, in document order
+ * @returns {Array<{kind: string, hint: string, value?: string, list?: string, match: string, occurrence: number, element: object}>} every chip under the root, in document order
  */
 export function markGaps(root, { labels = {}, onActivate = null, styles = true } = {}) {
     const doc = root?.ownerDocument && root.nodeType !== 9 ? root.ownerDocument : root;
@@ -328,12 +335,17 @@ export function markGaps(root, { labels = {}, onActivate = null, styles = true }
     }
 
     const chips = [];
+    const seen = {};
 
     walk(start, (node) => {
         if (node.nodeType !== ELEMENT || SKIP.has(tagOf(node))) return false;
 
         if (hasClass(node, CHIP)) {
-            chips.push(describeChip(node));
+            const found = describeChip(node);
+            const key = occurrenceKey(found);
+
+            found.occurrence = seen[key] = key in seen ? seen[key] + 1 : 0;
+            chips.push(found);
 
             return tagOf(node) === 'A';
         }
@@ -365,6 +377,59 @@ export function countByRegion(regions, chips) {
     return counts;
 }
 
+/**
+ * Puts every chip under a root back as the marker it stands for: for text
+ * that is about to be read back or edited (the Text tab), so a chip's
+ * markup is never saved. A chip becomes its marker as written; a link to
+ * choose loses the chip's classes, title and hidden words and keeps its
+ * own. Returns the root.
+ */
+export function unmarkGaps(root) {
+    const doc = root?.ownerDocument && root.nodeType !== 9 ? root.ownerDocument : root;
+    const start = root?.documentElement ?? root;
+    const chips = [];
+
+    if (!doc || !start) return root;
+
+    walk(start, (node) => {
+        if (node.nodeType !== ELEMENT) return false;
+
+        if (hasClass(node, CHIP)) {
+            chips.push(node);
+
+            return tagOf(node) === 'A';
+        }
+
+        return true;
+    });
+
+    for (const element of chips) {
+        if (tagOf(element) !== 'A') {
+            const match = element.getAttribute(MATCH);
+            const spoken = childOf(element, (child) => hasClass(child, 'gw-gap-sr'));
+
+            if (spoken) element.removeChild(spoken);
+
+            const parent = element.parentNode;
+            parent.insertBefore(doc.createTextNode(match ?? element.textContent ?? ''), element);
+            parent.removeChild(element);
+            continue;
+        }
+
+        const spoken = childOf(element, (child) => hasClass(child, 'gw-gap-sr'));
+        if (spoken) element.removeChild(spoken);
+
+        const classes = String(element.getAttribute('class') ?? '').split(/\s+/).filter((name) => name && name !== CHIP && name !== 'gw-gap-link');
+
+        if (classes.length) element.setAttribute('class', classes.join(' '));
+        else element.removeAttribute('class');
+
+        for (const name of [KIND, 'data-gw-gap-hint', 'data-gw-gap-active', 'title', 'aria-haspopup']) element.removeAttribute(name);
+    }
+
+    return root;
+}
+
 // ---------------------------------------------------------------------------
 
 function chip(doc, piece, l) {
@@ -376,6 +441,7 @@ function chip(doc, piece, l) {
 
     if (piece.kind === 'check') span.setAttribute('data-gw-gap-list', piece.list);
 
+    span.setAttribute(MATCH, piece.match);
     span.setAttribute('title', title);
 
     const hidden = doc.createElement('span');
@@ -390,7 +456,8 @@ function chip(doc, piece, l) {
 function describeChip(element) {
     const kind = element.getAttribute(KIND) ?? 'ask';
     const hint = element.getAttribute('data-gw-gap-hint') ?? '';
-    const found = { kind, hint, element };
+    const match = tagOf(element) === 'A' ? (element.getAttribute('href') ?? '') : (element.getAttribute(MATCH) ?? '');
+    const found = { kind, hint, match, element };
 
     if (kind === 'check') {
         found.value = hint;
@@ -398,6 +465,13 @@ function describeChip(element) {
     }
 
     return found;
+}
+
+/** Chips with the same kind, hint (and list) are told apart by their order. */
+function occurrenceKey(found) {
+    const hint = (found.kind === 'link' ? found.hint.replace(/[-_]+/g, ' ') : found.hint).replace(/\s+/g, ' ').trim().toLowerCase();
+
+    return [found.kind, hint, found.kind === 'check' ? String(found.list ?? '').replace(/\s+/g, ' ').trim().toLowerCase() : ''].join('\u0000');
 }
 
 function activate(found, onActivate) {
@@ -411,6 +485,8 @@ function activate(found, onActivate) {
         element.setAttribute('tabindex', '0');
         element.setAttribute('role', 'button');
     }
+
+    element.setAttribute('aria-haspopup', 'dialog');
 
     element.addEventListener?.('click', (event) => {
         event.preventDefault?.();

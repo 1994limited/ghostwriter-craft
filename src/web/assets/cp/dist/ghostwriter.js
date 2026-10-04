@@ -66,6 +66,11 @@
         } catch (error) {}
     };
 
+    /** Whether stored writing holds a gap marker to show as a chip (core's markers.js does the rest). */
+    Ghostwriter.hasGapMarkers = function (text) {
+        return typeof text === 'string' && (text.includes('[[') || text.includes('#gw-link:'));
+    };
+
     // Safe in text and in attributes alike.
     Ghostwriter.escape = function (text) {
         const div = document.createElement('div');
@@ -392,6 +397,292 @@
         },
     });
 
+    /**
+     * A gap resolved from its chip, in the draft itself: the small popover a
+     * chip opens in the Preview or the Text tab, anchored to the chip inside
+     * the draft (over the preview's frame).
+     *
+     * - A fact to add: "Only you know this: adult ticket price", an answer
+     *   box, Add it, and Leave it for later.
+     * - A count to check: "Counted from ‘…’. 3 areas, is that right?", with
+     *   Looks right, Change it and Remove it.
+     * - A link to choose: the entries its hint suggests (no model), or
+     *   Choose an entry to search for one.
+     *
+     * The answer goes into the draft exactly as typed (`resolve`); Leave it
+     * for later changes nothing. It is a dialog: focus moves into it, Tab
+     * stays in it, Esc closes it, and the panel puts focus back on the chip.
+     */
+    class GapPopover {
+        /**
+         * @param {object} gap {kind, hint, value?, list?, element, frame?}
+         * @param {HTMLElement} container The positioned element it sits in.
+         * @param {{resolve: (value: string, reference: ?string) => void, close: (refocus: boolean) => void, search: (q: string) => Promise<Array>}} actions
+         */
+        constructor(gap, container, actions) {
+            this.gap = gap;
+            this.container = container;
+            this.actions = actions;
+            this.busy = false;
+            this.id = `gw-gap-${++GapPopover.ids}`;
+
+            const root = document.createElement('div');
+            root.className = 'gw-gap-popover';
+            root.setAttribute('role', 'dialog');
+            root.setAttribute('aria-modal', 'true');
+            root.setAttribute('aria-labelledby', `${this.id}-title`);
+            root.setAttribute('tabindex', '-1');
+            root.dataset.kind = gap.kind;
+            root.dataset.ghostwriterGapPopover = '';
+            this.root = root;
+            this.draw();
+            container.appendChild(root);
+
+            this.place = this.place.bind(this);
+            this.outside = this.outside.bind(this);
+            root.addEventListener('keydown', (event) => this.key(event));
+            root.addEventListener('click', (event) => this.click(event));
+            root.addEventListener('input', (event) => this.input(event));
+            document.addEventListener('scroll', this.place, true);
+            window.addEventListener('resize', this.place);
+            gap.frame?.contentWindow?.addEventListener('scroll', this.place, { passive: true });
+            document.addEventListener('mousedown', this.outside, true);
+            gap.frame?.contentDocument?.addEventListener('mousedown', this.outside, true);
+
+            this.place();
+            this.focusFirst();
+
+            if (gap.kind === 'link') this.suggest();
+        }
+
+        title() {
+            if (this.gap.kind === 'ask') return t('Only you know this: {hint}', { hint: this.gap.hint });
+            if (this.gap.kind === 'check') return t('Counted from ‘{list}’. {value}, is that right?', { list: this.gap.list ?? '', value: this.gap.value ?? this.gap.hint });
+
+            return t('Link to choose');
+        }
+
+        draw(state = {}) {
+            const gap = this.gap;
+            const field = (name, label, value = '') => `<label class="gw-gap-popover__label" for="${this.id}-${name}">${esc(label)}</label><input id="${this.id}-${name}" type="text" class="text fullwidth" data-gap-input="${name}" value="${esc(value)}" autocomplete="off">`;
+            let body = '';
+
+            if (gap.kind === 'ask') {
+                body = `${field('answer', t('Your answer goes into the draft exactly as you type it.'))}
+                    <div class="gw-gap-popover__actions">
+                        <button type="button" class="btn" data-gap="later">${esc(t('Leave it for later'))}</button>
+                        <button type="button" class="btn submit" data-gap="answer">${esc(t('Add it'))}</button>
+                    </div>`;
+            } else if (gap.kind === 'check') {
+                body = state.changing
+                    ? `${field('change', t('What the page should say'), gap.value ?? gap.hint)}
+                        <div class="gw-gap-popover__actions">
+                            <button type="button" class="btn" data-gap="cancel-change">${esc(t('Cancel'))}</button>
+                            <button type="button" class="btn submit" data-gap="save-change">${esc(t('Save'))}</button>
+                        </div>`
+                    : `<div class="gw-gap-popover__actions">
+                            <button type="button" class="btn" data-gap="remove">${esc(t('Remove it'))}</button>
+                            <button type="button" class="btn" data-gap="change">${esc(t('Change it'))}</button>
+                            <button type="button" class="btn submit" data-gap="confirm">${esc(t('Looks right'))}</button>
+                        </div>`;
+            } else {
+                const list = (entries, prefix) => entries.length
+                    ? `<ul class="gw-gap-popover__entries">${entries.map((entry, i) => `<li><button type="button" class="gw-gap-popover__entry" data-gap="choose" data-entry="${i}" data-from="${prefix}"><strong>${esc(prefix === 'suggested' ? t('Link to {title}', { title: entry.title }) : entry.title)}</strong>${entry.url ? `<span class="light">${esc(entry.url)}</span>` : ''}</button></li>`).join('')}</ul>`
+                    : '';
+
+                body = `${gap.hint ? `<p class="light gw-gap-popover__meant">${esc(t('Ghostwriter meant: {hint}', { hint: gap.hint }))}</p>` : ''}
+                    ${state.choosing
+                        ? `${field('query', t('Find a page by its title'), state.query ?? '')}
+                            <p class="visually-hidden" role="status">${esc(state.results ? t('{count, plural, =1{# page found} other{# pages found}}', { count: state.results.length }) : '')}</p>
+                            ${state.results ? (state.results.length ? list(state.results, 'results') : `<p class="light">${esc(t('No page has that title.'))}</p>`) : ''}`
+                        : (this.suggestions === undefined
+                            ? `<p class="light" role="status">${esc(t('Looking for pages…'))}</p>`
+                            : (this.suggestions.length ? list(this.suggestions, 'suggested') : `<p class="light">${esc(t('No page matches it. Choose one instead.'))}</p>`))}
+                    <div class="gw-gap-popover__actions">
+                        <button type="button" class="btn" data-gap="later">${esc(t('Leave it for later'))}</button>
+                        ${state.choosing ? '' : `<button type="button" class="btn" data-gap="choose-entry">${esc(t('Choose an entry'))}</button>`}
+                    </div>`;
+            }
+
+            this.state = state;
+            this.root.innerHTML = `<p class="gw-gap-popover__title" id="${this.id}-title">${esc(this.title())}</p>${body}`;
+            Ghostwriter.prepareButtons(this.root);
+        }
+
+        // Below the chip (above it when there's no room), inside the container.
+        place() {
+            const gap = this.gap;
+
+            if (!gap.element?.isConnected) return;
+
+            const outer = this.container.getBoundingClientRect();
+            const box = gap.element.getBoundingClientRect();
+            let anchor = box;
+
+            if (gap.frame) {
+                const frame = gap.frame.getBoundingClientRect();
+                const scale = gap.frame.offsetWidth ? frame.width / gap.frame.offsetWidth : 1;
+
+                anchor = { left: frame.left + box.left * scale, top: frame.top + box.top * scale, bottom: frame.top + box.bottom * scale };
+            }
+
+            const width = Math.min(340, Math.max(220, this.container.clientWidth - 16));
+            const height = this.root.offsetHeight || 160;
+            const left = Math.min(Math.max(8, anchor.left - outer.left), Math.max(8, this.container.clientWidth - width - 8));
+            const below = anchor.bottom - outer.top + 6;
+            const above = anchor.top - outer.top - height - 6;
+            const top = below + height > this.container.clientHeight - 4 && above > 4 ? above : Math.min(below, Math.max(4, this.container.clientHeight - height - 4));
+
+            Object.assign(this.root.style, { left: `${left}px`, top: `${top}px`, width: `${width}px` });
+        }
+
+        focusFirst() {
+            (this.root.querySelector('input, button:not([disabled])') ?? this.root).focus();
+        }
+
+        focusable() {
+            return [...this.root.querySelectorAll('input, button:not([disabled])')].filter((element) => element.offsetParent !== null);
+        }
+
+        key(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+
+                return this.actions.close(true);
+            }
+
+            if (event.key === 'Tab') {
+                const all = this.focusable();
+                const first = all[0];
+                const last = all[all.length - 1];
+
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first?.focus();
+                }
+
+                return;
+            }
+
+            if (event.key === 'Enter' && event.target.matches?.('[data-gap-input]')) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const name = event.target.dataset.gapInput;
+
+                if (name === 'answer') this.submit('answer');
+                if (name === 'change') this.submit('save-change');
+            }
+        }
+
+        click(event) {
+            const button = event.target.closest('[data-gap]');
+
+            if (button) this.submit(button.dataset.gap, button);
+        }
+
+        input(event) {
+            if (event.target.dataset.gapInput !== 'query') return;
+
+            clearTimeout(this.searchTimer);
+            const query = event.target.value;
+            this.searchTimer = setTimeout(async () => {
+                const results = await this.actions.search(query);
+
+                this.draw({ choosing: true, query, results });
+                const input = this.root.querySelector('[data-gap-input=query]');
+                input?.focus();
+                input?.setSelectionRange(query.length, query.length);
+                this.place();
+            }, 250);
+        }
+
+        submit(action, button = null) {
+            if (this.busy && !['later', 'cancel-change', 'change', 'choose-entry'].includes(action)) return;
+
+            const value = (name) => this.root.querySelector(`[data-gap-input=${name}]`)?.value ?? '';
+
+            switch (action) {
+                case 'later':
+                    return this.actions.close(true);
+                case 'answer':
+                    return value('answer').trim() === '' ? null : this.resolve(value('answer'));
+                case 'confirm':
+                    return this.resolve(this.gap.value ?? this.gap.hint);
+                case 'remove':
+                    return this.resolve('');
+                case 'change':
+                    this.draw({ changing: true });
+                    this.place();
+
+                    return this.root.querySelector('[data-gap-input=change]')?.select();
+                case 'cancel-change':
+                    this.draw({});
+
+                    return this.focusFirst();
+                case 'save-change':
+                    return value('change').trim() === '' ? null : this.resolve(value('change').trim());
+                case 'choose-entry':
+                    this.draw({ choosing: true });
+                    this.place();
+
+                    return this.root.querySelector('[data-gap-input=query]')?.focus();
+                case 'choose': {
+                    const entries = button.dataset.from === 'suggested' ? this.suggestions : this.state.results;
+                    const entry = entries?.[Number(button.dataset.entry)];
+
+                    return entry ? this.resolve(entry.url ?? String(entry.value), String(entry.value)) : null;
+                }
+            }
+
+            return null;
+        }
+
+        resolve(value, reference = null) {
+            this.busy = true;
+            this.root.querySelectorAll('.btn.submit').forEach((b) => b.classList.add('loading'));
+            this.actions.resolve(value, reference);
+        }
+
+        idle() {
+            this.busy = false;
+            this.root.querySelectorAll('.btn.loading').forEach((b) => b.classList.remove('loading'));
+        }
+
+        async suggest() {
+            this.suggestions = await this.actions.search(this.gap.hint);
+
+            if (!this.state?.choosing && this.root.isConnected) {
+                this.draw({});
+                this.place();
+            }
+        }
+
+        // A press outside closes it, without moving focus back.
+        outside(event) {
+            if (this.root.contains(event.target) || event.target === this.gap.element || this.gap.element?.contains?.(event.target)) return;
+
+            this.actions.close(false);
+        }
+
+        destroy() {
+            clearTimeout(this.searchTimer);
+            document.removeEventListener('scroll', this.place, true);
+            window.removeEventListener('resize', this.place);
+            this.gap.frame?.contentWindow?.removeEventListener('scroll', this.place);
+            document.removeEventListener('mousedown', this.outside, true);
+            this.gap.frame?.contentDocument?.removeEventListener('mousedown', this.outside, true);
+            this.root.remove();
+        }
+    }
+
+    GapPopover.ids = 0;
+    Ghostwriter.GapPopover = GapPopover;
+
     Ghostwriter.Panel = Garnish.Base.extend({
         init($container, config, options) {
             this.$container = $container;
@@ -426,6 +717,15 @@
             this.page = null;
             // The layout cards above the draft, kept between redraws.
             this.cards = null;
+            // The gap chip whose popover is open (Preview or Text), and the popover.
+            this.gap = null;
+            this.popover = null;
+            this.refocusPreview = false;
+            // In a narrow panel the conversation and the draft are one column,
+            // one at a time, with a switch between them at the top.
+            this.narrow = false;
+            this.pane = 'conversation';
+            this.draftFresh = false;
 
             try {
                 const view = localStorage.getItem('ghostwriter:draft-view');
@@ -442,6 +742,10 @@
             this.addListener(this.$container, 'keydown', 'onKeydown');
             this.addListener(this.$container, 'focusin', 'onFocusIn');
             this.addListener(this.$container, 'focusout', 'onFocusOut');
+            this.addListener(this.$container, 'mousedown', 'onMouseDown');
+
+            this.sizer = new ResizeObserver(() => this.measure());
+            this.sizer.observe(this.$container[0]);
 
             this.render();
             this.start();
@@ -519,9 +823,14 @@
 
             // Another piece: its own preview. The same one: render the new
             // draft once the changes stop, or at once for the first draft.
+            const opened = data.id !== this.session?.id;
+
             if (data.id !== this.session?.id) {
                 this.page?.reset();
                 this.cards?.reset();
+                this.closeGap(false);
+                this.pane = data.draft ? 'draft' : 'conversation';
+                this.draftFresh = false;
             } else if (this.page && data.draft && this.pageKey(data) !== this.pageKey(this.session)) {
                 this.page.changed(this.pageKey(data), !this.session?.draft);
             }
@@ -534,7 +843,13 @@
             if (changed) {
                 this.raw = data.draft ?? '';
                 this.editing = false;
+
+                // In a narrow panel, a new draft while the conversation shows: marked on Draft.
+                if (!opened && this.narrow && this.pane === 'conversation' && data.draft) this.draftFresh = true;
             }
+
+            // Questions waiting, or the brief to check: the conversation.
+            if ((data.waitingOnYou === true && data.status !== 'working') || filled) this.pane = 'conversation';
 
             if (data.status === 'working') {
                 this.later(() => this.openSession(data.id));
@@ -549,6 +864,9 @@
                 this.renderDraft();
                 this.renderComposer();
             }
+
+            this.measure();
+            this.applyPane();
 
             this.$container.find('.gw-chat-log').each((i, log) => (log.scrollTop = log.scrollHeight));
 
@@ -732,6 +1050,18 @@
         onKeydown(event) {
             const model = $(event.target).data('model');
 
+            // Conversation | Draft in a narrow panel: arrows, Home and End.
+            if (event.target.dataset?.pane && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+
+                const next = event.key === 'Home' ? 'conversation' : event.key === 'End' ? 'draft' : (this.pane === 'draft' ? 'conversation' : 'draft');
+
+                return this.showPane(next, true);
+            }
+
+            // A piece of writing showing chips: Enter, F2 or typing starts editing it.
+            if (this.isPainted(event.target) && this.editKey(event)) return;
+
             // The draft's tabs: arrows, Home and End move between them.
             if (event.target.getAttribute?.('role') === 'tab' && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                 const tabs = $(event.target).closest('[role=tablist]').find('[role=tab]').toArray();
@@ -746,7 +1076,9 @@
 
             // Writing edited in place (the draft's, or an extra's): Escape
             // puts it back as it was (and leaves the panel open), Enter
-            // finishes a one-line piece.
+            // finishes a one-line piece. Not on a chip, or a read view.
+            if ($field.length && (this.isPainted($field[0]) || $(event.target).closest('.gw-gap').length)) return;
+
             if ($field.length && event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -790,6 +1122,7 @@
 
             switch (action) {
                 case 'close': return this.options.close();
+                case 'pane': return this.showPane($target.data('pane'));
                 case 'teach': this.adding = true; return this.render();
                 case 'cancel-teach': this.adding = false; return this.render();
                 case 'learn': return this.startLearning();
@@ -904,45 +1237,14 @@
             }
         },
 
-        // Text with its gap markers as chips (core's markers.js, loaded
-        // beside preview.js), escaped; plain escaped text until it loads.
-        // Display only: editing starts from the words as stored.
-        withChips(text) {
-            const markers = Ghostwriter.gapMarkersLoaded;
-
-            if (!markers) {
-                if (!this.waitingForChips && Ghostwriter.gapMarkers) {
-                    this.waitingForChips = true;
-                    Ghostwriter.gapMarkers().then(() => {
-                        if (!this.$container?.find('[data-edit-path]:focus, [data-edit-extra]:focus').length) this.renderDraft?.();
-                    }).catch(() => {});
-                }
-
-                return esc(text);
-            }
-
-            if (!this.chipStyles) {
-                markers.injectStyles(document);
-                this.chipStyles = true;
-            }
-
-            return markers.toHtml(text, { labels: Ghostwriter.gapLabels?.() ?? {} });
-        },
-
-        hasGaps(text) {
-            return Boolean(Ghostwriter.gapMarkersLoaded?.has(String(text ?? '')));
-        },
-
         // Writing edited where it is shown: remembered on the way in, saved
-        // on the way out if it changed. Chips become the stored words first.
+        // on the way out if it changed. A read view showing chips is not being
+        // edited until it is clicked (startEditing()).
         onFocusIn(event) {
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
-            if (!$field.length) return;
-
-            if ($field.attr('data-raw') !== undefined && $field.find('.gw-gap').length) {
-                $field[0].innerText = $field.attr('data-raw');
-            }
+            // Its read view, with chips: nothing is being edited yet.
+            if (!$field.length || this.isPainted($field[0])) return;
 
             $field.data('was', this.fieldValue($field));
         },
@@ -950,13 +1252,13 @@
         async onFocusOut(event) {
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
-            if (!$field.length) return;
+            if (!$field.length || this.isPainted($field[0]) || event.target !== $field[0]) return;
 
             const value = this.fieldValue($field);
 
             if (value === $field.data('was')) {
                 // Unchanged: back to the chips.
-                if ($field.attr('data-raw') !== undefined) $field.html(this.withChips($field.attr('data-raw')));
+                if (this.currentView() === 'text') setTimeout(() => this.paintChips(), 0);
 
                 return;
             }
@@ -997,8 +1299,19 @@
             }
         },
 
+        // What the writing holds, as it is saved: never a chip's markup.
         fieldValue($field) {
-            return $field.data('format') === 'html' ? $field.html() : $field[0].innerText.replace(/\n$/, '');
+            const element = $field[0];
+            const html = $field.data('format') === 'html';
+
+            if (element.querySelector('.gw-gap') && Ghostwriter.gapMarkersLoaded) {
+                const clone = element.cloneNode(true);
+                Ghostwriter.gapMarkersLoaded.unmarkGaps(clone);
+
+                return html ? clone.innerHTML : clone.textContent.replace(/\n$/, '');
+            }
+
+            return html ? $field.html() : element.innerText.replace(/\n$/, '');
         },
 
         // A piece of writing that can be changed in place.
@@ -1010,11 +1323,14 @@
                 ? `data-edit-extra="${esc(node.extra)}" data-part="${esc(node.part ?? '')}"`
                 : `data-edit-path="${esc(JSON.stringify(node.path))}"`;
 
+            // Writing with a marker in it shows chips in the Text tab (paintChips()).
+            const raw = (text) => (Ghostwriter.hasGapMarkers(text) ? `data-raw="${esc(text)}"` : '');
+
             if (node.kind === 'html') {
-                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} ${where} data-format="html" data-multiline="1" aria-label="${esc(node.label)}">${node.html}</div>`;
+                return `<div class="gw-prose gw-editable ${extra}" ${off ? '' : 'contenteditable="true"'} ${where} data-format="html" data-multiline="1" aria-label="${esc(node.label)}" ${raw(node.html)}>${node.html}</div>`;
             }
 
-            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} ${where} data-format="text" data-multiline="${node.multiline ? 1 : 0}" aria-label="${esc(node.label)}">${esc(node.text)}</div>`;
+            return `<div class="gw-editable gw-pre ${extra}" ${off ? '' : 'contenteditable="plaintext-only"'} ${where} data-format="text" data-multiline="${node.multiline ? 1 : 0}" aria-label="${esc(node.label)}" ${raw(node.text)}>${esc(node.text)}</div>`;
         },
 
         // Words a layout put together from several places in the draft:
@@ -1064,7 +1380,7 @@
             if (!extras.length) return '';
 
             const off = this.working() || this.editing;
-            const field = (item, part, text, label) => `<span class="gw-editable gw-pre gw-extra__text" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-extra="${esc(item.id)}" data-part="${esc(part)}" data-format="text" data-multiline="0" ${this.hasGaps(text) ? `data-raw="${esc(text)}"` : ''} aria-label="${esc(label)}">${this.withChips(text)}</span>`;
+            const field = (item, part, text, label) => `<span class="gw-editable gw-pre gw-extra__text" ${off ? '' : 'contenteditable="plaintext-only"'} data-edit-extra="${esc(item.id)}" data-part="${esc(part)}" data-format="text" data-multiline="0" ${Ghostwriter.hasGapMarkers(text) ? `data-raw="${esc(text)}"` : ''} aria-label="${esc(label)}">${esc(text)}</span>`;
             const items = (extra) => extra.items.map((item, n) => {
                 const parts = Object.entries(item.parts ?? {}).filter(([name]) => name !== 'for');
                 const label = (part) => t('{extra} {number}: {part}', { extra: extra.label, number: n + 1, part });
@@ -1222,6 +1538,9 @@
                 this.renderConversation();
                 this.renderDraft();
                 this.renderComposer();
+                this.narrow = false;
+                this.measure();
+                this.applyPane();
             }
 
             Ghostwriter.prepareButtons(this.$container);
@@ -1340,15 +1659,74 @@
             return titles.length ? `${esc(t('Modelled on'))}: ${esc(titles.join(', '))}` : '';
         },
 
+        // The conversation and the draft: side by side in a wide panel; in a
+        // narrow one (measure()), one column, one at a time, with
+        // Conversation | Draft at the top. Grid and flex only, so nothing
+        // can sit over anything else at any width.
         render_write() {
+            const tab = (name, label) => `<button type="button" role="tab" class="gw-write-switch__tab" id="gw-pane-tab-${name}" data-action="pane" data-pane="${name}" aria-controls="gw-pane-${name}">${esc(label)}<span class="gw-write-switch__dot" aria-hidden="true"></span><span class="visually-hidden" data-pane-note></span></button>`;
+
             return `
+                <div class="gw-write-switch" role="tablist" aria-label="${esc(t('Writing panel'))}" hidden>
+                    ${tab('conversation', t('Conversation'))}${tab('draft', t('Draft'))}
+                </div>
                 <div class="gw-write">
-                    <section class="gw-convo" aria-label="${esc(t('Conversation'))}">
+                    <section class="gw-convo" id="gw-pane-conversation" aria-label="${esc(t('Conversation'))}">
                         <div class="gw-chat-log"></div>
                         <div class="gw-composer"></div>
                     </section>
-                    <section class="gw-draft" aria-label="${esc(t('Draft'))}"></section>
+                    <section class="gw-draft" id="gw-pane-draft" aria-label="${esc(t('Draft'))}"></section>
                 </div>`;
+        },
+
+        // Two columns need about 900 px of panel (the conversation at 360,
+        // the draft at 540); below that, one column with a switch. The
+        // panel's own width, not the window's.
+        measure() {
+            const body = this.$container.find('.gw-panel__body')[0] ?? this.$container[0];
+            const style = getComputedStyle(body);
+            const width = body.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+            const narrow = width > 0 && width < 900;
+
+            if (narrow !== this.narrow) {
+                this.narrow = narrow;
+                this.applyPane();
+            }
+        },
+
+        applyPane() {
+            const $body = this.$container.find('.gw-panel__body--write');
+
+            if (!$body.length) return;
+
+            const narrow = this.narrow;
+            const asking = this.session ? this.asking() : false;
+            const working = this.session ? this.working() : false;
+
+            $body.toggleClass('is-narrow', narrow);
+            $body.find('.gw-write-switch').prop('hidden', !narrow);
+
+            ['conversation', 'draft'].forEach((name) => {
+                const chosen = this.pane === name;
+                const dot = name === 'conversation' ? (asking || working) : this.draftFresh;
+                const note = name === 'conversation' ? (asking ? t('(waiting for your answer)') : '') : (this.draftFresh ? t('(updated)') : '');
+
+                $body.find(`#gw-pane-tab-${name}`).attr({ 'aria-selected': String(chosen), tabindex: chosen ? 0 : -1 })
+                    .find('.gw-write-switch__dot').toggleClass('is-on', dot).toggleClass('is-asking', name === 'conversation' && asking).end()
+                    .find('[data-pane-note]').text(note);
+                $body.find(`#gw-pane-${name}`).toggleClass('is-away', narrow && !chosen).attr({ role: narrow ? 'tabpanel' : null, 'aria-labelledby': narrow ? `gw-pane-tab-${name}` : null, 'aria-label': narrow ? null : (name === 'conversation' ? t('Conversation') : t('Draft')) });
+            });
+        },
+
+        showPane(pane, focus = false) {
+            this.pane = pane;
+
+            if (pane === 'draft') this.draftFresh = false;
+
+            this.applyPane();
+
+            if (pane === 'draft') this.page?.fit?.();
+            if (focus) this.$container.find(`#gw-pane-tab-${pane}`).trigger('focus');
         },
 
         renderConversation() {
@@ -1620,6 +1998,8 @@
                 this.page ??= new Ghostwriter.PagePreview({
                     target: () => ({ id: this.session.id, elementId: this.formElementId(), siteId: this.config.siteId }),
                     announce: (text) => this.announce(text),
+                    onGap: (found) => this.openGap(found),
+                    rendered: () => this.previewRendered(),
                 });
 
                 if (!$.contains($draft[0], this.page.root)) $draft.append(this.page.root);
@@ -1632,6 +2012,215 @@
 
             Ghostwriter.prepareButtons($draft.children('.gw-draft__toolbar, .gw-draft__body'));
             Ghostwriter.prepareButtons(this.page?.root);
+
+            // Another tab, or Edit YAML: a popover belongs to the chip it came from.
+            if (this.gap && (view !== this.gapView || this.editing)) this.closeGap(false);
+
+            if (view === 'text' && !this.editing) this.paintChips();
+        },
+
+        // ---- Gaps resolved from their chips -------------------------------
+
+        // A chip clicked (or Enter on it) in the Preview or the Text tab.
+        openGap(found) {
+            if (this.working() || this.editing) return;
+
+            this.closeGap(false);
+
+            const container = this.$container.find('.gw-draft')[0];
+
+            if (!container) return;
+
+            this.gap = found;
+            this.gapView = this.currentView();
+            this.popover = new GapPopover(found, container, {
+                resolve: (value, reference) => this.resolveGap(value, reference),
+                close: (refocus) => this.closeGap(refocus),
+                search: (q) => this.searchLinks(q),
+            });
+        },
+
+        // Closed: focus back on the chip (or, once it has gone, where it was).
+        closeGap(refocus = true) {
+            const gap = this.gap;
+
+            this.popover?.destroy();
+            this.popover = null;
+            this.gap = null;
+
+            if (!refocus || !gap) return;
+
+            if (gap.element?.isConnected) gap.element.focus();
+            else if (gap.host?.isConnected) (gap.host.querySelector('.gw-gap[tabindex], a.gw-gap') ?? gap.host).focus();
+            else this.$container.find('.gw-page__frame:not(.is-loading)').first().trigger('focus');
+        },
+
+        // Written into the draft as typed: no model. Saved like any hand
+        // edit, under the piece's lock; the Preview, layouts, Blocks and Text follow.
+        async resolveGap(value, reference) {
+            const gap = this.gap;
+
+            if (!gap) return;
+
+            const where = gap.host
+                ? (gap.host.dataset.editExtra !== undefined ? { item: gap.host.dataset.editExtra, part: gap.host.dataset.part ?? '' } : { path: gap.host.dataset.editPath })
+                : {};
+
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/resolve-gap', {
+                    id: this.session.id,
+                    kind: gap.kind,
+                    hint: gap.hint,
+                    list: gap.list ?? '',
+                    occurrence: gap.occurrence ?? 0,
+                    value,
+                    reference: reference ?? '',
+                    ...where,
+                });
+
+                this.refocusPreview = Boolean(gap.frame);
+                this.closeGap(false);
+                this.receive(data);
+                this.page?.changed(this.pageKey(data));
+                this.announce({ ask: t('Added to the draft.'), check: value === '' ? t('Count removed from the draft.') : t('Count confirmed in the draft.'), link: t('Link chosen in the draft.') }[gap.kind]);
+
+                // Back where the chip was: the next chip in that writing, or the writing.
+                if (gap.host) {
+                    const path = gap.host.dataset.editPath;
+                    const item = gap.host.dataset.editExtra;
+                    const $host = item !== undefined ? this.$container.find(`[data-edit-extra="${CSS.escape(item)}"][data-part="${CSS.escape(gap.host.dataset.part ?? '')}"]`) : this.$container.find(`[data-edit-path="${CSS.escape(path ?? '')}"]`);
+                    const host = $host[0];
+
+                    (host?.querySelector('.gw-gap[tabindex], a.gw-gap') ?? host)?.focus();
+                }
+            } catch (error) {
+                this.popover?.idle();
+            }
+        },
+
+        async searchLinks(q) {
+            if (!q || !q.trim()) return [];
+
+            try {
+                return (await Ghostwriter.request('GET', 'sessions/links', { id: this.session.id, q })).entries ?? [];
+            } catch (error) {
+                return [];
+            }
+        },
+
+        // After a gap resolved in the Preview: the next chip on the page, or the page.
+        previewRendered() {
+            if (!this.refocusPreview) return;
+
+            this.refocusPreview = false;
+
+            const frame = this.$container.find('.gw-page__frame:not(.is-loading)')[0];
+            const chip = frame?.contentDocument?.querySelector('.gw-gap[tabindex], a.gw-gap');
+
+            (chip ?? frame)?.focus();
+        },
+
+        // ---- Chips in the Text tab ----------------------------------------
+        //
+        // Writing that holds a marker shows it as a chip while it's read;
+        // the chip opens the popover. It can be focused (Tab) but isn't
+        // editable until its words are clicked, or Enter, F2 or typing
+        // starts editing: then it's the stored words, raw markers and all,
+        // so nothing saved can hold a chip.
+
+        isPainted(element) {
+            return element?.dataset?.gwChips !== undefined;
+        },
+
+        async paintChips() {
+            const markers = Ghostwriter.gapMarkersLoaded ?? await Ghostwriter.gapMarkers?.().catch(() => null);
+
+            if (!markers || this.currentView() !== 'text' || this.editing) return;
+
+            markers.injectStyles(document);
+
+            const labels = Ghostwriter.gapLabels?.() ?? {};
+            const off = this.working();
+
+            this.$container.find('.gw-draft__body [data-raw]').each((i, host) => {
+                if (host === document.activeElement || this.isPainted(host)) return;
+
+                const raw = host.getAttribute('data-raw');
+                const html = host.dataset.format === 'html';
+
+                if (html) host.innerHTML = raw;
+                else host.textContent = raw;
+
+                const chips = markers.markGaps(host, { labels, onActivate: off ? null : (found) => this.openGap({ ...found, host }) });
+
+                if (!chips.length) return;
+
+                chips.forEach((found) => found.element.setAttribute('contenteditable', 'false'));
+                host.dataset.gwChips = '';
+                host.dataset.gwEditable = host.getAttribute('contenteditable') ?? '';
+
+                if (host.dataset.gwEditable !== '') {
+                    host.setAttribute('contenteditable', 'false');
+                    host.setAttribute('tabindex', '0');
+                }
+            });
+        },
+
+        // The stored words back, editable, with the caret where it was clicked (or at the end).
+        startEditing(host, point = null) {
+            if (!this.isPainted(host)) return;
+
+            const raw = host.getAttribute('data-raw');
+
+            if (host.dataset.format === 'html') host.innerHTML = raw;
+            else host.textContent = raw;
+
+            const editable = host.dataset.gwEditable;
+
+            delete host.dataset.gwChips;
+            delete host.dataset.gwEditable;
+
+            if (!editable) return;
+
+            host.setAttribute('contenteditable', editable);
+            host.removeAttribute('tabindex');
+            host.focus();
+
+            const selection = document.getSelection();
+            let range = point && document.caretRangeFromPoint ? document.caretRangeFromPoint(point.x, point.y) : null;
+
+            if (!range || !host.contains(range.startContainer)) {
+                range = document.createRange();
+                range.selectNodeContents(host);
+                range.collapse(false);
+            }
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+        },
+
+        editKey(event) {
+            const typing = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+
+            if (event.key !== 'Enter' && event.key !== 'F2' && !typing) return false;
+
+            event.preventDefault();
+            this.startEditing(event.target);
+
+            if (typing) document.execCommand?.('insertText', false, event.key);
+
+            return true;
+        },
+
+        // A press on a read view's words (not a chip): editing starts there. A chip's opens its popover.
+        onMouseDown(event) {
+            const host = event.target.closest?.('[data-gw-chips]');
+
+            if (!host || event.button !== 0) return;
+
+            event.preventDefault();
+
+            if (!event.target.closest('.gw-gap')) this.startEditing(host, { x: event.clientX, y: event.clientY });
         },
 
         // Preview where it can show, otherwise the person's choice.
