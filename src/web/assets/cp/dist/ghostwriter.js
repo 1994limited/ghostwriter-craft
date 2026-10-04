@@ -1594,13 +1594,13 @@
                 const skip = `<button type="button" class="gw-link gw-asks__skip" data-action="ask-skip" data-ask="${esc(question.id)}" aria-pressed="${skipped}" aria-label="${esc(skipped ? t('Answer: {question}', { question: question.question }) : t('Skip: {question}', { question: question.question }))}" ${off}>${esc(skipped ? t('Answer it') : t('Skip'))}</button>`;
 
                 if (question.kind === 'choice') {
-                    return `<fieldset class="field gw-asks__field ${skipped ? 'gw-asks__field--skipped' : ''}" ${describedBy}>
-                        <legend class="heading"><span>${label}</span></legend>
+                    return `<div class="field gw-asks__field ${skipped ? 'gw-asks__field--skipped' : ''}">
+                        <div class="heading"><span class="gw-asks__label" id="${id(question)}-label">${label}</span></div>
                         ${hint}
-                        ${skipped ? `<p class="light gw-asks__skipped">${esc(t('Skipped'))}</p>` : `<div class="input gw-asks__options">${question.options.map((option, n) => `
-                            <label class="gw-asks__option" for="${id(question)}-${n}"><input type="radio" class="radio" id="${id(question)}-${n}" name="${id(question)}" value="${esc(option)}" data-model="ask-answer" data-ask="${esc(question.id)}" ${this.replies[question.id] === option ? 'checked' : ''} ${off}> ${esc(option)}</label>`).join('')}</div>`}
+                        ${skipped ? `<p class="light gw-asks__skipped">${esc(t('Skipped'))}</p>` : `<div class="input gw-asks__options" role="radiogroup" aria-labelledby="${id(question)}-label" ${describedBy}>${question.options.map((option, n) => `
+                            <label class="gw-asks__option" for="${id(question)}-${n}"><input type="radio" id="${id(question)}-${n}" name="${id(question)}" value="${esc(option)}" data-model="ask-answer" data-ask="${esc(question.id)}" ${this.replies[question.id] === option ? 'checked' : ''} ${off}> ${esc(option)}</label>`).join('')}</div>`}
                         ${skip}
-                    </fieldset>`;
+                    </div>`;
                 }
 
                 return `<div class="field gw-asks__field ${skipped ? 'gw-asks__field--skipped' : ''}">
@@ -2371,7 +2371,6 @@
                         : `<div><button type="button" class="gw-link" data-action="ask-more" aria-expanded="false">+ ${esc(t('Add anything else'))}</button></div>`}
                     <div class="gw-composer__actions">
                         ${startOver}
-                        <span class="light smalltext">${esc(t('⌘↵ to send'))}</span>
                         <button type="button" class="btn" data-action="skip" ${sending ? 'disabled' : ''}>${esc(t('Just draft it with what you have'))}</button>
                         <button type="button" class="btn submit ${sending ? 'loading' : ''}" data-action="send-answers" ${sending ? 'disabled' : ''}>${esc(t('Send answers'))}</button>
                     </div>`);
