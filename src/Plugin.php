@@ -53,6 +53,7 @@ use nineteenninetyfour\ghostwriter\stock\StockMarkers;
 use nineteenninetyfour\ghostwriter\stock\StockUsages;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\models\Settings;
+use nineteenninetyfour\ghostwriter\testing\FakeScenarios;
 use nineteenninetyfour\ghostwriter\types\TypeRepository;
 use nineteenninetyfour\ghostwriter\widgets\GhostwriterWidget;
 use yii\base\Event;
@@ -166,6 +167,9 @@ class Plugin extends BasePlugin
     public function init(): void
     {
         parent::init();
+
+        // Scripted model replies for the end-to-end tests: off unless set up on a local site.
+        FakeScenarios::register();
 
         Event::on(UserPermissions::class, UserPermissions::EVENT_REGISTER_PERMISSIONS, function(RegisterUserPermissionsEvent $event): void {
             $event->permissions[] = [
