@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+- **Finish this page leaves required fields to Craft, and prompts for a needed image** (core main, 1994limited/ghostwriter-core#82):
+  - A required text, date or dropdown field left empty is no longer a step or counted. Craft's own validation reports it on save.
+  - An empty image the page looks like it needs is counted in the menu beside **Edit with Ghostwriter** and brings the guide out on load. It looks needed when it is required, when it is the hero (the block the template prints the H1 from, or a hero-like name when there are too few live entries to go by), or when at least 70% of the section's newest live entries of the type have one. The step says why, for example "Hero image is required. Add one?" or "Hero image is empty, but most Journal entries have one. Add one?", and keeps **Find a photo** and **Choose from Assets**.
+  - It never blocks publishing, and a new, untouched entry isn't prompted until a draft is put in or it has some text.
+  - The section's fill rates are counted over its 20 newest live entries of the type (core's `FillRates`) instead of a full pattern study. They are kept until an entry in the section is saved (`Gaps::forgetRates()`), no longer for a fixed ten minutes.
+  - The check's JSON gains `prompting`.
+
 Requires `1994/ghostwriter-core` ^1.9 with comments as conversation messages (`Review\Comments`, on core's main until it is released) and Suggest edits and Content to revisit (`Suggest\*`, `Revisit\*`, the `AssetAlt` and `SeoFields` ports); ^1.8.3 brought resolving a gap from its chip (`Gaps\MarkerResolver`); ^1.8.2 brought the gap chips (`resources/js/preview/markers.js`); ^1.8 brought layouts, extras and counts to check, and ^1.7 the preview's markers and block map.
 
 ### Added

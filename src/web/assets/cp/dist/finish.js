@@ -70,7 +70,7 @@
          *   that has gone is no longer a step, and a fix that makes a new
          *   gap (a placeholder swapped for a stock preview) gives a new,
          *   open step.
-         * - Gaps that count (they block, or Craft requires them) come first;
+         * - Gaps that count (they block, prompt, or Craft requires them) come first;
          *   suggestions follow and are numbered separately.
          * - A field is "fixed" only when it had gaps in this view and the
          *   last check found none left in it.
@@ -78,6 +78,17 @@
 
         isSuggestion(gap) {
             return gap.severity === 'suggestion';
+        },
+
+        /**
+         * Whether a check on load brings the guide out: something blocks
+         * publishing, or an image the page looks like it needs is empty
+         * (severity `prompt`, which core raises only once the entry has
+         * content or a draft was applied). A required field Craft reports
+         * itself never does.
+         */
+        bringsOut(gaps) {
+            return gaps.some((gap) => gap.severity === 'blocks' || gap.severity === 'prompt');
         },
 
         /** The steps for a new check: the live gaps, counted ones first, each open or skipped. */
@@ -126,9 +137,8 @@
         /**
          * What is left to finish as everything outside the guide says it:
          * the menu's badge and row, and Suggest edits' "1 thing still to
-         * finish". Nothing until the guide is out (a required field left
-         * empty doesn't bring it out on its own), so no count ever points
-         * at a guide that isn't there.
+         * finish". Nothing until the guide is out (bringsOut()), so no
+         * count ever points at a guide that isn't there.
          */
         published(steps, index, shown) {
             return shown ? this.counts(steps, index).count : 0;
@@ -626,10 +636,11 @@
 
             const count = this.count();
 
-            // On load, only when something blocks publishing, so a new,
-            // empty entry isn't nagged about its title. Once shown, it
-            // stays for this view (and says "Ready to publish").
-            if (this.gaps.some((gap) => gap.severity === 'blocks') || this.forceOpen) {
+            // On load, only when something blocks publishing or an image
+            // the page needs is empty (FinishHelpers.bringsOut), so a new,
+            // empty entry isn't nagged. Once shown, it stays for this view
+            // (and says "Ready to publish").
+            if (H.bringsOut(this.gaps) || this.forceOpen) {
                 this.shown = true;
             }
 
@@ -653,7 +664,7 @@
             this.lastCount = count;
         },
 
-        /** The menu's number: what blocks or Craft requires, not yet done. */
+        /** The menu's number: what blocks, prompts or Craft requires, not yet done. */
         count() {
             return Ghostwriter.FinishHelpers.counts(this.steps, this.index).count;
         },

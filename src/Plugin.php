@@ -260,6 +260,9 @@ class Plugin extends BasePlugin
             /** @var Entry $entry */
             $entry = $event->sender;
 
+            // Finish this page counts which fields the section's entries fill again.
+            \nineteenninetyfour\ghostwriter\gaps\Gaps::forgetRates($entry);
+
             try {
                 if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry)) {
                     \nineteenninetyfour\ghostwriter\suggest\Revisit::queue($entry);

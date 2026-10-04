@@ -332,6 +332,16 @@ test('what is left to finish is one number everywhere: nothing until the guide i
     assert.equal(H.published(steps, 0, true), 1, 'Once out, every count says 1.');
 });
 
+test('an image the page needs brings the guide out and counts; a suggestion alone does not', () => {
+    const hero = [gap('image-empty', 'heroImage', 'prompt', 'Empty!')];
+
+    assert.equal(H.bringsOut(hero), true);
+    assert.equal(H.published(H.stepsFrom(hero), 0, H.bringsOut(hero)), 1, 'Entry 168: the header and the menu row say 1.');
+    assert.equal(H.bringsOut([gap('expected', 'summary', 'suggestion')]), false);
+    assert.equal(H.bringsOut([gap('link-empty', 'related', 'required')]), false, 'Counted once out, but it doesn\'t bring the guide out.');
+    assert.equal(H.bringsOut(page()), true);
+});
+
 test('a guide opened from a count lands on what it counted, skipped or not', () => {
     const open = H.stepsFrom([heroImage()]);
     const skipped = H.stepsFrom([heroImage()], { skipped: new Set(['image-empty|heroImage||0']) });

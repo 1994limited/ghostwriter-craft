@@ -7,7 +7,7 @@ Some things in an entry only a person can finish. Ghostwriter finds them, and it
 - **Counts to check.** A number Ghostwriter worked out from a list you gave it ("3 counties" from "Northumberland, Durham and Cumbria") is counted by Ghostwriter, never the model, and marked for you to confirm: `Gardens across [[check: 3 counties | from: Northumberland, Durham and Cumbria]]`. See [Counts to check](#counts-to-check).
 - **Images to choose.** The striped placeholder in an image field, and a stock photo preview not licensed yet.
 
-It also notices links to entries that have been deleted, template text such as `[[item]]` left in a sentence, required fields left empty, and placeholder words such as "TBC".
+It also notices links to entries that have been deleted, template text such as `[[item]]` left in a sentence, an empty image the page looks like it needs, and placeholder words such as "TBC". A required text, date or dropdown field left empty is Craft's to report when you save.
 
 Finding them never calls a model. It works on any entry in a section Ghostwriter writes for, whoever wrote it.
 
@@ -15,7 +15,7 @@ Finding them never calls a model. It works on any entry in a section Ghostwriter
 
 ## The guide
 
-On an entry with something that stops publishing, a count sits on the menu beside **Edit with Ghostwriter**, in amber: "8". The menu lists **Finish this page** with the same count (and **Review suggestions** with its own, where there are any). Each field with a gap is outlined, with a numbered tag beside its name ("3 · Needs a link"; "4–7 · 4 to do" for a field with several); inside CKEditor the words themselves are marked. A plain text box (a Plain Text field, or a cell of a Table field) can't mark part of its text, so one holding a gap gets a row of small chips under it, one per gap: "Add: years trading", "Check: 3", "Choose a link: contact page". The field keeps its outline and tag. The chips follow your typing, and they're never part of the value. Choose **Finish this page** in the menu, or click a tag, to open the guide in the corner. It takes you through each one, the things to finish first ("2 of 8") and then any suggestions ("Suggestion 1 of 1"), which never stop the page going live:
+On an entry with something that stops publishing, or an empty image the page needs, a count sits on the menu beside **Edit with Ghostwriter**, in amber: "8". The menu lists **Finish this page** with the same count (and **Review suggestions** with its own, where there are any). Each field with a gap is outlined, with a numbered tag beside its name ("3 · Needs a link"; "4–7 · 4 to do" for a field with several); inside CKEditor the words themselves are marked. A plain text box (a Plain Text field, or a cell of a Table field) can't mark part of its text, so one holding a gap gets a row of small chips under it, one per gap: "Add: years trading", "Check: 3", "Choose a link: contact page". The field keeps its outline and tag. The chips follow your typing, and they're never part of the value. Choose **Finish this page** in the menu, or click a tag, to open the guide in the corner. It takes you through each one, the things to finish first ("2 of 8") and then any suggestions ("Suggestion 1 of 1"), which never stop the page going live:
 
 - **The step:** what's missing, and where, in plain words. "I left a gap in the Text block: starting price. Only you know this. What should it say?"
 - **The fixes**, the most likely first:
@@ -26,8 +26,9 @@ On an entry with something that stops publishing, a count sits on the menu besid
   | A count to check | **Looks right** (the count goes in as the page will say it), **Change it** (a box with the count, to correct), or **Remove it**. When the list has changed since, **Use “4 counties”** first |
   | A link to choose | **Link to Contact** where an entry's title or slug matches the hint, **Choose an entry** (Craft's own picker), or **Remove the link** (the words stay) |
   | An image placeholder | **Find a photo** (Ghostwriter's image dialog for that field), **Choose from Assets** (the field's own picker, replacing the placeholder), or **Leave it empty** when the field isn't required |
+  | An empty image the page needs | The step says why ("Hero image is required. Add one?", "Hero image is empty, but most Journal entries have one. Add one?"), then **Find a photo** or **Choose from Assets** |
   | A stock photo preview | **License**, through the stock photos' own License & replace dialog, which shows what it costs; **Request licence** without the permission; **Choose another** |
-  | A required field | **Write it for me** (a line from the page's own text) for writing fields, or **I'll write it** |
+  | A field pages like this usually fill | **Write it for me** (a line from the page's own text) for writing fields, or **I'll write it** |
   | Template text, "TBC" | **Remove it**, **I'll write it**, or **It's fine** for a suggestion |
 
   **Write it for me** and **Write around it** each make one small request to your AI provider, and say so on the button ("uses Ghostwriter"). Nothing else in the guide calls a model.
@@ -67,7 +68,8 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | An image placeholder | The striped `ghostwriter-image-placeholder.png` in an image field, or inline in CKEditor | Yes |
 | A stock photo preview | The stock ledger says it isn't licensed. See [Stock photos](stock-photos.md#publishing) | Yes |
 | Template text | `[[item]]`, a word in double brackets with no colon | Yes |
-| A required field left empty | Craft's own **Required** | Craft stops it |
+| An empty image the page needs | Required; the page's hero (the block the template prints the H1 from, or a hero image when the section has too few live entries to go by); or filled on at least 70% of the section's 20 newest live entries of the type. Not on a new entry until a draft is put in or it has some text | No: it's counted and brings the guide out; Craft enforces required |
+| A required field left empty | Craft's own **Required** | Craft stops it, so it isn't listed |
 | A field pages like this usually fill | Filled on at least half the section's live entries | No, a suggestion |
 | Placeholder words | `TBC`, `TBD`, `TBA`, `TODO`, `XXX`, `[insert …]`, `[add …]`, `[check …]`, `lorem ipsum` | No, a suggestion |
 

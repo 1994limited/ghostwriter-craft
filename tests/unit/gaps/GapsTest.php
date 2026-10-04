@@ -60,6 +60,7 @@ class GapsTest extends TestCase
 
         $type = $this->makeEntryType('event', [
             $this->makeField(PlainText::class, 'summary'),
+            $this->makeField(PlainText::class, 'intro'),
             $this->makeField(Ckeditor::class, 'body'),
             $this->makeField(Number::class, 'price'),
             $this->makeField(Link::class, 'button', ['types' => ['url', 'entry']]),
@@ -95,9 +96,13 @@ class GapsTest extends TestCase
         $data = $result['data'];
         $kinds = array_count_values(array_column($data['gaps'], 'kind'));
 
-        foreach (['ask', 'ask-value', 'link', 'link-broken', 'image-placeholder', 'stock-preview', 'required', 'leftover-token', 'placeholder-text'] as $kind) {
+        foreach (['ask', 'ask-value', 'link', 'link-broken', 'image-placeholder', 'stock-preview', 'leftover-token', 'placeholder-text'] as $kind) {
             $this->assertArrayHasKey($kind, $kinds, "No {$kind} gap: " . json_encode(array_keys($kinds)));
         }
+
+        // The required Summary is empty, but Craft's own validation says so on save.
+        $this->assertArrayNotHasKey('required', $kinds);
+        $this->assertNotContains('summary', array_column($data['gaps'], 'field'));
 
         // Two links to choose: inline, and the Link field on the sentinel.
         $this->assertSame(2, $kinds['link']);
@@ -184,11 +189,10 @@ class GapsTest extends TestCase
     public function testWriteItForMeAsksOnceAndPutsNothingIntoTheEntry(): void
     {
         $this->signInToEdit();
-        $entry = $this->makeEntry($this->events, 'Spring fair', ['body' => '<p>A fair on the green, with plants for sale.</p>']);
-        $report = $this->plugin->gaps->report($entry);
-        $required = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Required)[0];
+        $entry = $this->withoutIntro('<p>A fair on the green, with plants for sale.</p>');
+        $expected = $this->introGap($entry);
 
-        $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $required->id]);
+        $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $expected->id]);
         $this->assertSame('working', $started['data']['status'], json_encode($started['data']));
         $this->assertCount(1, $this->queued(FillGap::class));
 
@@ -202,7 +206,7 @@ class GapsTest extends TestCase
 
         // Shown once, then gone; and the entry itself is untouched.
         $this->assertSame(404, $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $started['data']['id']])['status']);
-        $this->assertSame('', (string) Entry::find()->id($entry->id)->one()->getFieldValue('summary'));
+        $this->assertSame('', (string) Entry::find()->id($entry->id)->one()->getFieldValue('intro'));
     }
 
     public function testAFactIsNeverWrittenOnlyWrittenAround(): void
@@ -229,9 +233,8 @@ class GapsTest extends TestCase
     public function testSomeoneElsesAnswerIsNotShown(): void
     {
         $this->signInToEdit();
-        $entry = $this->makeEntry($this->events, 'Spring fair', ['body' => '<p>A fair.</p>']);
-        $required = $this->plugin->gaps->report($entry)->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Required)[0];
-        $id = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $required->id])['data']['id'];
+        $entry = $this->withoutIntro('<p>A fair.</p>');
+        $id = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $this->introGap($entry)->id])['data']['id'];
 
         $this->signInToEdit();
 
@@ -343,10 +346,33 @@ class GapsTest extends TestCase
     }
 
     /**
+     * An event with no intro, where the published ones before it have one:
+     * an intro is expected (a suggestion "Write it for me" can fill).
+     */
+    private function withoutIntro(string $body): Entry
+    {
+        foreach (['Harvest supper', 'Seed swap', 'Pond dipping'] as $title) {
+            $this->makeEntry($this->events, $title, ['summary' => 'An event.', 'intro' => "{$title} on the green.", 'body' => '<p>Come along.</p>']);
+        }
+
+        return $this->makeEntry($this->events, 'Spring fair', ['body' => $body]);
+    }
+
+    private function introGap(Entry $entry): \NineteenNinetyFour\Ghostwriter\Core\Gaps\Gap
+    {
+        foreach ($this->plugin->gaps->report($entry)->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::Expected) as $gap) {
+            if ($gap->path->handle() === 'intro') {
+                return $gap;
+            }
+        }
+
+        $this->fail('No expected intro: ' . json_encode(array_map(fn($gap) => $gap->id, $this->plugin->gaps->report($entry)->all())));
+    }
+
+    /**
      * An entry with one of each gap: a fact to add, a fact for a number
      * field (from the session), links to choose and to a deleted page, an
-     * image placeholder, a stock preview, a required field left empty,
-     * template text, "TBC", and a fact in a block.
+     * image placeholder, a stock preview, template text, "TBC", and a fact in a block.
      */
     private function unfinished(): Entry
     {

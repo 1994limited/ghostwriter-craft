@@ -82,6 +82,8 @@ class EntryChecks
             sources: $gaps->sources,
             alt: new CraftAssetAlt(),
             seo: new CraftSeoFields(),
+            group: $gaps->group,
+            profile: $gaps->profile,
         );
     }
 
