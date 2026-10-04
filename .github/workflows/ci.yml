@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test:
-    name: PHP ${{ matrix.php }} (Craft ${{ matrix.craft }})
+    name: ${{ matrix.core == 'main' && 'core main' || format('PHP {0} (Craft {1})', matrix.php, matrix.craft) }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -25,6 +25,14 @@ jobs:
         # (it refuses releases with security advisories), everything else at its newest.
         # highest: everything at its newest.
         craft: [lowest, highest]
+        # released: core from Packagist. main: see "core main" below.
+        core: [released]
+        include:
+          # "core main": the newest versions against core's main branch, the
+          # gate while core and the addons are developed together (README).
+          - php: '8.4'
+            craft: highest
+            core: main
 
     services:
       mysql:
@@ -60,6 +68,15 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.craft }}-
             composer-${{ runner.os }}-php${{ matrix.php }}-
+
+      # "core main" only: core's main branch from GitHub instead of the release
+      # on Packagist, aliased to 1.99.0 so it satisfies composer.json's ^1.x.
+      # Core is public: no token needed.
+      - name: Use core main
+        if: matrix.core == 'main'
+        run: |
+          composer config repositories.core vcs https://github.com/1994limited/ghostwriter-core
+          composer require --no-update "1994/ghostwriter-core:dev-main as 1.99.0"
 
       - name: Install dependencies
         env:

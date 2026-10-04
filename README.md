@@ -87,3 +87,5 @@ vendor/bin/codecept run unit
 ```
 
 The tests fake every model and HTTP call, so they need no API key.
+
+**CI and core.** Core and the addons are developed together and released together. The "core main" CI job runs the tests against core's `main` branch (aliased to `1.99.0` so it satisfies `composer.json`), so a pull request that uses core changes not yet released can merge when "core main" passes, even if the jobs that install the released core from Packagist fail. A release is different: its pull request needs every job green, which means releasing core first and raising the core constraint in `composer.json`.
