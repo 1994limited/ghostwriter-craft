@@ -462,7 +462,7 @@
 
             // Done once the blocks are found (or couldn't be: the page still shows).
             overlay.start().then(() => {
-                if (this.overlay === overlay) this.postOutline(overlay.outline, sequence);
+                if (this.overlay === overlay) this.postOutline(overlay.headings, sequence);
                 this.root.dataset.located = String(overlay.located);
                 this.root.dataset.missing = overlay.missing.join(' ');
                 this.root.dataset.timing = JSON.stringify(this.timing);
@@ -871,7 +871,8 @@
 
                 // The page's headings, for how the template prints them (the SEO
                 // layer's render profile): every marker counts here, the header's too.
-                this.outline ??= outline ? outline(doc, this.map, { regions: result.regions, marks: found }) : null;
+                // (`headings`, not `outline`: that name is the hover outline element, drawn below.)
+                this.headings ??= outline ? outline(doc, this.map, { regions: result.regions, marks: found }) : null;
 
                 this.regions = result.regions;
                 this.byKey = result.byKey;
