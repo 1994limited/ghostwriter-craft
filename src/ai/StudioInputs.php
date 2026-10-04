@@ -168,9 +168,36 @@ class StudioInputs
      */
     public function briefTitles(ContentType $type): array
     {
-        $entries = Entry::find()->section($type->group)->status(null)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::BRIEF_TITLES)->all();
+        return array_map(fn(Entry $entry) => (string) $entry->title, $this->newest($type));
+    }
 
-        return array_map(fn(Entry $entry) => (string) $entry->title, $entries);
+    /**
+     * The live ones among those entries, by ID, for the brief filler to
+     * choose what to model a piece on when nothing is ticked.
+     *
+     * @return array<int, string> Entry ID => title.
+     */
+    public function briefCandidates(ContentType $type): array
+    {
+        $out = [];
+
+        foreach ($this->newest($type) as $entry) {
+            if ($entry->getStatus() === Entry::STATUS_LIVE) {
+                $out[(int) $entry->id] = (string) $entry->title;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A section's newest entries, any status, as many as the brief is shown.
+     *
+     * @return array<int, Entry>
+     */
+    private function newest(ContentType $type): array
+    {
+        return Entry::find()->section($type->group)->status(null)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(self::BRIEF_TITLES)->all();
     }
 
     /**

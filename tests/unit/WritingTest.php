@@ -213,6 +213,44 @@ class WritingTest extends TestCase
         $this->assertSame(409, $this->action('ghostwriter/sessions/message', ['id' => $session->id, 'message' => 'Write it now.'])['status']);
     }
 
+    public function testWithNothingTickedTheBriefTicksEntriesToModelItOn(): void
+    {
+        $this->signIn(admin: true);
+        $this->saveType();
+        $draft = $this->newDraft($this->articles);
+        $hidden = $this->makeArticle('Hidden', 'A paragraph about something not yet live, which says enough to count.', live: false);
+
+        $opened = $this->action('ghostwriter/sessions/open', ['type' => 'project', 'message' => 'A February jobs guide.', 'elementId' => $draft->id])['data'];
+        $session = $this->plugin->sessions->find($opened['id']);
+        $this->assertSame([], $session->examples);
+
+        $two = $this->entry('Two')->id;
+        $this->fake->respond('brief-filler', "<title>February jobs</title>\n<brief>\nwhat: A jobs guide.\n</brief>\n<examples>{$two}, {$hidden->id}, 999999</examples>");
+        $this->fillBrief($session);
+
+        // Live entries are offered by ID; the rest by title only.
+        $request = $this->fake->prompted('brief-filler')[0];
+        $this->assertStringContainsString("- Two [id: {$two}]", $request->instructions);
+        $this->assertStringNotContainsString("[id: {$hidden->id}]", $request->instructions);
+        $this->assertStringContainsString('choose for them', $request->prompt);
+
+        $this->assertSame([$two], $this->action('ghostwriter/sessions/show', ['id' => $session->id], 'GET')['data']['card']['examples']);
+    }
+
+    public function testThePersonsTicksWinOverTheBriefsChoice(): void
+    {
+        $this->signIn(admin: true);
+        $this->saveType();
+        $draft = $this->newDraft($this->articles);
+        $one = $this->entry('One')->id;
+
+        $opened = $this->action('ghostwriter/sessions/open', ['type' => 'project', 'message' => 'A February jobs guide.', 'elementId' => $draft->id, 'examples' => [$one]])['data'];
+        $this->fake->respond('brief-filler', "<title>February jobs</title>\n<brief>\nwhat: A jobs guide.\n</brief>\n<examples>{$this->entry('Two')->id}</examples>");
+        $this->fillBrief($this->plugin->sessions->find($opened['id']));
+
+        $this->assertSame([$one], $this->action('ghostwriter/sessions/show', ['id' => $opened['id']], 'GET')['data']['card']['examples']);
+    }
+
     public function testTryAgainKeepsTheAnswersThePersonChanged(): void
     {
         $this->signIn();
