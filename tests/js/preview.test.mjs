@@ -215,3 +215,11 @@ test('Desktop scales a 1280 px layout into a phone-width panel; Phone is 390 px'
     assert.deepEqual(plain(H.fit('phone', 320)), { width: 320, scale: 1 });
     assert.equal(H.label({ key: 's2', label: 'Where to put one', parent: 'f3' }, { f3: { key: 'f3', label: 'Body' } }), 'Where to put one · in Body');
 });
+
+test('the page is as tall as the draft’s scrolling pane, less its bar, and never shorter than 320 px', () => {
+    const { H } = harness();
+
+    assert.equal(H.stageHeight(760, 60), 700);
+    assert.equal(H.stageHeight(300, 60), 320);
+    assert.equal(H.stageHeight(0, 0), 320);
+});

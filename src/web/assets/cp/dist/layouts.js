@@ -12,6 +12,11 @@
  *
  * The row is kept between the panel's redraws, so the thumbnails' frames
  * aren't loaded again each time.
+ *
+ * The row is compact unless asked otherwise: a chip for each layout, the
+ * chosen one marked, so the page preview under it has the room. Compare
+ * layouts shows the cards with their thumbnails (remembered in this
+ * browser); thumbnails are only rendered then.
  */
 (function () {
     window.Ghostwriter = window.Ghostwriter || {};
@@ -21,6 +26,17 @@
 
     /** The width a thumbnail's page is laid out at, before it is scaled to the card. */
     const PAGE_WIDTH = 1280;
+
+    /** Where Compare layouts is remembered, in this browser. */
+    const COMPARE = 'ghostwriter.layouts.compare';
+
+    const remembered = () => {
+        try {
+            return window.localStorage?.getItem(COMPARE) === '1';
+        } catch (error) {
+            return false;
+        }
+    };
 
     /**
      * What can be worked out without the page, for the tests.
@@ -63,7 +79,10 @@
         constructor(options) {
             this.options = options;
             this.version = null;
+            this.loaded = null;
             this.thumbs = new Map();
+            this.expanded = remembered();
+            this.cards = [];
             this.root = document.createElement('div');
             this.root.className = 'gw-layouts';
             this.root.hidden = true;
@@ -81,7 +100,9 @@
             const layouts = session?.layouts;
             const cards = session?.draft && !session.draftProblem ? Helpers.cards(layouts) : [];
 
+            this.last = [session, { busy, previewable }];
             this.root.hidden = cards.length === 0;
+            this.root.classList.toggle('is-compact', !this.expanded);
 
             if (!cards.length) {
                 return;
@@ -89,14 +110,16 @@
 
             const chosen = layouts.chosen ?? 'w';
             const stale = cards.some((card) => card.stale);
-            const focused = this.root.contains(document.activeElement) ? document.activeElement.dataset.plan : null;
+            const active = this.root.contains(document.activeElement) ? document.activeElement : null;
+            const focused = active?.dataset.plan ?? null;
 
             this.previewable = previewable;
 
             const head = `
                 <span class="gw-layouts__label" id="gw-layouts-label">${esc(t('Layout'))}</span>
                 ${layouts.planning ? `<span class="gw-layouts__note light"><span class="gw-page__busy" aria-hidden="true"></span>${esc(t('Finding other layouts…'))}</span>` : ''}
-                ${stale && !layouts.planning ? `<span class="gw-layouts__note light">${esc(t('The draft changed since these were laid out.'))}</span><button type="button" class="btn small" data-layout-action="refresh" ${busy ? 'disabled' : ''}>${esc(t('Refresh layouts'))}</button>` : ''}`;
+                ${stale && !layouts.planning ? `<span class="gw-layouts__note light">${esc(t('The draft changed since these were laid out.'))}</span><button type="button" class="btn small" data-layout-action="refresh" ${busy ? 'disabled' : ''}>${esc(t('Refresh layouts'))}</button>` : ''}
+                <button type="button" class="btn small gw-layouts__toggle" data-layout-action="compare" aria-expanded="${this.expanded}">${esc(this.expanded ? t('Hide thumbnails') : t('Compare layouts'))}</button>`;
 
             // The same cards: changed where they are, so their frames
             // aren't moved (a moved frame loads its page again).
@@ -128,14 +151,34 @@
                     </div>`;
             }
 
-            const version = `${session.id}|${session.draft}|${layouts.key}`;
-            const changed = version !== this.version;
-            this.version = version;
-
-            cards.filter((card) => !card.skeleton).forEach((card) => this.thumb(card, changed));
-            this.fitAll();
+            this.version = `${session.id}|${session.draft}|${layouts.key}`;
+            this.cards = cards;
+            this.loadThumbs();
 
             if (focused && !this.root.contains(document.activeElement)) this.root.querySelector(`[data-plan="${CSS.escape(focused)}"]`)?.focus();
+            if (active?.dataset.layoutAction === 'compare' && !this.root.contains(document.activeElement)) this.root.querySelector('[data-layout-action="compare"]')?.focus();
+        }
+
+        /** The thumbnails, while the cards show them: rendered again once the piece has changed. */
+        loadThumbs() {
+            if (!this.expanded) return;
+
+            const changed = this.loaded !== this.version;
+            this.loaded = this.version;
+
+            this.cards.filter((card) => !card.skeleton).forEach((card) => this.thumb(card, changed));
+            this.fitAll();
+        }
+
+        /** Compare layouts: the cards with thumbnails, or back to chips. */
+        toggle() {
+            this.expanded = !this.expanded;
+
+            try {
+                window.localStorage?.setItem(COMPARE, this.expanded ? '1' : '0');
+            } catch (error) {}
+
+            if (this.last) this.update(...this.last);
         }
 
         card(card, chosen, busy, index) {
@@ -271,6 +314,10 @@
         onClick(event) {
             const action = event.target.closest('[data-layout-action]');
 
+            if (action?.dataset.layoutAction === 'compare') {
+                return this.toggle();
+            }
+
             if (action && !action.disabled) {
                 return this.options.refresh();
             }
@@ -304,6 +351,7 @@
             this.thumbs.forEach((thumb) => thumb.el.remove());
             this.thumbs.clear();
             this.version = null;
+            this.loaded = null;
             this.shape = null;
         }
     }

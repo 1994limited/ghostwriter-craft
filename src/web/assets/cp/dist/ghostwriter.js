@@ -1688,9 +1688,9 @@
 
                 // Redrawn only when nothing else is being typed in.
                 if (!this.$container.find('[data-edit-path]:focus, [data-edit-extra]:focus').length) {
-                    const scroll = this.$container.find('.gw-draft__body').scrollTop();
+                    const scroll = this.$container.find('.gw-draft__scroll').scrollTop();
                     this.renderDraft();
-                    this.$container.find('.gw-draft__body').scrollTop(scroll);
+                    this.$container.find('.gw-draft__scroll').scrollTop(scroll);
                 }
 
                 this.$container.find('.gw-draft__toolbar [data-words]').text(t('{count} words', { count: data.words.toLocaleString() }));
@@ -2461,12 +2461,15 @@
             }
 
             // The preview's frame is kept between redraws: moving or
-            // rebuilding a frame loads its page again.
+            // rebuilding a frame loads its page again. Under the toolbar,
+            // the layouts, the draft and the page scroll as one column.
             const $draft = this.$container.find('.gw-draft');
 
             if (!$draft.children('.gw-draft__toolbar').length) {
-                $draft.html('<div class="gw-draft__toolbar"></div><div class="gw-draft__body"></div>');
+                $draft.html('<div class="gw-draft__toolbar"></div><div class="gw-draft__scroll"><div class="gw-draft__body"></div></div>');
             }
+
+            const $scroll = $draft.children('.gw-draft__scroll');
 
             $draft.children('.gw-draft__toolbar').html(toolbar);
 
@@ -2477,10 +2480,10 @@
                 prepare: (plan) => Ghostwriter.request('POST', 'preview/prepare', { id: this.session.id, elementId: this.formElementId(), siteId: this.config.siteId, plan }),
             });
 
-            if (!$.contains($draft[0], this.cards.root)) $draft.children('.gw-draft__toolbar').after(this.cards.root);
+            if (!$.contains($scroll[0], this.cards.root)) $scroll.prepend(this.cards.root);
 
             this.cards.update(this.editing ? null : session, { busy: working || this.busy, previewable: this.config.preview });
-            $draft.children('.gw-draft__body')
+            $scroll.children('.gw-draft__body')
                 .html(body)
                 .attr({ id: 'gw-draft-panel', role: session.draft && !this.editing ? 'tabpanel' : null, 'aria-labelledby': session.draft && !this.editing ? `gw-tab-${view}` : null })
                 .toggleClass('gw-draft__body--slim', view === 'preview');
@@ -2496,7 +2499,7 @@
                     onEscape: () => (this.box ? this.closeBox(true) : this.setCommenting(false)),
                 });
 
-                if (!$.contains($draft[0], this.page.root)) $draft.append(this.page.root);
+                if (!$.contains($scroll[0], this.page.root)) $scroll.append(this.page.root);
 
                 this.page.setWidth(this.width);
                 this.page.show(this.pageKey(session), working);
@@ -2506,7 +2509,7 @@
                 this.$container.find('.gw-comments').remove();
             }
 
-            Ghostwriter.prepareButtons($draft.children('.gw-draft__toolbar, .gw-draft__body'));
+            Ghostwriter.prepareButtons($draft.children('.gw-draft__toolbar').add($scroll.children('.gw-draft__body')));
             Ghostwriter.prepareButtons(this.page?.root);
 
             // Another tab, or Edit YAML: a popover belongs to the chip it came from.

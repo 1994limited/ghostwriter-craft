@@ -43,6 +43,9 @@
     const DESKTOP = 1280;
     const NARROW = 640;
 
+    /** The shortest the page's frame gets, however short the panel. */
+    const MIN_STAGE = 320;
+
     const t = (message, params) => (window.Craft?.t ? Craft.t('ghostwriter', message, params) : message.replace(/\{(\w+)\}/g, (m, name) => params?.[name] ?? m));
     const esc = (text) => Ghostwriter.escape(text);
 
@@ -166,6 +169,15 @@
 
             return stageWidth < NARROW ? { width: DESKTOP, scale: stageWidth / DESKTOP } : { width: stageWidth, scale: 1 };
         },
+
+        /**
+         * How tall the page's frame is: the draft's scrolling pane, less the
+         * frame's bar and padding, so once the pane is scrolled down to it
+         * the page fills the pane (the layouts and the hint scroll away above).
+         */
+        stageHeight(available, chrome) {
+            return Math.max(MIN_STAGE, Math.floor((available || 0) - (chrome || 0)));
+        },
     };
 
     Ghostwriter.PreviewHelpers = Helpers;
@@ -215,10 +227,12 @@
                     </div>
                 </div>`;
             this.stage = this.root.querySelector('[data-stage]');
+            this.bar = this.root.querySelector('.gw-page__bar');
             this.message = this.root.querySelector('[data-message]');
 
             this.resizer = new ResizeObserver(() => this.fit());
             this.resizer.observe(this.stage);
+            this.scroller = null;
         }
 
         /**
@@ -618,15 +632,31 @@
 
         /**
          * Desktop fills the panel, laid out at 1280 px and scaled down when
-         * the panel is narrow; Phone is 390 px wide.
+         * the panel is narrow; Phone is 390 px wide. The frame is as tall as
+         * the draft's scrolling pane (Helpers.stageHeight): the pane scrolls
+         * as one column, the page in its frame.
          */
         fit() {
             const stageWidth = this.stage.clientWidth;
 
             if (!stageWidth) return;
 
+            const scroller = this.root.closest?.('.gw-draft__scroll') ?? null;
+
+            if (scroller !== this.scroller) {
+                if (this.scroller) this.resizer.unobserve(this.scroller);
+                if (scroller) this.resizer.observe(scroller);
+                this.scroller = scroller;
+            }
+
+            const style = scroller ? getComputedStyle(this.root) : null;
+            const chrome = (parseFloat(style?.paddingTop) || 0) + (parseFloat(style?.paddingBottom) || 0) + (this.bar?.offsetHeight ?? 0) + 2;
+            const stageHeight = Helpers.stageHeight(scroller ? scroller.clientHeight : (window.innerHeight || 0) * 0.75, chrome);
+
+            if (this.stage.style && this.stage.style.height !== `${stageHeight}px`) this.stage.style.height = `${stageHeight}px`;
+
             const { width, scale } = Helpers.fit(this.width, stageWidth);
-            const height = this.stage.clientHeight / scale;
+            const height = stageHeight / scale;
 
             this.root.dataset.width = this.width;
 
