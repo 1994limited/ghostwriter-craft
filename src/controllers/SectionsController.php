@@ -12,6 +12,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\KindSuggestions;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Planning\Idea;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\FoundKind;
+use nineteenninetyfour\ghostwriter\ai\StudioInputs;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\AnalyseSection;
 use nineteenninetyfour\ghostwriter\jobs\SuggestKinds;
@@ -309,12 +310,21 @@ class SectionsController extends Controller
             $query->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC]);
         }
 
+        $entries = $query->all();
+
+        // The newest live entries, which the brief may tick, are always listed.
+        if ($section->type === Section::TYPE_STRUCTURE) {
+            $listed = array_map(fn(Entry $entry) => (int) $entry->id, $entries);
+            $newest = Entry::find()->section($section->handle)->status(Entry::STATUS_LIVE)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(StudioInputs::BRIEF_TITLES)->all();
+            $entries = [...$entries, ...array_filter($newest, fn(Entry $entry) => !in_array((int) $entry->id, $listed, true))];
+        }
+
         return array_map(fn(Entry $entry) => [
             'id' => (int) $entry->id,
             'title' => (string) $entry->title,
             'live' => $entry->getStatus() === Entry::STATUS_LIVE,
             'depth' => max(0, (int) $entry->level - 1),
-        ], $query->all());
+        ], array_values($entries));
     }
 
     private function section(?string $handle = null): Section

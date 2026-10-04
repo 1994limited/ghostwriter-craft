@@ -1098,6 +1098,7 @@
             this.applyPane();
 
             this.$container.find('.gw-chat-log').each((i, log) => (log.scrollTop = log.scrollHeight));
+            this.revealPicked(this.$container.find('.gw-brief-card'));
 
             // The brief is filled in: say so, and bring the card into view
             // with the focus on it, unless the person is typing elsewhere.
@@ -1909,6 +1910,19 @@
                     </div>
                     <p class="light gw-picker__picked">${this.pickedText(picked)}</p>
                 </div>`;
+        },
+
+        // Ticked entries further down a picker's list (chosen for the person
+        // with the brief) are scrolled into view, unless one already shows.
+        revealPicked($scope) {
+            $scope.find('.gw-picker__list').each((i, list) => {
+                const ticked = [...list.querySelectorAll('input[type=checkbox]:checked')].map((box) => box.closest('[data-entry]'));
+                if (!ticked.length) return;
+
+                const top = list.scrollTop;
+                const showing = ticked.some((row) => row.offsetTop >= top && row.offsetTop + row.offsetHeight <= top + list.clientHeight);
+                if (!showing) list.scrollTop = Math.max(0, ticked[0].offsetTop - 8);
+            });
         },
 
         renderPicked($picker, picked) {

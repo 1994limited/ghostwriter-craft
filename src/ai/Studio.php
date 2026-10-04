@@ -167,7 +167,7 @@ class Studio extends Component
      */
     public function fillBrief(ContentType $type, Session $session): Result
     {
-        return $this->core()->fillBrief(BriefThread::request($session, $this->inputs()->kind($type), $this->inputs()->briefTitles($type)));
+        return $this->core()->fillBrief(BriefThread::request($session, $this->inputs()->kind($type), $this->inputs()->briefTitles($type), $this->inputs()->briefCandidates($type), $type->examples));
     }
 
     /**

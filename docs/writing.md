@@ -39,7 +39,7 @@ Ghostwriter then fills in the whole brief for that kind of content from your ans
 
 - **Working title**.
 - Every one of the kind's questions, with its answer.
-- **Model it on**, with the entries it will follow ticked (the kind's own examples, when it has them). Tick or untick up to six.
+- **Model it on**, with the entries it will follow ticked: the kind's own examples, when it has them; otherwise up to six live entries Ghostwriter chose as closest in purpose and shape to the new piece, best first. Tick or untick up to six; **Try again** keeps what's ticked.
 
 Anything only you can know, such as a figure, a quote or a client's name, is left in `[square brackets]` for you, and the card says so. Ghostwriter never makes up facts about your organisation: a figure or quote you didn't give is replaced with `[Add: the figure]` or `[Add: the quote]`.
 
