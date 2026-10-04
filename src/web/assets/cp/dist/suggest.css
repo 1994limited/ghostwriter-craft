@@ -461,3 +461,168 @@
 .gw-finish--suggest .gw-finish-guide__message:focus {
     outline: none;
 }
+
+/* Content to revisit: tiles that filter, a ranked table, cards on a phone */
+
+.gw-revisit__tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.gw-revisit__tiles .gw-tile.is-current {
+    border-color: var(--gw-s-indigo);
+    box-shadow: 0 0 0 1px var(--gw-s-indigo);
+}
+
+.gw-revisit__filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.gw-revisit__chip {
+    border: 1px solid var(--gw-s-line);
+    border-radius: 999px;
+    padding: 1px 10px;
+    color: var(--gw-s-muted);
+}
+
+.gw-revisit__chip.is-current {
+    border-color: var(--gw-ink);
+    color: var(--gw-ink);
+    font-weight: 600;
+}
+
+.gw-revisit__title {
+    display: block;
+    font-weight: 600;
+}
+
+.gw-revisit__reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gw-revisit__reason {
+    border-radius: 6px;
+    padding: 1px 6px;
+    background: #eef0f3;
+    color: #3f4d5a;
+    font-size: 12px;
+}
+
+.gw-revisit__reason.is-high {
+    background: #fdecec;
+    color: #9b1c1c;
+}
+
+.gw-revisit__reason.is-medium {
+    background: var(--gw-amber-fill);
+    color: var(--gw-amber);
+}
+
+.gw-revisit__priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.gw-revisit__bar {
+    display: inline-block;
+    width: 64px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e3e5e8;
+}
+
+.gw-revisit__bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--gw-amber-strong);
+}
+
+.gw-revisit__bar.is-high > span {
+    background: #d64545;
+}
+
+.gw-revisit__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.gw-revisit .btn.submit.gw-revisit__review {
+    --primary-button-bg: var(--gw-s-indigo);
+    --primary-button-bg--hover: var(--gw-s-indigo-ink);
+    --primary-button-border: 1px solid var(--gw-s-indigo);
+}
+
+.gw-revisit__review .gw-mark {
+    margin-inline-end: 4px;
+}
+
+.gw-revisit__cards {
+    display: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gw-revisit__card {
+    display: grid;
+    gap: 8px;
+    padding: 14px 0;
+    border-top: 1px solid var(--gw-s-line);
+}
+
+.gw-revisit__card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.gw-revisit__card .gw-revisit__actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.gw-revisit__pages {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+}
+
+.gw-revisit__foot {
+    margin-top: 24px;
+}
+
+.gw-revisit__foot code {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+    .gw-revisit__tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gw-revisit__table {
+        display: none;
+    }
+
+    .gw-revisit__cards {
+        display: block;
+    }
+}

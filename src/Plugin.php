@@ -190,6 +190,8 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/teach/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/types/teach';
             $event->rules['ghostwriter/write/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/sections/new';
             $event->rules['ghostwriter/stock'] = 'ghostwriter/stock/index';
+            // Content to revisit: the site's pages worth a look, found without AI.
+            $event->rules['ghostwriter/revisit'] = 'ghostwriter/revisit/show';
             // "Connect account" for libraries that license with a person's own sign-in.
             $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/connect'] = 'ghostwriter/libraries/connect';
             $event->rules['ghostwriter/libraries/<id:[a-z0-9_-]+>/callback'] = 'ghostwriter/libraries/callback';
@@ -332,6 +334,7 @@ class Plugin extends BasePlugin
                     'setup' => !$this->onboarding->hidden() ? ['label' => Craft::t('ghostwriter', 'Get started'), 'url' => 'ghostwriter/setup'] : null,
                     'overview' => ['label' => Craft::t('ghostwriter', 'Overview'), 'url' => 'ghostwriter'],
                     'plan' => ['label' => Craft::t('ghostwriter', 'Content plan'), 'url' => 'ghostwriter/plan'],
+                    'revisit' => ['label' => Craft::t('ghostwriter', 'Content to revisit'), 'url' => 'ghostwriter/revisit'],
                     'voice' => ['label' => Craft::t('ghostwriter', 'Voice guide'), 'url' => 'ghostwriter/voice'],
                     'imagery' => ['label' => Craft::t('ghostwriter', 'Image style'), 'url' => 'ghostwriter/imagery'],
                     // The stock image ledger, once there is anything in it or a paid library to use.

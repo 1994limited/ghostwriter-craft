@@ -125,6 +125,13 @@
                 <span class="gw-tile__note">{{ '{count, plural, =1{stock preview to license} other{stock previews to license}}'|t('ghostwriter', {count: stock.previews}) }}{% if stock.live %} · {{ '{count, plural, =1{one on a live entry} other{# on live entries}}'|t('ghostwriter', {count: stock.live}) }}{% endif %}</span>
             </a>
         {% endif %}
+        {% if revisit is defined %}
+            <a class="gw-tile" href="{{ revisit.url }}" data-revisit-overview>
+                <span class="gw-tile__label">{{ 'Content to revisit'|t('ghostwriter') }}</span>
+                <span class="gw-tile__value gw-tile__value--number">{{ revisit.worth }}</span>
+                <span class="gw-tile__note">{{ '{count, plural, =1{page worth a look} other{pages worth a look}}'|t('ghostwriter', {count: revisit.worth}) }}{% if revisit.top is not empty %} · {{ revisit.top|map(row => row.title ~ ' (' ~ row.reason ~ ')')|join(' · ') }}{% else %} · {{ 'Dates, links, alt text and empty fields, checked without AI.'|t('ghostwriter') }}{% endif %}</span>
+            </a>
+        {% endif %}
         <a class="gw-tile" href="#gw-in-progress">
             <span class="gw-tile__label">{{ 'In progress'|t('ghostwriter') }}</span>
             <span class="gw-tile__value gw-tile__value--number">{{ inProgress|length }}</span>

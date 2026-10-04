@@ -1,0 +1,176 @@
+{#
+    Content to revisit: live pages ranked by free checks (dates, links, alt
+    text, empty fields and age), with why, a priority (a bar and a word, so
+    it isn't colour alone) and Review, which opens the page with Suggest
+    edits ready to run. No AI until someone reviews a page. A table on wide
+    screens, cards on a phone.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = 'Content to revisit'|t('ghostwriter') %}
+{% set selectedSubnavItem = 'revisit' %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}] %}
+
+{% macro actions(row, cards) %}
+    <div class="gw-revisit__actions">
+        {% if row.reviewUrl %}
+            <a class="btn small submit gw-revisit__review" href="{{ row.reviewUrl }}" aria-label="{{ 'Review {title}'|t('ghostwriter', {title: row.title}) }}" title="{{ 'Opens the page ready to review. Reviewing uses Ghostwriter.'|t('ghostwriter') }}"><span class="gw-mark" aria-hidden="true"></span>{{ 'Review'|t('ghostwriter') }}</a>
+        {% endif %}
+        {% if cards %}
+            <button type="button" class="btn small" data-revisit-snooze="{{ row.key }}" data-title="{{ row.title }}">{{ 'Snooze for 90 days'|t('ghostwriter') }}</button>
+        {% else %}
+            {% set menuId = 'gw-revisit-menu-' ~ row.key|replace({':': '-', '@': '-'}) %}
+            <button type="button" class="btn small menubtn" aria-label="{{ 'More for {title}'|t('ghostwriter', {title: row.title}) }}" aria-controls="{{ menuId }}" data-disclosure-trigger></button>
+            <div id="{{ menuId }}" class="menu menu--disclosure">
+                <ul>
+                    <li><button type="button" class="menu-item" data-revisit-snooze="{{ row.key }}" data-title="{{ row.title }}">{{ 'Snooze for 90 days'|t('ghostwriter') }}</button></li>
+                    {% if row.editUrl %}<li><a class="menu-item" href="{{ row.editUrl }}">{{ 'Open without reviewing'|t('ghostwriter') }}</a></li>{% endif %}
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{% block content %}
+    <div class="gw-revisit" data-ghostwriter-revisit>
+        <p class="light">{{ 'Found without AI: dates, links, alt text, empty fields and age. Reviewing a page uses Ghostwriter, only when you ask.'|t('ghostwriter') }}</p>
+
+        {% if sites|length > 1 %}
+            <nav class="gw-revisit__filter" aria-label="{{ 'Site'|t('app') }}">
+                {% for other in sites %}
+                    <a class="gw-revisit__chip{{ other.current ? ' is-current' }}" href="{{ other.url }}"{{ other.current ? ' aria-current="page"' }}>{{ other.name }}</a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+
+        {% if reading %}
+            <p class="notice">{{ 'Looking through your pages for the first time. This takes a minute or two on a large site; reload to see the list.'|t('ghostwriter') }}</p>
+        {% endif %}
+
+        <nav class="gw-revisit__tiles" aria-label="{{ 'Show'|t('ghostwriter') }}">
+            {% for item in tiles %}
+                <a class="gw-tile{{ item.current ? ' is-current' }}" href="{{ item.url }}"{{ item.current ? ' aria-current="true"' }} data-revisit-tile="{{ item.key }}">
+                    <span class="gw-tile__value gw-tile__value--number">{{ item.count }}</span>
+                    <span class="gw-tile__note">{{ item.label }}</span>
+                </a>
+            {% endfor %}
+        </nav>
+
+        {% if sections|length > 1 %}
+            <nav class="gw-revisit__filter" aria-label="{{ 'Sections'|t('ghostwriter') }}">
+                <span class="light">{{ 'In'|t('ghostwriter') }}</span>
+                <a class="gw-revisit__chip{{ section is null ? ' is-current' }}" href="{{ allUrl }}"{{ section is null ? ' aria-current="page"' }}>{{ 'All sections'|t('ghostwriter') }}</a>
+                {% for item in sections %}
+                    <a class="gw-revisit__chip{{ item.handle == section ? ' is-current' }}" href="{{ item.url }}"{{ item.handle == section ? ' aria-current="page"' }}>{{ item.name }}</a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+
+        <div class="gw-revisit__panel">
+            {% if rows is empty %}
+                <p class="zilch">{{ empty }}</p>
+            {% else %}
+                <table class="data fullwidth gw-revisit__table">
+                    <caption class="visually-hidden">{{ 'Pages to revisit, most important first'|t('ghostwriter') }}</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ 'Page'|t('ghostwriter') }}</th>
+                            <th scope="col">{{ 'Last updated'|t('ghostwriter') }}</th>
+                            <th scope="col">{{ 'Why'|t('ghostwriter') }}</th>
+                            <th scope="col">{{ 'Priority'|t('ghostwriter') }}</th>
+                            <th scope="col"><span class="visually-hidden">{{ 'Actions'|t('ghostwriter') }}</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr data-revisit-row="{{ row.key }}">
+                                <th scope="row">
+                                    <span class="gw-revisit__title">{{ row.title }}</span>
+                                    <span class="light smalltext">{{ row.section }}</span>
+                                </th>
+                                <td class="nowrap light">{% if row.updated %}<time datetime="{{ row.updatedIso }}">{{ row.updated }}</time>{% endif %}</td>
+                                <td>
+                                    <ul class="gw-revisit__reasons" aria-label="{{ 'Why'|t('ghostwriter') }}">
+                                        {% for reason in row.reasons|slice(0, 3) %}
+                                            <li class="gw-revisit__reason is-{{ reason.severity }}">{{ reason.text }}</li>
+                                        {% endfor %}
+                                        {% if row.reasons|length > 3 %}<li class="light smalltext">+{{ row.reasons|length - 3 }}</li>{% endif %}
+                                    </ul>
+                                </td>
+                                <td>
+                                    <span class="gw-revisit__priority">
+                                        <span class="gw-revisit__bar is-{{ row.priority }}" aria-hidden="true"><span style="width: {{ min(100, row.score) }}%"></span></span>
+                                        <span class="smalltext">{{ row.priorityLabel }}</span>
+                                    </span>
+                                </td>
+                                <td class="thin">{{ _self.actions(row, false) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <ul class="gw-revisit__cards">
+                    {% for row in rows %}
+                        <li class="gw-revisit__card" data-revisit-row="{{ row.key }}">
+                            <div class="gw-revisit__card-head">
+                                <div>
+                                    <span class="gw-revisit__title">{{ row.title }}</span>
+                                    <span class="light smalltext">{{ row.section }}{% if row.updated %} · {{ row.updated }}{% endif %}</span>
+                                </div>
+                                <span class="smalltext">{{ row.priorityLabel }}</span>
+                            </div>
+                            <ul class="gw-revisit__reasons" aria-label="{{ 'Why'|t('ghostwriter') }}">
+                                {% for reason in row.reasons %}
+                                    <li class="gw-revisit__reason is-{{ reason.severity }}">{{ reason.text }}</li>
+                                {% endfor %}
+                            </ul>
+                            {{ _self.actions(row, true) }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        {% if pages > 1 %}
+            <nav class="gw-revisit__pages" aria-label="{{ 'Pages'|t('ghostwriter') }}">
+                {% if prevUrl %}<a href="{{ prevUrl }}">← {{ 'Previous'|t('ghostwriter') }}</a>{% else %}<span></span>{% endif %}
+                <span class="light">{{ 'Page {page} of {pages}'|t('ghostwriter', {page: page, pages: pages}) }}</span>
+                {% if nextUrl %}<a href="{{ nextUrl }}">{{ 'Next'|t('ghostwriter') }} →</a>{% else %}<span></span>{% endif %}
+            </nav>
+        {% endif %}
+
+        <p class="light smalltext gw-revisit__foot">
+            {% if lastRun %}{{ 'Last refreshed {ago}.'|t('ghostwriter', {ago: lastRun}) }}{% endif %}
+            {% if stale %}{{ 'Add a cron job to keep it daily:'|t('ghostwriter') }} <code>{{ cron }}</code>{% endif %}
+            {{ externalLinks ? 'Links to other sites are checked once a week.'|t('ghostwriter') : 'Links to other sites aren’t checked (off in the settings).'|t('ghostwriter') }}
+            {% if settingsUrl %}<a href="{{ settingsUrl }}">{{ 'Settings'|t('app') }}</a>{% endif %}
+        </p>
+        <p class="visually-hidden" role="status" aria-live="polite" data-revisit-said></p>
+    </div>
+{% endblock %}
+
+{% js %}
+    document.querySelectorAll('[data-ghostwriter-revisit] [data-disclosure-trigger]').forEach((trigger) => {
+        if (!$(trigger).data('disclosureMenu')) new Garnish.DisclosureMenu(trigger);
+    });
+
+    // Craft moves a row's menu out to the page while it's open, so the clicks are heard there.
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-revisit-snooze]');
+
+        if (!button) return;
+
+        const key = button.dataset.revisitSnooze;
+
+        try {
+            await Craft.sendActionRequest('POST', 'ghostwriter/revisit/snooze', { data: { key } });
+            button.closest('.menu')?.parentElement && $(document.querySelector(`[aria-controls="${button.closest('.menu')?.id}"]`)).data('disclosureMenu')?.hide();
+            document.querySelectorAll(`[data-revisit-row="${CSS.escape(key)}"]`).forEach((row) => row.remove());
+            const said = Craft.t('ghostwriter', '{title} is snoozed for 90 days.', { title: button.dataset.title });
+            document.querySelector('[data-revisit-said]').textContent = said;
+            Craft.cp.displayNotice(said);
+        } catch (error) {
+            Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
+        }
+    });
+{% endjs %}

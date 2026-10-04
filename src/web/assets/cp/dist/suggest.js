@@ -722,6 +722,9 @@
 
             if (initial) {
                 const asked = this.config.asked;
+
+                // `?ghostwriter=suggest` is for this visit only.
+                if (asked) this.forget();
                 const usable = review && review.status === 'ready' && review.fresh && data.suggestions.some((s) => s.state === 'open');
 
                 if (asked) {
@@ -749,6 +752,17 @@
 
             if (data.running) {
                 this.timer = setTimeout(() => (document.visibilityState === 'visible' ? this.load() : null), POLL);
+            }
+        },
+
+        forget() {
+            try {
+                const url = new URL(window.location.href);
+
+                url.searchParams.delete('ghostwriter');
+                window.history.replaceState(window.history.state, '', url);
+            } catch (error) {
+                // The address just keeps it.
             }
         },
 
