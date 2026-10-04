@@ -193,6 +193,16 @@ They're at the foot of the **Text** tab: "Prepared with the draft, only from wha
 - **Click an item to change it.** It's saved when you leave it. Enter finishes, and Esc puts it back as it was.
 - **✕** deletes an extra (or one item of it). A layout that used it is arranged again without it.
 
+### Headings
+
+Ghostwriter fits every draft's headings to the page, with no setting:
+
+- **The body starts below the page's main heading.** Most templates print the entry's title as the H1, so a draft's sections start at H2. The Preview tab reads which headings the template prints each time it renders a draft, and keeps that per section and entry type; if your template prints the H1 from another field, or none, later drafts follow it once two previews agree.
+- **Only the levels a CKEditor field offers.** A field whose toolbar offers H2 and H3 never gets an H4: a deeper heading becomes a bold lead-in ("**Heading.** Its paragraph"). A field without the Heading button gets no headings.
+- **No skipped levels**, no empty headings, and a bold line used as a heading becomes a real one. Words are never changed.
+
+A template that prints no H1, a logo as the H1, or more than one, is noted at the top of Ghostwriter's plugin settings. Ghostwriter still starts the text at H2; the fix belongs in the template.
+
 ## Use this draft
 
 **Use this draft** puts the draft into the entry, then reloads the form so you can see it.

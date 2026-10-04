@@ -695,7 +695,8 @@ class WritingTest extends TestCase
         $blocks = $draft->getFieldValue('newsBuilder')->status(null)->all();
 
         $this->assertSame([['assetSingle', 1], ['textWithAsset', 1], ['text', 2], ['spacer', 1]], array_map(fn($block) => [$block->getType()->handle, (int) $block->level], $blocks));
-        $this->assertStringContainsString('<h3>Fresh</h3>', (string) $blocks[2]->getFieldValue('richText'));
+        // The SEO pass starts a block's text at H2 under the title's H1: no level is skipped.
+        $this->assertStringContainsString('<h2>Fresh</h2>', (string) $blocks[2]->getFieldValue('richText'));
 
         // House defaults: the usual padding and spacer height.
         $this->assertSame(40, (int) $blocks[1]->getFieldValue('paddingTop'));

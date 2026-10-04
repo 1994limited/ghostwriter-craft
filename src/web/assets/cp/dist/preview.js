@@ -462,6 +462,7 @@
 
             // Done once the blocks are found (or couldn't be: the page still shows).
             overlay.start().then(() => {
+                if (this.overlay === overlay) this.postOutline(overlay.outline, sequence);
                 this.root.dataset.located = String(overlay.located);
                 this.root.dataset.missing = overlay.missing.join(' ');
                 this.root.dataset.timing = JSON.stringify(this.timing);
@@ -473,6 +474,29 @@
             }, (error) => console.warn("Ghostwriter: the preview's blocks couldn't be found.", error)).finally(() => {
                 if (this.overlay === overlay && !this.pending) this.busy(false);
             });
+        }
+
+        /**
+         * The page's headings to the server, which keeps how the template
+         * prints them per entry type (core's Seo\\RenderProfile). When that
+         * changes, the draft's headings are fitted again: render once more.
+         */
+        async postOutline(headings, sequence) {
+            if (!Array.isArray(headings)) return;
+
+            const target = this.options.target();
+
+            try {
+                const { data } = await Craft.sendActionRequest('POST', 'ghostwriter/preview/outline', { data: { id: target.id, siteId: target.siteId, outline: headings.slice(0, 200) } });
+
+                if (data?.changed && this.refitted !== sequence && sequence === this.sequence) {
+                    this.refitted = sequence;
+                    this.rendered = null;
+                    this.render(this.wanted);
+                }
+            } catch (error) {
+                // Only the profile is missed: the next render posts again.
+            }
         }
 
         // ---- Comments -----------------------------------------------------
@@ -784,7 +808,7 @@
         async start() {
             const doc = this.frame.contentDocument;
             const win = this.frame.contentWindow;
-            const { findMarkers, locate, measure, watch, contentArea } = await locator();
+            const { findMarkers, locate, measure, watch, contentArea, outline } = await locator();
             const { markGaps, countByRegion } = await Ghostwriter.gapMarkers();
             const labels = Ghostwriter.gapLabels();
 
@@ -839,10 +863,15 @@
 
             const content = contentArea(doc);
             const isFurniture = (element) => Boolean(element?.closest?.(FURNITURE));
-            let marks = Helpers.pickMarks(findMarkers(doc).marks, this.map, content === doc.body ? null : content, isFurniture);
+            const found = findMarkers(doc).marks;
+            let marks = Helpers.pickMarks(found, this.map, content === doc.body ? null : content, isFurniture);
 
             const place = () => {
                 const result = locate(doc, this.map, { marks });
+
+                // The page's headings, for how the template prints them (the SEO
+                // layer's render profile): every marker counts here, the header's too.
+                this.outline ??= outline ? outline(doc, this.map, { regions: result.regions, marks: found }) : null;
 
                 this.regions = result.regions;
                 this.byKey = result.byKey;

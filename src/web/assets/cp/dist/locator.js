@@ -257,6 +257,103 @@ export function locate(doc, map, options = {}) {
 }
 
 /**
+ * The page's headings, in document order, for the SEO layer's render
+ * profile (core's Seo\\Outline): each `h1`–`h6` in the body (the header's
+ * too: a logo printed as the `h1` counts), with what printed it.
+ *
+ * - `field`: the field whose marker the heading holds: a top-level field's
+ *   handle (`title`), or a block's set and field (`hero.heading`); for a
+ *   heading inside a rich-text value, that value's field; null for the
+ *   template's own text.
+ * - `unit`: the draft unit it shows, when the map says.
+ * - `inContent`: it is part of a value's text (a body's own `##`), not a
+ *   field the template prints as a heading.
+ *
+ * Pass what locate() returned (its `marks` are what was found before the
+ * DOM was stripped); without it, locate() is run first.
+ *
+ * @param {object} doc
+ * @param {Array<object>} map  BlockMap::toArray(), as JSON.
+ * @param {object|null} located  locate(doc, map)'s result.
+ * @returns {Array<{level: number, text: string, field: string|null, unit: string|null, inContent: boolean}>}
+ */
+export function outline(doc, map, located = null) {
+    const body = doc.body ?? doc.documentElement;
+    const result = located ?? locate(doc, map);
+    const byKey = Object.fromEntries((map ?? []).filter((block) => block && typeof block.key === 'string').map((block) => [block.key, block]));
+    const depth = (key) => {
+        let n = 0;
+
+        for (let at = byKey[key]; at && at.parent && n < 64; at = byKey[at.parent]) {
+            n += 1;
+        }
+
+        return n;
+    };
+    const fieldOf = (block) => {
+        if (!block) {
+            return null;
+        }
+
+        if (block.kind === 'section') {
+            return fieldOf(byKey[block.parent]);
+        }
+
+        return block.type || null;
+    };
+    const headings = [];
+
+    walkElements(body, (element) => {
+        if (/^H[1-6]$/.test(tagOf(element))) {
+            headings.push(element);
+        }
+    });
+
+    return headings.map((element) => {
+        const level = Number(tagOf(element).slice(1));
+        const text = String(element.textContent ?? '').replace(/[\u{E0000}-\u{E007F}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        const marks = (result?.marks ?? []).filter((found) => found.key && byKey[found.key] && (found.element === element || contains(element, found.element)));
+        const own = marks.find((found) => byKey[found.key].kind !== 'section') ?? marks[0] ?? null;
+
+        if (own) {
+            const block = byKey[own.key];
+
+            if (block.kind === 'section') {
+                return { level, text, field: fieldOf(block), unit: block.units?.[0] ?? null, inContent: true };
+            }
+
+            const field = block.kind === 'block'
+                ? (own.field !== null && block.fields?.[own.field] ? `${block.type}.${block.fields[own.field]}` : block.type || null)
+                : block.type || null;
+
+            return { level, text, field, unit: block.units?.[0] ?? null, inContent: false };
+        }
+
+        let region = null;
+
+        for (const candidate of result?.regions ?? []) {
+            const holds = (candidate.elements ?? []).some((held) => held === element || contains(held, element));
+
+            if (holds && (!region || depth(candidate.key) > depth(region.key))) {
+                region = candidate;
+            }
+        }
+
+        if (!region) {
+            return { level, text, field: null, unit: null, inContent: false };
+        }
+
+        const block = byKey[region.key];
+
+        if (region.kind === 'block') {
+            return { level, text, field: null, unit: null, inContent: true };
+        }
+
+        return { level, text, field: fieldOf(block), unit: block?.units?.[0] ?? null, inContent: true };
+    });
+}
+
+/**
  * A region's box in document coordinates: the union of its elements'
  * client rects plus the window's scroll. Null when nothing has a size.
  */

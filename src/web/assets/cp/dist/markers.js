@@ -29,8 +29,8 @@
 export const PATTERNS = {
     ask: { source: '\\[\\[\\s*ask\\s*:\\s*([^\\[\\]\\s][^\\[\\]\\n]{0,199}?)\\s*\\]\\]', flags: 'giu' },
     check: { source: '\\[\\[\\s*check\\s*:\\s*([^\\[\\]|\\n]{1,120}?)\\s*\\|\\s*from\\s*:\\s*([^\\[\\]\\n]{1,300}?)\\s*\\]\\]', flags: 'giu' },
-    link: { source: '\\[([^\\[\\]\\n]*)\\]\\(\\s*<?(?:https?://example\\.com/?)?#gw-link:([^\\s)>]*)>?(?:\\s+"[^"\\n]*")?\\s*\\)', flags: 'giu' },
-    sentinel: { source: '#gw-link:([A-Za-z0-9._~%-]*)', flags: 'gu' },
+    link: { source: '\\[([^\\[\\]\\n]*)\\]\\(\\s*<?(?:https?://example\\.com/?)?#gw-link:([^()<>"\\n]*?)>?(?:\\s+"[^"\\n]*")?\\s*\\)', flags: 'giu' },
+    sentinel: { source: '#gw-link:([^\\s"\'<>()]*(?:[ \\t]+[^\\s"\'<>()]+)*)', flags: 'gu' },
 };
 
 export const LINK_PREFIX = '#gw-link:';
@@ -123,7 +123,7 @@ export function linkHint(href) {
         // Keep it as written.
     }
 
-    return hint.replace(/[-_]+/g, ' ').trim();
+    return hint.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /**
