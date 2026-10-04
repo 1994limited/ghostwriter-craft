@@ -110,6 +110,11 @@ class SchemaReader
             $spec['options'] = $this->options($field);
         }
 
+        // A Plain Text field's character limit: an SEO value's limit (core's PlainSeoFields).
+        if ($field instanceof PlainText && $field->charLimit) {
+            $spec['maxLength'] = (int) $field->charLimit;
+        }
+
         if ($field instanceof Assets) {
             $spec['max_files'] = $field->maxRelations ? (int) $field->maxRelations : null;
             $spec['sources'] = $field->sources;

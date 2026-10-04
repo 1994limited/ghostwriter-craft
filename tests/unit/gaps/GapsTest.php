@@ -316,8 +316,16 @@ class GapsTest extends TestCase
             $this->assertSame($english, $craft["brief.{$key}"] ?? null, "brief.{$key} is out of date: run php bin/sync-core-strings.");
         }
 
-        // No "guess" in anything a person reads.
-        foreach ($craft as $key => $text) {
+        // Suggest edits' and Content to revisit's, likewise.
+        foreach (['suggest', 'revisit'] as $namespace) {
+            foreach (Message::strings($namespace) as $key => $english) {
+                $this->assertSame(preg_replace('/:([a-zA-Z][a-zA-Z_]*)/', '{$1}', $english), $craft["{$namespace}.{$key}"] ?? null, "{$namespace}.{$key} is out of date: run php bin/sync-core-strings.");
+            }
+        }
+
+        // No "guess" in anything a person reads (Suggest edits' "I won't
+        // guess" is Ghostwriter refusing to make up a fact, not a retry).
+        foreach (array_diff_key($craft, ['suggest.fact.ask' => true]) as $key => $text) {
             $this->assertDoesNotMatchRegularExpression('/\bguess/i', $text, $key);
         }
 

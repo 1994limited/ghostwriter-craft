@@ -146,6 +146,31 @@ class Settings extends Model
     /** Days a stock photo stand-in no entry uses is kept before cleanup removes it. */
     public int $stockUnusedDays = 30;
 
+    /**
+     * Suggest edits flags counts and prices about the organisation ("team
+     * of 6", "from £450") in pages a year old or more as Facts to check,
+     * and the review may flag claims of its own. Off, neither is asked
+     * about. Closing dates are always checked.
+     */
+    public bool $claimChecks = true;
+
+    /**
+     * Content to revisit checks links to other sites once a week (at most
+     * once a week per address, one request a second per site), so a page
+     * that has gone shows as a broken link. Off, no other site is ever
+     * asked anything. Links to the site's own entries are always checked.
+     */
+    public bool $checkExternalLinks = false;
+
+    /**
+     * Sections ordered by date (channels: news, a journal) weigh a page's
+     * age and its past years at a quarter, as old news is expected to be
+     * old. The handles of those where age should count in full.
+     *
+     * @var array<int, string>
+     */
+    public array $ageInFullSections = [];
+
     /** How much of the site is read for the voice guide, so one scan is one affordable request. */
     public int $voiceMaxEntries = 24;
 
@@ -254,7 +279,8 @@ class Settings extends Model
             [['model', 'imageModel', 'guidesPath', 'storagePath'], 'string'],
             [['openverse', 'suggestKindsAutomatically', 'placeholderImages', 'showGetStarted', 'sharedConversations', 'draftsUnpublished', 'preview'], 'boolean'],
             [['previewScriptHosts'], 'each', 'rule' => ['match', 'pattern' => '/^[a-z0-9*.:\/-]+$/i']],
-            [['sections', 'voiceSections'], 'each', 'rule' => ['string']],
+            [['sections', 'voiceSections', 'ageInFullSections'], 'each', 'rule' => ['string']],
+            [['claimChecks', 'checkExternalLinks'], 'boolean'],
             [['baseUrls'], 'validateBaseUrls'],
             [['logReplies'], 'validateLogReplies'],
         ];
@@ -418,6 +444,28 @@ class Settings extends Model
         return $model === '' ? null : $model;
     }
 
+    /** Whether Suggest edits asks about counts, prices and claims. */
+    public function checksClaims(): bool
+    {
+        return (bool) $this->claimChecks;
+    }
+
+    /** Whether Content to revisit checks links to other sites once a week. */
+    public function checksExternalLinks(): bool
+    {
+        return (bool) $this->checkExternalLinks;
+    }
+
+    /**
+     * Dated sections where age counts in full.
+     *
+     * @return array<int, string>
+     */
+    public function ageInFull(): array
+    {
+        return array_values(array_filter($this->ageInFullSections, 'is_string'));
+    }
+
     /**
      * Everything but showGetStarted, which is not project config.
      *
@@ -472,7 +520,7 @@ class Settings extends Model
             $values['stockLibraries'] = array_map(fn($on) => (bool) $on, array_filter(is_array($values['stockLibraries']) ? $values['stockLibraries'] : [], fn($key) => is_string($key) && preg_match('/^[a-z0-9_-]{1,64}$/', $key), ARRAY_FILTER_USE_KEY));
         }
 
-        foreach (['sections', 'voiceSections'] as $key) {
+        foreach (['sections', 'voiceSections', 'ageInFullSections'] as $key) {
             if (array_key_exists($key, $values)) {
                 $values[$key] = array_values(array_filter((array) $values[$key], fn($handle) => is_string($handle) && $handle !== '' && $handle !== '*'));
             }

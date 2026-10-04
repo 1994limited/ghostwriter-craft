@@ -77,9 +77,17 @@ abstract class TestCase extends CraftTestCase
         $settings->stockLibraries = ['demo' => false];
         $settings->stockDemo = false;
         $this->plugin->stockLibraries->reset();
+        // Suggest edits and Content to revisit at their defaults; no link probe
+        // but a test's own, and no queued refresh remembered from another test.
+        $settings->claimChecks = true;
+        $settings->checkExternalLinks = false;
+        $settings->ageInFullSections = [];
+        $this->plugin->revisit->probe = null;
+        Craft::$app->getCache()->flush();
 
         // Retries don't wait in tests; what they would have waited is kept.
         $this->sleeper = new RecordingSleeper();
+        $this->plugin->revisit->sleeper = $this->sleeper;
 
         $this->http = new MockHandler();
         $this->sent = [];

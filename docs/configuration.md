@@ -113,6 +113,9 @@ return [
 | `onUnfinishedPublish` | `null` (block) | `block` or `warn` when an entry with something still to finish goes live; `null` reads `stockOnPublish` |
 | `stockOnPublish` | `block` | The older stock-only setting, read when `onUnfinishedPublish` isn't set |
 | `finishOpenAfterDraft` | `true` | Open the Finish this page guide after a draft is put into an entry |
+| `claimChecks` | `true` | Suggest edits asks about counts, prices and claims on older pages ([Suggest edits](suggest-edits.md#settings)) |
+| `checkExternalLinks` | `false` | Content to revisit checks links to other sites once a week |
+| `ageInFullSections` | `[]` | Channel handles where a page's age counts in full on Content to revisit |
 | `shutterstockSandbox` | `null` (dev mode) | Use Shutterstock's sandbox: `true`, `false`, or `null` for dev mode only |
 | `stockDemo` | `$GHOSTWRITER_STOCK_DEMO` | Offer the demo library outside dev mode; never in production |
 | `stockUnusedDays` | `30` | Days before a preview no entry uses is cleaned up |

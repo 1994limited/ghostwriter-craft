@@ -231,6 +231,50 @@
 
 <hr>
 
+<h2 id="suggest-edits">{{ 'Suggest edits and Content to revisit'|t('ghostwriter') }}</h2>
+
+<p class="light">{{ 'Suggest edits reviews an existing page against your voice guide when someone asks. Content to revisit ranks the site’s pages by what is out of date or broken, without AI.'|t('ghostwriter') }}</p>
+
+{{ forms.lightswitchField({
+    label: 'Check claims'|t('ghostwriter'),
+    instructions: 'Counts and prices about the organisation (“team of 6”, “from £450”) in pages a year old or more are asked about as Facts to check, and the review may flag claims of its own. Closing dates are always checked.'|t('ghostwriter'),
+    name: 'claimChecks',
+    on: settings.claimChecks,
+    warning: 'claimChecks' in overrides ? _self.overridden('claimChecks', overrides) : null,
+    disabled: 'claimChecks' in overrides,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Check links to other sites once a week'|t('ghostwriter'),
+    instructions: 'Each address is asked at most once a week, one request a second per site, so pages that have gone show as broken links. Off, no other site is asked anything. Links to this site’s own entries are always checked.'|t('ghostwriter'),
+    name: 'checkExternalLinks',
+    on: settings.checkExternalLinks,
+    warning: 'checkExternalLinks' in overrides ? _self.overridden('checkExternalLinks', overrides) : null,
+    disabled: 'checkExternalLinks' in overrides,
+}) }}
+
+{% set datedOptions = sections|filter(section => section.type == 'channel')|map(section => {label: section.name|t('site'), value: section.handle}) %}
+{% if datedOptions|length %}
+    {{ forms.checkboxSelectField({
+        label: 'Dated sections where age counts in full'|t('ghostwriter'),
+        instructions: 'In sections ordered by date (news, a journal), a page’s age and the years it mentions count a quarter as much, as old news is expected to be old. Tick a section to count them in full there.'|t('ghostwriter'),
+        name: 'ageInFullSections',
+        options: datedOptions,
+        values: settings.ageInFullSections,
+        warning: 'ageInFullSections' in overrides ? _self.overridden('ageInFullSections', overrides) : null,
+        disabled: 'ageInFullSections' in overrides,
+    }) }}
+{% endif %}
+
+{% if revisit is defined and revisit %}
+    <p class="light">
+        {%- if revisit.lastRun %}{{ 'Content to revisit was last refreshed {ago}.'|t('ghostwriter', {ago: revisit.lastRun}) }}{% else %}{{ 'Content to revisit hasn’t been refreshed yet.'|t('ghostwriter') }}{% endif %}
+        {{ 'Add a cron job to keep it daily:'|t('ghostwriter') }} <code>{{ revisit.cron }}</code>
+    </p>
+{% endif %}
+
+<hr>
+
 <h2 id="stock-photos">{{ 'Stock photos'|t('ghostwriter') }}</h2>
 <p class="light">{{ 'Photos from libraries, found with the Ghostwriter button on an image field. Keys are read from your .env file each time they are needed and are never stored or shown.'|t('ghostwriter') }}</p>
 
