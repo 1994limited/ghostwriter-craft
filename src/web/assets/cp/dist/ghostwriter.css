@@ -566,6 +566,7 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-layout-card__badge { margin-top: 1px; }
 .gw-layout-card__badge { flex: none; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 999px; background: #5b4cf0; color: #fff; }
 .gw-layout-card__count { flex: none; margin-top: 2px; font-size: 11px; white-space: nowrap; color: var(--light-text-color, #606d7b); }
+.gw-layout-card__changes { flex: 1 0 100%; order: 3; min-width: 0; font-size: 11.5px; font-weight: 500; line-height: 1.35; color: var(--text-color, #3f4d5a); }
 .gw-layout-card__desc { display: block; font-size: 11.5px; line-height: 1.35; color: var(--light-text-color, #606d7b); }
 .gw-layout-card.is-stale .gw-layout-card__desc { color: var(--yellow-800, #854d0e); }
 @media (prefers-reduced-motion: reduce) {
@@ -597,6 +598,14 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-layouts.is-compact .gw-layout-card__title { margin-top: 0; flex-wrap: nowrap; align-items: center; font-size: 12.5px; line-height: 22px; }
 .gw-layouts.is-compact .gw-layout-card__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gw-layouts.is-compact .gw-layout-card__badge { margin-top: 0; }
+.gw-layouts.is-compact .gw-layout-card__changes { flex: 0 1 auto; order: 0; font-weight: 400; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--light-text-color, #606d7b); }
+.gw-layouts.is-compact .gw-layout-card__name { flex: none; }
+
+/* A layout just switched to: what it changes is outlined in Blocks and Text, fading over about two seconds (still, then gone, under reduced motion). */
+.gw-switched { scroll-margin-top: 3rem; border-radius: var(--small-border-radius, 4px); animation: gw-switched 2.2s ease-out 1 forwards; }
+@keyframes gw-switched { 0%, 30% { box-shadow: 0 0 0 2px #5b4cf0, 0 0 0 6px rgba(91, 76, 240, .18); } 100% { box-shadow: 0 0 0 2px rgba(91, 76, 240, 0), 0 0 0 6px rgba(91, 76, 240, 0); } }
+@media (prefers-reduced-motion: reduce) { .gw-switched { animation: none; box-shadow: 0 0 0 2px #5b4cf0; } }
+@media (forced-colors: active) { .gw-switched { animation: none; outline: 2px solid Highlight; } }
 
 /* Words a layout put together from several places: shown, not edited. */
 .gw-assembled { border-radius: 4px; padding: 2px 4px; background: var(--gray-050, #f3f7fc); }

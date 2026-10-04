@@ -1751,19 +1751,23 @@
         textView(nodes) {
             const out = [];
 
-            const walk = (list, where) => list.forEach((node) => {
+            // `at`: the top-level field (and block) a part is in, for pointing at a layout's changes.
+            const mark = (at) => (at ? ` data-gw-field="${esc(at.field ?? '')}"${at.block === undefined ? '' : ` data-gw-block="${at.block}"`}` : '');
+            const walk = (list, where, at = null) => list.forEach((node) => {
+                const here = at ?? { field: node.handle };
+
                 if (node.editable || node.assembled) {
                     const shown = node.assembled ? this.assembled(node) : this.editable(node);
 
                     out.push(node.handle === 'title' && !where && !node.assembled
                         ? this.editable(node, 'gw-text-title')
-                        : `<div class="gw-text-part">${where ? `<div class="gw-text-where">${esc(where)}</div>` : ''}${shown}</div>`);
+                        : `<div class="gw-text-part"${mark(here)}>${where ? `<div class="gw-text-where">${esc(where)}</div>` : ''}${shown}</div>`);
                 } else if (node.kind === 'blocks') {
-                    node.items.forEach((block) => walk(block.fields, block.label));
+                    node.items.forEach((block, i) => walk(block.fields, block.label, at ?? { field: node.handle, block: i }));
                 } else if (node.kind === 'rows') {
-                    node.items.forEach((row) => walk(row, node.label));
+                    node.items.forEach((row) => walk(row, node.label, here));
                 } else if (node.kind === 'group') {
-                    walk(node.fields, node.label);
+                    walk(node.fields, node.label, here);
                 }
             });
 
@@ -1835,14 +1839,37 @@
 
             try {
                 const data = await Ghostwriter.request('POST', 'sessions/choose-layout', { id: this.session.id, plan });
+                const places = data.layouts?.plans?.find((card) => card.id === plan)?.places ?? [];
 
                 this.session = data;
                 this.page?.changed(this.pageKey(data), true);
+                // Switched: what it changes against the writer's is scrolled to and outlined, once.
+                if (places.length) this.page?.switched(places);
                 this.renderDraft();
+                if (places.length) this.markSwitched(places);
                 this.announce(t('{layout} layout.', { layout: data.layouts.chosenName ?? plan }));
             } catch (error) {
                 if (error?.response?.status === 409) this.openSession(this.session.id);
             }
+        },
+
+        // In Blocks and Text: the blocks (or fields) a layout just switched
+        // to changes, outlined for a moment and the first scrolled to in
+        // the draft's column. The Preview does the same on its page.
+        markSwitched(places) {
+            const view = this.$container.find('.gw-draft__body')[0];
+
+            if (!view || this.view === 'preview') return;
+
+            const marked = Ghostwriter.LayoutHelpers.markSelectors(places).flatMap((selector) => [...view.querySelectorAll(selector)]);
+
+            if (!marked.length) return;
+
+            const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            marked.forEach((element) => element.classList.add('gw-switched'));
+            marked[0].scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+            setTimeout(() => marked.forEach((element) => element.classList.remove('gw-switched')), 2200);
         },
 
         async refreshLayouts() {
@@ -3115,23 +3142,25 @@
         // The draft as the server laid it out: each field under its label,
         // blocks in order under their names. Rich text arrives as HTML the
         // server has already escaped.
+        // A top-level field and its blocks say where they are
+        // (data-gw-field, data-gw-block), for pointing at a layout's changes.
         preview(nodes, nested = false) {
             return `<div class="gw-preview ${nested ? 'gw-preview--nested' : ''}">${nodes.map((node) => `
-                <div class="gw-preview__field">
+                <div class="gw-preview__field"${nested ? '' : ` data-gw-field="${esc(node.handle ?? '')}"`}>
                     <div class="gw-preview__label">${esc(node.label)}</div>
-                    ${node.editable ? this.editable(node) : (node.assembled ? this.assembled(node) : this.previewValue(node))}
+                    ${node.editable ? this.editable(node) : (node.assembled ? this.assembled(node) : this.previewValue(node, nested ? null : node.handle))}
                 </div>`).join('')}</div>`;
         },
 
-        previewValue(node) {
+        previewValue(node, field = null) {
             switch (node.kind) {
                 case 'html':
                     return `<div class="gw-prose">${node.html}</div>`;
                 case 'list':
                     return `<ul class="gw-chips">${node.items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
                 case 'blocks':
-                    return node.items.map((block) => `
-                        <div class="gw-block">
+                    return node.items.map((block, i) => `
+                        <div class="gw-block"${field === null ? '' : ` data-gw-field="${esc(field)}" data-gw-block="${i}"`}>
                             <div class="gw-block__name">${esc(block.label)}${block.known ? '' : ` <span class="error">${esc(t('Unknown block, will be left out'))}</span>`}</div>
                             ${block.fields.length ? `<div class="gw-block__body">${this.preview(block.fields, true)}</div>` : block.known ? `<div class="gw-block__body light">${esc(t('Uses its usual settings.'))}</div>` : ''}
                         </div>`).join('');
