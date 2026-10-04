@@ -18,6 +18,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\Extras;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\LinkTarget;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
+use NineteenNinetyFour\Ghostwriter\Core\Review\Comments;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
@@ -25,6 +26,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Text\HtmlToMarkdown;
 use nineteenninetyfour\ghostwriter\drafts\Applier;
 use nineteenninetyfour\ghostwriter\gaps\CraftLinkTargets;
 use nineteenninetyfour\ghostwriter\http\Presenter;
+use nineteenninetyfour\ghostwriter\jobs\ApplyComments;
 use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RefreshLayouts;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
@@ -343,9 +345,14 @@ class SessionsController extends Controller
             return $this->refuse($conflict->getMessage(), $conflict->status());
         }
 
-        // A brief that could not be filled in is filled in again; anything
-        // else is the writer's turn.
-        FillBrief::next($session);
+        // Comments that weren't answered are applied again; a brief that
+        // could not be filled in is filled in again; anything else is the
+        // writer's turn.
+        if (Comments::unanswered($session) !== null) {
+            ApplyComments::start(['sessionId' => $session->id]);
+        } else {
+            FillBrief::next($session);
+        }
 
         return $this->asJson((new Presenter())->detail($session));
     }
