@@ -13,8 +13,9 @@
  *
  * Gap markers the templates print as they are (`[[ask: …]]`, `[[check: …]]`,
  * `#gw-link:` links) are shown as chips once the locator has placed the
- * blocks (core's markers.js, copied as it is, beside this file). Display
- * only: the draft keeps its markers.
+ * blocks (core's markers.js, copied as it is, beside this file). A chip is
+ * a button (`onGap`): the panel opens a small popover at it, to resolve the
+ * gap in the draft itself. The frame never changes the draft.
  */
 (function () {
     window.Ghostwriter = window.Ghostwriter || {};
@@ -163,6 +164,8 @@
          * @param {() => ({id: string, elementId: number, siteId: number})} options.target What to render.
          * @param {(view: string) => void} options.showBlocks
          * @param {(text: string) => void} options.announce
+         * @param {(chip: object) => void} [options.onGap] A gap chip clicked (or Enter on it): {kind, hint, list?, value?, match, occurrence, element, frame}.
+         * @param {() => void} [options.rendered] A new render is showing, its chips placed.
          */
         constructor(options) {
             this.options = options;
@@ -393,7 +396,7 @@
                 win.scrollTo(0, scroll);
             }
 
-            const overlay = new Overlay(frame, data.map, (text) => this.note(text));
+            const overlay = new Overlay(frame, data.map, (text) => this.note(text), this.options.onGap ?? null);
             this.overlay = overlay;
 
             // Done once the blocks are found (or couldn't be: the page still shows).
@@ -401,6 +404,7 @@
                 this.root.dataset.located = String(overlay.located);
                 this.root.dataset.missing = overlay.missing.join(' ');
                 this.root.dataset.timing = JSON.stringify(this.timing);
+                if (this.overlay === overlay) this.options.rendered?.();
             }, () => {}).finally(() => {
                 if (this.overlay === overlay && !this.pending) this.busy(false);
             });
@@ -519,8 +523,9 @@
      * when the page resizes or scrolls, and when its images and fonts load.
      */
     class Overlay {
-        constructor(frame, map, note) {
+        constructor(frame, map, note, onGap = null) {
             this.frame = frame;
+            this.onGap = onGap;
             this.map = map ?? [];
             this.note = note;
             this.regions = [];
@@ -569,7 +574,7 @@
                 this.located = result.regions.length;
                 this.missing = result.missing;
                 // Then the gap markers as chips, inside the regions just found.
-                this.gaps = markGaps(doc, { labels });
+                this.gaps = markGaps(doc, { labels, onActivate: this.onGap ? (found) => this.onGap({ ...found, frame: this.frame }) : null });
                 this.gapCounts = countByRegion(result.regions, this.gaps);
                 this.note(result.partial ? t('Some blocks couldn’t be matched on this page.') : '');
                 this.measure();

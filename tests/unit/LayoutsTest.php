@@ -271,6 +271,56 @@ class LayoutsTest extends TestCase
         $this->fake->assertNothingSent();
     }
 
+    public function testAGapIsResolvedFromItsChipInTheDraftWithoutAModel(): void
+    {
+        $target = $this->newDraft($this->pages);
+        $session = $this->writeFirstDraft($this->servicePiece($target));
+        $data = Draft::parse($session->draft)->data;
+        $data['blocks'][0]['subheading'] = 'A search for [[ask: client name]], built in [[ask: client name]] weeks.';
+        $data['blocks'][1]['body'] = str_replace('Fewer calls to the showroom.', 'Fewer calls to the showroom. [Ask us how](#gw-link:contact-page).', $data['blocks'][1]['body']);
+        $session->draft = \Symfony\Component\Yaml\Yaml::dump($data, 20, 2, \Symfony\Component\Yaml\Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK);
+        $this->plugin->sessions->save($session);
+        $this->fake->reset();
+
+        $resolve = fn(array $body) => $this->action('ghostwriter/sessions/resolve-gap', ['id' => $session->id] + $body);
+        $draft = fn() => Draft::parse((string) $this->plugin->sessions->find($session->id)->draft)->data;
+
+        // From the Preview: the second chip with that hint, answered exactly as typed.
+        $second = $resolve(['kind' => 'ask', 'hint' => 'Client  Name', 'occurrence' => 1, 'value' => 'six (*about*)']);
+        $this->assertSame(200, $second['status'], json_encode($second['data']));
+        $this->assertSame('A search for [[ask: client name]], built in six (*about*) weeks.', $draft()['blocks'][0]['subheading']);
+
+        // From the Text tab: by its path.
+        $first = $resolve(['kind' => 'ask', 'hint' => 'client name', 'path' => json_encode(['blocks', 0, 'subheading']), 'value' => 'Hartley Kitchens']);
+        $this->assertSame(200, $first['status']);
+        $this->assertSame('A search for Hartley Kitchens, built in six (*about*) weeks.', $draft()['blocks'][0]['subheading']);
+        $this->assertSame(422, $resolve(['kind' => 'ask', 'hint' => 'client name', 'value' => 'x'])['status']);
+
+        // A count in an extra, confirmed in its text and its number.
+        $count = $resolve(['kind' => 'check', 'hint' => '3', 'list' => 'size, finish and price', 'value' => '3']);
+        $this->assertSame(200, $count['status'], json_encode($count['data']));
+        $this->assertSame('3 filters', $count['data']['extras'][0]['items'][0]['text']);
+        $this->assertSame(['value' => '3', 'label' => 'filters'], $count['data']['extras'][0]['items'][0]['parts']);
+        $this->assertFalse($count['data']['extras'][0]['items'][0]['review']);
+
+        // A link in the writing, and a link field the draft doesn't hold (kept by its hint).
+        $this->assertSame(200, $resolve(['kind' => 'link', 'hint' => 'contact page', 'value' => '/contact'])['status']);
+        $this->assertStringContainsString('[Ask us how](/contact).', $draft()['blocks'][1]['body']);
+        $this->assertSame(200, $resolve(['kind' => 'link', 'hint' => 'button link', 'value' => '/contact', 'reference' => '{entry:1@1:url||/contact}'])['status']);
+        $this->assertSame(['button link' => ['link' => '{entry:1@1:url||/contact}', 'url' => '/contact']], $draft()['gw_links']);
+
+        // Use this draft: the chosen links aren't a field to build.
+        $applied = $this->action('ghostwriter/sessions/apply', ['id' => $session->id, 'elementId' => $target->id]);
+        $this->assertSame(200, $applied['status'], json_encode($applied['data']));
+        $this->assertStringNotContainsString('gw_links', (string) json_encode($applied['data']));
+
+        $links = $this->action('ghostwriter/sessions/links', ['id' => $session->id, 'q' => 'garden design'], 'GET');
+        $this->assertSame(200, $links['status']);
+        $this->assertArrayHasKey('entries', $links['data']);
+
+        $this->fake->assertNothingSent();
+    }
+
     private function unitAt(Session $session, string $path, ?int $part = null): ?string
     {
         foreach ($session->units['units'] ?? [] as $id => $unit) {

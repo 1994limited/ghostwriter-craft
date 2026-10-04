@@ -136,10 +136,27 @@
 .gw-prose table { width: 100%; border-collapse: collapse; }
 .gw-prose th, .gw-prose td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); text-align: start; }
 
-@media (max-width: 900px) {
-    .gw-write { grid-template-columns: 1fr; }
-    .gw-panel__body--write { overflow-y: auto; }
-}
+/*
+    A narrow panel (Panel.measure(): under 900 px of panel, not window): one
+    column, one pane at a time, switched at the top. The composer docks at
+    the bottom of the conversation; the draft scrolls under its toolbar,
+    which wraps. Grid and flex only, so nothing overlaps at any width.
+*/
+.gw-write-switch { flex: none; display: flex; gap: 4px; margin-bottom: 12px; padding: 4px; border-radius: var(--large-border-radius, 6px); background: var(--gray-100, #e4edf6); }
+.gw-write-switch[hidden] { display: none; }
+.gw-write-switch__tab { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 4px 12px; border: 0; border-radius: var(--small-border-radius, 4px); background: transparent; color: var(--light-text-color, #606d7b); font: inherit; font-size: 13px; cursor: pointer; }
+.gw-write-switch__tab[aria-selected="true"] { background: var(--white, #fff); color: var(--text-color, #1f2937); font-weight: 600; box-shadow: 0 1px 2px rgba(31, 41, 51, .12); }
+.gw-write-switch__tab:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 1px #127fbf, 0 0 0 3px rgba(18, 127, 191, .5)); }
+.gw-write-switch__dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: #5b4cf0; }
+.gw-write-switch__dot.is-on { display: inline-block; }
+.gw-write-switch__dot.is-asking { background: var(--amber-500, #f59e0b); }
+.gw-panel__body--write.is-narrow .gw-write { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.gw-panel__body--write.is-narrow .is-away { display: none; }
+.gw-write { min-height: 22rem; }
+.gw-panel__body--write { overflow-y: auto; }
+.gw-draft__toolbar { flex-wrap: wrap; }
+.gw-panel__body--write.is-narrow .gw-layouts__cards { overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+.gw-panel__body--write.is-narrow .gw-layout-card { flex: 0 0 min(15rem, 75%); scroll-snap-align: start; }
 
 /* Dashboard. */
 .gw-section-row { padding: 16px 0; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .1)); }
@@ -556,3 +573,19 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-extra__source--answer, .gw-extra__source--brief, .gw-extra__source--conversation { color: #4c3fc6; border-color: rgba(91, 76, 240, .35); }
 .gw-extra__source--entry { color: var(--success-color, #006c39); border-color: rgba(0, 108, 57, .3); }
 .gw-extra__state--needs-review, .gw-extra__state--needs-answer { color: var(--yellow-800, #854d0e); background: var(--yellow-050, #fffbeb); border-color: var(--yellow-300, #fcd34d); }
+
+/*
+    A gap resolved from its chip: the popover a chip opens in the Preview or
+    the Text tab, anchored to the chip inside the draft, over the frame.
+*/
+.gw-draft { position: relative; }
+.gw-gap-popover { position: absolute; z-index: 20; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .2)); border-radius: var(--large-border-radius, 6px); background: var(--white, #fff); box-shadow: 0 12px 32px rgba(31, 41, 51, .18); font-size: 13px; }
+.gw-gap-popover:focus { outline: none; }
+.gw-gap-popover__title { margin: 0; font-weight: 600; color: var(--text-color, #1f2937); }
+.gw-gap-popover__meant { margin: -4px 0 0; font-size: 12px; }
+.gw-gap-popover__label { display: block; font-size: 12px; color: var(--light-text-color, #606d7b); }
+.gw-gap-popover__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.gw-gap-popover__entries { display: grid; gap: 4px; max-height: 12rem; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.gw-gap-popover__entry { display: grid; gap: 1px; width: 100%; padding: 6px 8px; border: 1px solid var(--hairline-color, rgba(51, 64, 77, .2)); border-radius: var(--small-border-radius, 4px); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.gw-gap-popover__entry:hover, .gw-gap-popover__entry:focus-visible { border-color: var(--gray-400, #8c97a3); }
+.gw-gap-popover__entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

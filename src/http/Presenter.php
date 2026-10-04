@@ -11,6 +11,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\BriefThread;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -185,7 +186,8 @@ class Presenter
         if ($session->draft !== null) {
             try {
                 $draft = Draft::parse($session->draft);
-                $words = $draft->wordCount();
+                // The words, not the links chosen for fields the draft doesn't hold.
+                $words = (new Draft(array_diff_key($draft->data, [MarkerResolver::CHOSEN_LINKS => true]), $draft->raw))->wordCount();
 
                 // The chosen layout's blocks and words (the draft itself
                 // with the writer's layout).
