@@ -684,6 +684,201 @@
     GapPopover.ids = 0;
     Ghostwriter.GapPopover = GapPopover;
 
+    /**
+     * A comment pinned where it was made: the block clicked (or the words
+     * selected) in the Preview, inside the draft's pane, over the frame. It
+     * isn't sent: it joins the editor's pins, to apply together. Opened again
+     * on a pin not sent yet, it edits its words or deletes it. It's a dialog:
+     * focus goes to its box, Tab stays in it, ⌘↵ (Ctrl+↵) adds, Esc cancels.
+     */
+    class CommentBox {
+        /**
+         * @param {{label: string, quote: ?string, body: string, editing: boolean}} pin
+         * @param {HTMLElement} container The positioned element it sits in.
+         * @param {() => ?object} anchor The pick's box in the CP page's coordinates now.
+         * @param {?HTMLIFrameElement} frame The page it follows as it scrolls.
+         * @param {{save: (body: string) => void, remove: () => void, close: (refocus: boolean) => void}} actions
+         */
+        constructor(pin, container, anchor, frame, actions) {
+            this.pin = pin;
+            this.container = container;
+            this.anchor = anchor;
+            this.frame = frame;
+            this.actions = actions;
+            this.id = `gw-comment-${++CommentBox.ids}`;
+
+            const heading = pin.editing
+                ? (pin.label ? t('Comment on {label}', { label: pin.label }) : t('Comment'))
+                : (pin.label ? t('New comment on {label}', { label: pin.label }) : t('New comment'));
+            const mac = /Mac|iPhone|iPad/.test(navigator.platform ?? '');
+            const root = document.createElement('div');
+
+            root.className = 'gw-comment-box';
+            root.setAttribute('role', 'dialog');
+            root.setAttribute('aria-label', heading);
+            root.dataset.ghostwriterComposer = '';
+            root.innerHTML = `
+                <p class="gw-comment-box__title">${esc(heading)}</p>
+                <p class="light gw-comment-box__note">${esc(t('Not sent yet: apply your comments together from the list.'))}</p>
+                ${pin.quote ? `<p class="gw-comment-box__quote">“${esc(pin.quote)}”</p>` : ''}
+                <textarea class="text fullwidth" rows="3" maxlength="2000" aria-label="${esc(t('Comment'))}" aria-describedby="${this.id}-hint" placeholder="${esc(t('What should change here?'))}">${esc(pin.body ?? '')}</textarea>
+                <div class="gw-comment-box__actions">
+                    <span class="light" id="${this.id}-hint">${esc(mac ? t('⌘↵ to add · Esc to cancel') : t('Ctrl+Enter to add · Esc to cancel'))}</span>
+                    ${pin.editing ? `<button type="button" class="btn" data-box="remove">${esc(t('Delete'))}</button>` : ''}
+                    <button type="button" class="btn" data-box="cancel">${esc(t('Cancel'))}</button>
+                    <button type="button" class="btn submit" data-box="save">${esc(pin.editing ? t('Save') : t('Add'))}</button>
+                </div>`;
+            Ghostwriter.prepareButtons(root);
+            this.root = root;
+            this.textarea = root.querySelector('textarea');
+            container.appendChild(root);
+
+            this.place = this.place.bind(this);
+            root.addEventListener('keydown', (event) => this.key(event));
+            root.addEventListener('click', (event) => {
+                const action = event.target.closest('[data-box]')?.dataset.box;
+
+                if (action === 'save') this.save();
+                if (action === 'remove') this.actions.remove();
+                if (action === 'cancel') this.actions.close(true);
+            });
+            document.addEventListener('scroll', this.place, true);
+            window.addEventListener('resize', this.place);
+            frame?.contentWindow?.addEventListener('scroll', this.place, { passive: true });
+
+            this.place();
+            this.textarea.focus();
+            this.textarea.setSelectionRange(this.textarea.value.length, this.textarea.value.length);
+        }
+
+        save() {
+            const body = this.textarea.value.trim();
+
+            if (body) this.actions.save(body);
+        }
+
+        key(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+
+                return this.actions.close(true);
+            }
+
+            // Not the entry form's own ⌘↵ (save) as well.
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                return this.save();
+            }
+
+            if (event.key === 'Tab') {
+                const all = [...this.root.querySelectorAll('textarea, button:not([disabled])')];
+                const first = all[0];
+                const last = all[all.length - 1];
+
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+
+        // Below the pick (above it when there's no room), inside the container.
+        place() {
+            const anchor = this.anchor();
+
+            if (!anchor) return;
+
+            const outer = this.container.getBoundingClientRect();
+            const width = Math.min(340, Math.max(220, this.container.clientWidth - 16));
+            const height = this.root.offsetHeight || 180;
+            const left = Math.min(Math.max(8, anchor.left - outer.left), Math.max(8, this.container.clientWidth - width - 8));
+            const below = anchor.bottom - outer.top + 6;
+            const above = anchor.top - outer.top - height - 6;
+            const top = below + height > this.container.clientHeight - 4 && above > 4 ? above : Math.min(below, Math.max(4, this.container.clientHeight - height - 4));
+
+            Object.assign(this.root.style, { left: `${left + this.container.scrollLeft}px`, top: `${top + this.container.scrollTop}px`, width: `${width}px` });
+        }
+
+        destroy() {
+            document.removeEventListener('scroll', this.place, true);
+            window.removeEventListener('resize', this.place);
+            this.frame?.contentWindow?.removeEventListener('scroll', this.place);
+            this.root.remove();
+        }
+    }
+
+    CommentBox.ids = 0;
+    Ghostwriter.CommentBox = CommentBox;
+
+    /**
+     * Comments' words and markup that need no page (and the tests).
+     */
+    const Comments = {
+        /** The editor's pins not sent yet, numbered after the comments sent. */
+        pending(pins, next = 1) {
+            return (pins ?? []).map((pin, index) => ({ ...pin, number: next + index, status: 'pending', state: t('Not sent'), quote: pin.quote?.exact ?? null, inLayout: true }));
+        },
+
+        /** What Apply sends for each pin. */
+        toSend(pins) {
+            return (pins ?? []).map((pin) => ({ kind: pin.kind, units: pin.units ?? [], label: pin.label ?? null, path: pin.path ?? null, planPath: pin.planPath ?? null, quote: pin.quote ?? null, body: pin.body }));
+        },
+
+        where(pin) {
+            if (pin.kind === 'page') return t('On the whole page');
+
+            const label = pin.label ? t('On {label}', { label: pin.label }) : t('On a block');
+
+            return pin.blocks?.length > 1 ? `${label} · ${t('spans {count} blocks', { count: pin.blocks.length })}` : label;
+        },
+
+        /** The word diff, kept and changed words marked (text, never markup). */
+        diff(change) {
+            if (change.layout) return esc(t('A new arrangement of this block; the words are the same.'));
+
+            return change.diff.map(([kind, text]) => kind === '-'
+                ? `<del><span class="visually-hidden">${esc(t('taken out:'))} </span>${esc(text)}</del>`
+                : kind === '+' ? `<ins><span class="visually-hidden">${esc(t('put in:'))} </span>${esc(text)}</ins>` : esc(text)).join('')
+                + change.filled.map((filled) => `<span class="light gw-comment__filled">${esc(t('Filled in from your comment: “{value}”', { value: filled.value }))}</span>`).join('');
+        },
+
+        /**
+         * One sent comment and what became of it: in the chat (`words`
+         * false: the editor's message lists them) and in the list.
+         */
+        item(pin, { words = true, open = false, busy = null, working = false, focused = false } = {}) {
+            const resolved = pin.status === 'resolved';
+            const loading = (action) => (busy?.action === action && busy?.number === pin.number ? 'loading' : '');
+
+            return `<article class="gw-comment gw-comment--${esc(pin.status)} ${focused ? 'is-focused' : ''}" data-comment="${pin.number}" tabindex="-1" aria-label="${esc(t('Comment {number}, {state}', { number: pin.number, state: pin.state }))}">
+                <div class="gw-comment__head"><span class="gw-comment__pin" aria-hidden="true">${pin.number}</span><span class="gw-comment__where">${esc(Comments.where(pin))}</span><span class="gw-comment__state">${esc(pin.status === 'sending' ? t('Revising…') : pin.state)}</span></div>
+                ${words ? `${pin.quote ? `<p class="gw-comment__quote">“${esc(pin.quote)}”</p>` : ''}<p class="gw-comment__body">${pin.by ? `<span class="light">${esc(pin.by)} · </span>` : ''}${esc(pin.body)}</p>` : ''}
+                ${resolved
+                    ? `<p class="light">✓ ${esc(t('Resolved by {name}', { name: pin.resolvedBy ?? t('someone') }))} · <button type="button" class="gw-link" data-action="comment-reopen" data-answer="${pin.answer}" data-number="${pin.number}">${esc(t('Reopen'))}</button></p>`
+                    : `${pin.status === 'sending'
+                        ? `<p class="gw-comment__reply light"><span class="spinner small"></span> ${esc(t('Revising this block…'))}</p>`
+                        : (pin.reply ? `<div class="gw-comment__reply"><p class="light">${esc(t('Ghostwriter'))}</p><div class="gw-prose">${pin.reply}</div></div>` : '')}
+                    ${pin.status === 'detached' ? `<p class="error">${esc(t('The words this was about have gone from the draft.'))}</p>` : (!pin.inLayout ? `<p class="light">${esc(t('Not in this layout. It comes back when you switch to one that uses this text.'))}</p>` : '')}
+                    ${pin.putBackBy ? `<p class="light">${esc(t('Put back by {name}.', { name: pin.putBackBy }))}</p>` : ''}
+                    ${open && pin.changes?.length ? `<div class="gw-comment__diff" role="group" aria-label="${esc(t('Before and after'))}">${pin.changes.map((change) => `<p>${Comments.diff(change)}</p>`).join('')}</div>` : ''}
+                    ${pin.status !== 'sending' ? `<div class="gw-comment__actions">
+                        ${pin.inLayout && pin.kind !== 'page' && pin.status !== 'detached' ? `<button type="button" class="btn small" data-action="comment-show" data-number="${pin.number}">${esc(t('Show on page'))}</button>` : ''}
+                        ${pin.changes?.length ? `<button type="button" class="btn small" data-action="comment-diff" data-number="${pin.number}" aria-pressed="${open}">${esc(t('Before / after'))}</button>` : ''}
+                        ${pin.canPutBack ? `<button type="button" class="btn small ${loading('put-back')}" data-action="comment-put-back" data-answer="${pin.answer}" data-number="${pin.number}" ${working ? 'disabled' : ''}>${esc(t('Put it back'))}</button>` : ''}
+                        ${pin.answer !== null ? `<button type="button" class="btn small submit ${loading('resolve')}" data-action="comment-resolve" data-answer="${pin.answer}" data-number="${pin.number}">${esc(t('Resolve'))}</button>` : ''}
+                    </div>` : ''}`}
+            </article>`;
+        },
+    };
+
+    Ghostwriter.CommentsView = Comments;
+
     Ghostwriter.Panel = Garnish.Base.extend({
         init($container, config, options) {
             this.$container = $container;
@@ -727,6 +922,18 @@
             this.narrow = false;
             this.pane = 'conversation';
             this.draftFresh = false;
+            // Comments: comment mode; the editor's pins not sent yet (kept in
+            // this browser, per piece, until applied); the box open on a pick
+            // or a pin; the request in flight; the comment a pin points at;
+            // and the sent comments whose before and after are open.
+            this.commenting = false;
+            this.pending = [];
+            this.box = null;
+            this.boxPin = null;
+            this.commentBusy = null;
+            this.focusedComment = null;
+            this.diffsOpen = new Set();
+            this.commentsPoll = null;
 
             try {
                 const view = localStorage.getItem('ghostwriter:draft-view');
@@ -747,6 +954,15 @@
 
             this.sizer = new ResizeObserver(() => this.measure());
             this.sizer.observe(this.$container[0]);
+
+            // Alt+Shift+C toggles comment mode, away from text boxes (WCAG 2.1.4).
+            document.addEventListener('keydown', (event) => {
+                if (!(event.altKey && event.shiftKey && event.code === 'KeyC') || !this.canComment()) return;
+                if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+
+                event.preventDefault();
+                this.setCommenting(!this.commenting);
+            });
 
             this.render();
             this.start();
@@ -819,6 +1035,15 @@
 
         receive(data) {
             const changed = data.draft !== this.session?.draft;
+
+            // An Apply has finished: flash what changed, and say what came back.
+            if (data.id && data.id === this.session?.id && this.session?.comments && data.comments) {
+                const before = this.session.comments.pins ?? [];
+
+                if (before.some((pin) => pin.status === 'sending') && !(data.comments.pins ?? []).some((pin) => pin.status === 'sending')) {
+                    setTimeout(() => this.reportRun(before, data.comments.pins), 0);
+                }
+            }
             const stepChanged = !this.session;
             const filled = data.stage === 'proposed' && this.session?.stage === 'filling';
 
@@ -830,6 +1055,9 @@
                 this.page?.reset();
                 this.cards?.reset();
                 this.closeGap(false);
+                this.closeBox(false);
+                this.focusedComment = null;
+                this.pending = this.storedPending(data.id);
                 this.pane = data.draft ? 'draft' : 'conversation';
                 this.draftFresh = false;
             } else if (this.page && data.draft && this.pageKey(data) !== this.pageKey(this.session)) {
@@ -1099,6 +1327,22 @@
                 return;
             }
 
+            // A comment on the whole page: ⌘↵ adds it, Esc puts it away.
+            if (model === 'page-comment' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                return this.addPageComment();
+            }
+
+            if (model === 'page-comment' && event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                this.pageComposing = false;
+
+                return this.renderComments();
+            }
+
             if (model === 'message' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 this.send();
@@ -1157,6 +1401,26 @@
                 case 'apply': return this.apply();
                 case 'start-over': return this.startOver();
                 case 'delete-extra': return this.deleteExtra($target.data('item'), $target.data('label'));
+                case 'comment-toggle': return this.setCommenting(!this.commenting);
+                case 'comments-close': return this.setCommenting(false);
+                case 'comments-apply': return this.applyComments();
+                case 'pin-edit': return this.editPin(String($target.data('id')));
+                case 'pin-delete': return this.removePin(String($target.data('id')));
+                case 'comment-show': return this.showComment(Number($target.data('number')));
+                case 'comment-diff':
+                    this.diffsOpen.has(Number($target.data('number'))) ? this.diffsOpen.delete(Number($target.data('number'))) : this.diffsOpen.add(Number($target.data('number')));
+
+                    return this.redrawComments(Number($target.data('number')), '[data-action="comment-diff"]');
+                case 'comment-put-back': return this.commentRequest('put-back', 'comments/put-back', { answer: $target.data('answer'), number: $target.data('number') }, t('Put back as it was before comment {number}.', { number: $target.data('number') }));
+                case 'comment-resolve': return this.commentRequest('resolve', 'comments/resolve', { answer: $target.data('answer'), number: $target.data('number') }, t('Comment {number} resolved.', { number: $target.data('number') }));
+                case 'comment-reopen': return this.commentRequest('reopen', 'comments/resolve', { answer: $target.data('answer'), number: $target.data('number'), resolved: 0 }, t('Comment {number} reopened.', { number: $target.data('number') }));
+                case 'page-comment':
+                    this.pageComposing = true;
+                    this.renderComments();
+
+                    return this.$container.find('[data-model="page-comment"]').trigger('focus');
+                case 'page-comment-cancel': this.pageComposing = false; return this.renderComments();
+                case 'page-comment-add': return this.addPageComment();
             }
         },
 
@@ -1751,6 +2015,34 @@
                     return;
                 }
 
+                // The editor's comments, sent as one message: each pin's label and words; a click shows it on the page.
+                if (entry.role === 'user' && entry.comments?.items) {
+                    html += `<div class="gw-bubble gw-bubble--me gw-bubble--comments" data-ghostwriter-comments-message>
+                        <div class="gw-bubble__who">${esc(entry.mine === false ? entry.from : t('You'))}</div>
+                        <p><strong>${esc(t('{count, plural, =1{# comment} other{# comments}}', { count: entry.comments.items.length }))}</strong></p>
+                        <ol class="gw-comment-list">${entry.comments.items.map((item) => `<li><button type="button" class="gw-comment-list__item" data-action="comment-show" data-number="${item.number}" title="${esc(t('Show on page'))}">
+                            <span class="gw-comment__pin" aria-hidden="true">${item.number}</span>
+                            <span><span class="light">${esc(item.scope?.kind === 'page' ? t('On the whole page') : (item.scope?.label || t('On a block')))}</span><span class="visually-hidden">, ${esc(t('comment {number}', { number: item.number }))}</span><span class="gw-comment-list__body">${esc(item.body)}</span></span>
+                        </button></li>`).join('')}</ol>
+                    </div>`;
+
+                    return;
+                }
+
+                // Ghostwriter's answer: a result per comment, with Put back and Resolve.
+                if (entry.role === 'assistant' && entry.comments?.results) {
+                    // Numbers are the piece's own, never reused: each result's comment, as it is now.
+                    const pins = (session.comments?.pins ?? []).filter((pin) => entry.comments.results.some((result) => result.number === pin.number));
+
+                    html += `<div class="gw-bubble gw-bubble--them gw-bubble--answer" data-ghostwriter-comments-answer>
+                        <div class="gw-bubble__who">${esc(t('Ghostwriter'))}</div>
+                        <div class="gw-bubble__text gw-prose">${entry.html ?? ''}</div>
+                        ${pins.map((pin) => Comments.item(pin, { words: false, open: this.diffsOpen.has(pin.number), busy: this.commentBusy, working: this.working() })).join('')}
+                    </div>`;
+
+                    return;
+                }
+
                 const mine = entry.role === 'user';
                 const waiting = !mine && asking && index === conversation.length - 1;
 
@@ -1932,6 +2224,12 @@
                         <button type="button" class="btn small ${this.width === 'desktop' ? 'active' : ''}" data-action="width" data-width="desktop" aria-pressed="${this.width === 'desktop'}">${esc(t('Desktop'))}</button>
                         <button type="button" class="btn small ${this.width === 'phone' ? 'active' : ''}" data-action="width" data-width="phone" aria-pressed="${this.width === 'phone'}">${esc(t('Phone'))}</button>
                     </div>`;
+
+                    if (this.canComment()) {
+                        const count = this.openCount();
+
+                        toolbar += `<button type="button" class="btn small gw-comment-toggle ${this.commenting ? 'active' : ''}" data-action="comment-toggle" aria-pressed="${this.commenting}" aria-keyshortcuts="Alt+Shift+C" title="${esc(t('Comment on the page (Alt+Shift+C)'))}" data-ghostwriter-comment-toggle>${esc(t('Comment'))}${count ? ` <span class="gw-comment-count">${count}<span class="visually-hidden"> ${esc(t('open'))}</span></span>` : ''}</button>`;
+                    }
                 }
             }
             let body = '';
@@ -2001,14 +2299,19 @@
                     announce: (text) => this.announce(text),
                     onGap: (found) => this.openGap(found),
                     rendered: () => this.previewRendered(),
+                    onPick: (pick) => this.pick(pick),
+                    onPin: (number) => this.showPin(number),
+                    onEscape: () => (this.box ? this.closeBox(true) : this.setCommenting(false)),
                 });
 
                 if (!$.contains($draft[0], this.page.root)) $draft.append(this.page.root);
 
                 this.page.setWidth(this.width);
                 this.page.show(this.pageKey(session), working);
+                this.syncComments();
             } else {
                 this.page?.hide();
+                this.$container.find('.gw-comments').remove();
             }
 
             Ghostwriter.prepareButtons($draft.children('.gw-draft__toolbar, .gw-draft__body'));
@@ -2018,6 +2321,355 @@
             if (this.gap && (view !== this.gapView || this.editing)) this.closeGap(false);
 
             if (view === 'text' && !this.editing) this.paintChips();
+        },
+
+        // ---- Comments -------------------------------------------------------
+
+        // Comments are made in the Preview, on a rendered draft.
+        canComment() {
+            return Boolean(this.session?.comments && this.session?.draft && this.config.preview && this.currentView() === 'preview' && !this.editing && !this.session.draftProblem);
+        },
+
+        pendingList() {
+            return Comments.pending(this.pending, this.session?.comments?.next ?? 1);
+        },
+
+        sentPins() {
+            return this.session?.comments?.pins ?? [];
+        },
+
+        // The count on the Comment toggle: not sent, and sent but not resolved.
+        openCount() {
+            return this.pending.length + this.sentPins().filter((pin) => pin.status !== 'resolved').length;
+        },
+
+        applyingComments() {
+            return this.working() && this.sentPins().some((pin) => pin.status === 'sending');
+        },
+
+        setCommenting(on) {
+            this.commenting = on && this.canComment();
+            this.closeBox(false);
+            this.focusedComment = null;
+            clearInterval(this.commentsPoll);
+
+            if (this.commenting) {
+                this.closeGap(false);
+                if (this.narrow) this.showPane('draft');
+                // Comments others send arrive with the next look (E7).
+                this.commentsPoll = setInterval(() => this.pollComments(), 10000);
+                this.announce(t('Comment mode on. Click a block to comment, or Tab to the blocks on the page.'));
+            } else {
+                this.announce(t('Comment mode off.'));
+            }
+
+            this.renderDraft();
+        },
+
+        // The pins on the page and the comments list, as they are now.
+        syncComments() {
+            const on = this.commenting && this.canComment();
+
+            if (!on && this.commenting) {
+                this.commenting = false;
+                clearInterval(this.commentsPoll);
+            }
+
+            this.page?.setComments(on, [...this.sentPins(), ...this.pendingList()]);
+            this.renderComments();
+        },
+
+        renderComments() {
+            const $draft = this.$container.find('.gw-draft');
+            let $list = $draft.children('.gw-comments');
+
+            if (!(this.commenting && this.canComment())) {
+                $list.remove();
+
+                return;
+            }
+
+            if (!$list.length) {
+                $list = $('<section class="gw-comments" role="region" data-ghostwriter-comments></section>').attr('aria-label', t('Comments'));
+                $draft.append($list);
+            }
+
+            const pending = this.pendingList();
+            const sent = this.sentPins();
+            const open = sent.filter((pin) => pin.status !== 'resolved').reverse();
+            const resolved = sent.filter((pin) => pin.status === 'resolved').reverse();
+            const working = this.working();
+            const applying = this.applyingComments();
+            const toSend = Math.min(pending.length, 12);
+            const focused = document.activeElement && $.contains($list[0], document.activeElement) ? (document.activeElement.id || null) : null;
+
+            $list.html(`
+                <header class="gw-comments__head"><h3>${esc(t('Comments'))}</h3><span class="light">${esc(t('{count} not sent', { count: pending.length }))}</span><button type="button" class="btn small" data-action="comments-close" aria-label="${esc(t('Close comments'))}">${esc(t('Close'))}</button></header>
+                <div class="gw-comments__list">
+                    ${!pending.length && !sent.length ? `<p class="light">${esc(t('Click a block on the page, or select some words in it, to leave a comment. Comments are sent together, and only those blocks change.'))}</p>` : ''}
+                    ${pending.map((pin) => `<article class="gw-comment gw-comment--pending ${pin.error ? 'has-error' : ''} ${this.focusedComment === pin.number ? 'is-focused' : ''}" data-comment="${pin.number}" tabindex="-1" aria-label="${esc(t('Comment {number}, not sent', { number: pin.number }))}">
+                        <div class="gw-comment__head"><span class="gw-comment__pin" aria-hidden="true">${pin.number}</span><span class="gw-comment__where">${esc(Comments.where(pin))}</span><span class="gw-comment__state">${esc(t('Not sent'))}</span></div>
+                        ${pin.quote ? `<p class="gw-comment__quote">“${esc(pin.quote)}”</p>` : ''}
+                        <p class="gw-comment__body">${esc(pin.body)}</p>
+                        ${pin.error ? `<p class="error" role="alert">${esc(pin.error)}</p>` : ''}
+                        <div class="gw-comment__actions">
+                            ${pin.kind !== 'page' ? `<button type="button" class="btn small" data-action="comment-show" data-number="${pin.number}">${esc(t('Show on page'))}</button>` : ''}
+                            <button type="button" class="btn small" data-action="pin-edit" data-id="${esc(pin.id)}">${esc(t('Edit'))}</button>
+                            <button type="button" class="btn small" data-action="pin-delete" data-id="${esc(pin.id)}">${esc(t('Delete'))}</button>
+                        </div>
+                    </article>`).join('')}
+                    ${this.pageComposing
+                        ? `<div class="gw-comment gw-comment--page"><label for="gw-page-comment" class="light">${esc(t('On the whole page'))}</label><textarea id="gw-page-comment" class="text fullwidth" rows="2" maxlength="2000" data-model="page-comment" placeholder="${esc(t('What should change?'))}"></textarea>
+                            <div class="gw-comment__actions"><button type="button" class="btn small" data-action="page-comment-cancel">${esc(t('Cancel'))}</button><button type="button" class="btn small submit" data-action="page-comment-add">${esc(t('Add'))}</button></div></div>`
+                        : `<button type="button" class="btn small" data-action="page-comment">${esc(t('Comment on the whole page'))}</button>`}
+                    ${open.length ? `<h4 class="gw-comments__sub">${esc(t('Sent'))}</h4>${open.map((pin) => Comments.item(pin, { open: this.diffsOpen.has(pin.number), busy: this.commentBusy, working, focused: this.focusedComment === pin.number })).join('')}` : ''}
+                    ${resolved.length ? `<details class="gw-comments__resolved"><summary>${esc(t('{count} resolved', { count: resolved.length }))}</summary>${resolved.map((pin) => Comments.item(pin, { busy: this.commentBusy, working })).join('')}</details>` : ''}
+                </div>
+                <footer class="gw-comments__foot">
+                    <button type="button" class="btn submit fullwidth ${applying || this.commentBusy?.action === 'apply' ? 'loading' : ''}" data-action="comments-apply" ${working || !toSend || this.commentBusy ? 'disabled' : ''}>${esc(applying ? t('Revising…') : (toSend ? t('{count, plural, =1{Apply # comment} other{Apply # comments}}', { count: toSend }) : t('No comments to send')))}</button>
+                    <p class="light" ${applying ? 'role="status"' : ''}>${esc(applying
+                        ? (this.session.waitingOn ? t('{name} is waiting on Ghostwriter', { name: this.session.waitingOn }) : t('Ghostwriter is revising the commented blocks.'))
+                        : (working ? t('Ghostwriter is working on this piece. Apply your comments when it has finished; you can keep adding them meanwhile.') : t('Sent together as one message in the conversation. Only the commented blocks change; the layout stays unless a comment asks for a new one. Your comments are yours until you apply them.')))}</p>
+                </footer>`);
+            Ghostwriter.prepareButtons($list);
+
+            if (focused) document.getElementById(focused)?.focus();
+        },
+
+        // A redraw that keeps the focus on the button pressed.
+        redrawComments(number, selector) {
+            this.renderConversation();
+            this.renderComments();
+            this.$container.find(`[data-comment="${number}"] ${selector}`).first().trigger('focus');
+        },
+
+        // The pins this browser kept for a piece.
+        storedPending(id) {
+            try {
+                const stored = JSON.parse(localStorage.getItem(`ghostwriter:pending-comments:${id}`) ?? '[]');
+
+                return Array.isArray(stored) ? stored.filter((pin) => pin && typeof pin.body === 'string' && pin.id) : [];
+            } catch (error) {
+                return [];
+            }
+        },
+
+        storePending() {
+            if (!this.session?.id) return;
+
+            try {
+                const key = `ghostwriter:pending-comments:${this.session.id}`;
+                this.pending.length ? localStorage.setItem(key, JSON.stringify(this.pending.map(({ error, ...pin }) => pin))) : localStorage.removeItem(key);
+            } catch (error) {}
+        },
+
+        setPending(pending) {
+            this.pending = pending;
+            this.storePending();
+            this.renderDraft();
+        },
+
+        // A block clicked, or words selected in one: a new pin, in a box there.
+        pick(pick) {
+            if (!this.commenting) return;
+
+            this.openBox({ ...pick, quote: pick.quote, body: '', editing: null });
+        },
+
+        openBox(pin) {
+            this.closeBox(false);
+
+            const container = this.$container.find('.gw-draft')[0];
+
+            if (!container) return;
+
+            this.boxPin = pin;
+            this.page?.setPicked(pin.key ?? null);
+            this.box = new CommentBox({ label: pin.label, quote: pin.quote?.exact ?? null, body: pin.body, editing: Boolean(pin.editing) }, container, () => this.page?.pageRect(pin.rect) ?? null, this.page?.frame ?? null, {
+                save: (body) => this.savePin(body),
+                remove: () => this.removePin(pin.editing),
+                close: (refocus) => this.closeBox(refocus),
+            });
+        },
+
+        closeBox(refocus = true) {
+            const key = this.boxPin?.key ?? null;
+
+            this.box?.destroy();
+            this.box = null;
+            this.boxPin = null;
+            this.page?.setPicked(null);
+
+            if (refocus) this.page?.focusTarget(key);
+        },
+
+        // The box's words: a new pin not sent yet, or a pin's words changed. No request.
+        savePin(body) {
+            const pin = this.boxPin;
+
+            if (!pin) return;
+
+            if (pin.editing) {
+                this.setPending(this.pending.map((candidate) => (candidate.id === pin.editing ? { ...candidate, body, error: null } : candidate)));
+                this.announce(t('Comment changed. Not sent yet.'));
+            } else {
+                this.setPending([...this.pending, { id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, kind: pin.kind, units: pin.units, label: pin.label, path: pin.path, planPath: pin.planPath, quote: pin.quote, body }]);
+                this.announce(t('Comment {number} added to {label}. {count} not sent yet.', { number: (this.session.comments?.next ?? 1) + this.pending.length - 1, label: pin.label, count: this.pending.length }));
+            }
+
+            this.closeBox(true);
+        },
+
+        // A pin not sent yet, opened again to change its words.
+        editPin(id) {
+            const pin = this.pendingList().find((candidate) => candidate.id === id);
+
+            if (!pin) return;
+
+            this.focusedComment = pin.number;
+            this.openBox({ ...pin, quote: pin.kind === 'text' ? { exact: pin.quote } : null, rect: this.page?.pinRect(pin.number) ?? null, editing: pin.id });
+        },
+
+        removePin(id) {
+            const pin = this.pendingList().find((candidate) => candidate.id === id);
+
+            if (this.boxPin?.editing === id) this.closeBox(false);
+
+            this.setPending(this.pending.filter((candidate) => candidate.id !== id));
+            if (pin) this.announce(t('Comment {number} deleted.', { number: pin.number }));
+        },
+
+        addPageComment() {
+            const body = String(this.$container.find('[data-model="page-comment"]').val() ?? '').trim();
+
+            if (!body) return;
+
+            this.pageComposing = false;
+            this.setPending([...this.pending, { id: `p${Date.now().toString(36)}`, kind: 'page', units: [], label: null, body }]);
+            this.announce(t('Comment added on the whole page. Not sent yet.'));
+        },
+
+        // A pin clicked on the page: the editor's own opens to edit; a sent one shows in the list.
+        showPin(number) {
+            const own = this.pendingList().find((pin) => pin.number === number);
+
+            if (!this.commenting) this.setCommenting(true);
+            if (own) return this.editPin(own.id);
+
+            this.focusedComment = number;
+            this.renderComments();
+            const card = this.$container.find(`.gw-comments [data-comment="${number}"]`)[0];
+            card?.scrollIntoView({ block: 'nearest' });
+            card?.focus();
+        },
+
+        // "Show on page", from the list or the chat.
+        showComment(number) {
+            if (this.currentView() !== 'preview') this.switchView('preview');
+            if (this.narrow) this.showPane('draft');
+            if (!this.commenting && this.canComment()) this.setCommenting(true);
+
+            this.focusedComment = number;
+            this.renderComments();
+
+            if (!this.page?.showComment(number)) this.announce(t('That comment has no place on this page.'));
+        },
+
+        // **Apply N comments**: one message in the conversation, and Ghostwriter's turn.
+        async applyComments() {
+            const sending = this.pending.slice(0, 12);
+
+            if (!sending.length) return;
+
+            this.commentBusy = { action: 'apply', number: null };
+            this.pending = this.pending.map((pin) => ({ ...pin, error: null }));
+            this.renderComments();
+
+            try {
+                const response = await Craft.sendActionRequest('POST', 'ghostwriter/comments/apply', { data: { id: this.session.id, comments: Comments.toSend(sending) } });
+                const ids = sending.map((pin) => pin.id);
+
+                Craft.cp?.runQueue?.();
+                this.pending = this.pending.filter((pin) => !ids.includes(pin.id));
+                this.storePending();
+                this.commentBusy = null;
+                this.receive(response.data);
+                this.announce(t('{count, plural, =1{Ghostwriter is revising the block from your comment.} other{Ghostwriter is revising the blocks from your # comments.}}', { count: sending.length }));
+            } catch (error) {
+                this.commentBusy = null;
+
+                // Each refusal goes next to its pin, in words.
+                const errors = error?.response?.status === 422 ? error.response.data?.errors ?? {} : {};
+                const byPin = {};
+
+                for (const [field, messages] of Object.entries(errors)) {
+                    const match = field.match(/^comments\.(\d+)/);
+                    if (match) byPin[Number(match[1])] ??= messages[0];
+                }
+
+                if (Object.keys(byPin).length) {
+                    this.pending = this.pending.map((pin, index) => (byPin[index] ? { ...pin, error: byPin[index] } : pin));
+                    this.announce(t('Some comments couldn’t be sent. The reason is next to each.'));
+                } else {
+                    Craft.cp.displayError(error?.response?.data?.message ?? t('Something went wrong.'));
+                }
+
+                this.renderComments();
+            }
+        },
+
+        // Resolve, reopen, Put back: the piece comes back as it is now.
+        async commentRequest(action, route, data, done) {
+            this.commentBusy = { action, number: Number(data.number) };
+            this.renderConversation();
+            this.renderComments();
+
+            try {
+                const result = await Ghostwriter.request('POST', route, { id: this.session.id, ...data });
+
+                this.commentBusy = null;
+                this.receive(result);
+                this.announce(done);
+            } catch (error) {
+                this.commentBusy = null;
+                this.renderConversation();
+                this.renderComments();
+            }
+        },
+
+        // What a run did: the changed blocks flash, and anything not applied is said, with why.
+        async reportRun(before, after) {
+            const { runOutcome } = await Ghostwriter.commentHelpers();
+            const outcome = runOutcome(before, after);
+            const lines = [];
+
+            if (outcome.changed.length) {
+                this.page?.flash(outcome.changed);
+                lines.push(t('{count, plural, =1{# block changed.} other{# blocks changed.}}', { count: outcome.changed.length }));
+            }
+
+            if (outcome.replied.length) lines.push(t('{count, plural, =1{Ghostwriter replied to # comment.} other{Ghostwriter replied to # comments.}}', { count: outcome.replied.length }));
+
+            for (const item of outcome.back) {
+                const text = item.skipped
+                    ? t('Comment {number} was skipped: someone changed its block while Ghostwriter worked. Apply again to use the new version.', { number: item.number })
+                    : t('Comment {number} wasn’t applied: {reason}', { number: item.number, reason: item.reason });
+                lines.push(text);
+                Craft.cp.displayNotice(text);
+            }
+
+            if (lines.length) this.announce(`${lines.join(' ')} ${t('Ghostwriter’s answer is in the conversation.')}`);
+        },
+
+        // Comments others sent, while commenting (only while the page is on show).
+        async pollComments() {
+            if (!this.session?.id || this.working() || this.box || this.commentBusy || document.visibilityState === 'hidden') return;
+
+            try {
+                const data = await Ghostwriter.request('GET', 'sessions/show', { id: this.session.id });
+
+                if (data.messages?.length !== this.session.messages?.length || data.draft !== this.session.draft || data.status !== this.session.status || JSON.stringify(data.comments) !== JSON.stringify(this.session.comments)) this.receive(data);
+            } catch (error) {}
         },
 
         // ---- Gaps resolved from their chips -------------------------------

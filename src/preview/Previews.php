@@ -2,6 +2,7 @@
 
 namespace nineteenninetyfour\ghostwriter\preview;
 
+use NineteenNinetyFour\Ghostwriter\Core\Anchor\NormalisedText;
 use Craft;
 use craft\base\Element;
 use craft\elements\Asset;
@@ -79,13 +80,14 @@ class Previews extends Component
         $data = $hasTitle ? ['title' => $title] + $values['data'] : $values['data'];
         $data = $this->placeNested($data, $nested);
 
-        // Units name the draft's own places, so they map the writer's
-        // layout only; another layout's blocks are mapped by position.
-        $units = null;
+        // Units name the draft's own places. Another layout's are named by
+        // the draft's own ids again, by their words, so comments find their
+        // words in any layout (a piece of a unit, or an extra, has none).
+        $units = Units::fromDraft(Draft::parse((string) $session->draft), $values['model']);
+        $units = $session->units !== [] ? $units->restore($session->units) : $units;
 
-        if ($shown === null || $shown->id === Plan::WRITER) {
-            $units = Units::fromDraft(Draft::parse((string) $session->draft), $values['model']);
-            $units = $session->units !== [] ? $units->restore($session->units) : $units;
+        if ($shown !== null && $shown->id !== Plan::WRITER) {
+            $units = self::sessionUnits($units, Units::fromDraft($layouts->draftData($session, $values['model'], $shown->id), $values['model']));
         }
 
         $marked = (new PreviewMarkers(fn(mixed $reference) => $this->assetName($reference)))->mark($data, $values['model'], $units);
@@ -296,6 +298,35 @@ class Previews extends Component
      *
      * @param array<string, mixed> $data
      */
+    /**
+     * Another layout's units, with the ids of the draft's units that have
+     * the same words (where exactly one has them); the rest get ids no
+     * comment can hold.
+     */
+    public static function sessionUnits(Units $ours, Units $theirs): Units
+    {
+        $byText = [];
+
+        foreach ($ours->all() as $unit) {
+            if (trim($unit->markdown) !== '') {
+                $byText[NormalisedText::string($unit->markdown)][] = $unit->id;
+            }
+        }
+
+        $named = [];
+        $taken = [];
+        $other = 0;
+
+        foreach ($theirs->all() as $unit) {
+            $ids = $byText[NormalisedText::string($unit->markdown)] ?? [];
+            $id = count($ids) === 1 && !isset($taken[$ids[0]]) ? $ids[0] : 'z' . ++$other;
+            $taken[$id] = true;
+            $named[] = $unit->withId($id);
+        }
+
+        return Units::of($named);
+    }
+
     private function withImageFields(BlockMap $map, Schema $schema, array $data): BlockMap
     {
         $byHandle = [];

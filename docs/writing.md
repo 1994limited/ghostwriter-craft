@@ -143,6 +143,25 @@ A preview is a normal page request with a token, so your templates run as they d
 
 Even without that, third-party scripts (tag managers, analytics, chat widgets) and their requests are blocked in the preview; your site's own scripts run. If your templates load scripts from a CDN, allow it with `previewScriptHosts`. The page is shown in a frame on the control panel's own domain, so a server that sends `X-Frame-Options: DENY` for every page stops the preview, as it stops Live Preview. CKEditor nested entries render through their entry type's partial template (`_partials/entry/<type handle>.twig`); one with no partial shows as a plain box with its text.
 
+### Comments
+
+Comment on the page itself and let Ghostwriter revise just those parts. Turn on **Comment** in the draft's toolbar (or press **Alt+Shift+C**). The count on the button is your comments not sent yet, plus those sent and not resolved.
+
+- **Pin a comment**: click a block, or select some words in one, and write what should change in the small box that opens there. **⌘↵** (Ctrl+Enter) adds it; Esc cancels. Each comment gets a numbered pin on its block, or at the words.
+- **Your comments are yours until you apply them.** They stay in this browser, even if you reload or close the panel. Click a pin, or use **Edit** and **Delete** in the list under the page, to change one. **Comment on the whole page** adds one about the page as a whole.
+- **Apply N comments** sends them together, as one message in the conversation ("2 comments", each with its block and words; click one to see it on the page). Ghostwriter makes **one** call, in the queue, and changes only the commented blocks. The layout stays unless a comment asks for a new one.
+- **Ghostwriter answers with one message**, with a reply to each comment:
+  - **Changed**: the block changed, and the page shows it with a green **Changed** mark. **Before / after** shows the change word by word, and **Put it back** undoes it.
+  - **Replied**: an answer with no change.
+  - **Not applied**: a check refused the change, and the reply says why. A fact you give in a comment may fill a gap, and is labelled as yours.
+  - **Skipped**: someone changed that block while Ghostwriter worked. Apply again to use the new version.
+- **Resolve** a comment when you're done with it: its pin goes. **Reopen** brings it back.
+- **Comments follow their words** when you switch layout. If a layout leaves a comment's words out, it says "Not in this layout".
+- **Shared conversations**: comments that have been sent are in the conversation, so everyone on the piece sees them. While the comments are open, the panel checks for new ones every 10 seconds.
+- **Keyboard**: in comment mode, Tab into the page lands on its first block. The arrow keys move between blocks, Enter opens the box, and **Alt+Shift+M** comments on words you've selected. The list under the page has every action, including **Show on page**.
+
+Adding, editing, resolving and putting back cost nothing. Only **Apply** asks the model, once, however many comments it carries (up to 12).
+
 ### Layouts
 
 The first draft comes laid out more than one way. Above the draft, up to three **layout cards** show the same words arranged differently: the writer's own layout first (**As written**), then up to two others. Each card has a small live picture of the page it makes (rendered with your templates, like the Preview), its name, a line on what it does, how many blocks it has, and **Suggested** on the one most like your existing pages. *Suggested* means "like your pages", not "best".

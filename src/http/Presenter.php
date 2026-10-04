@@ -13,6 +13,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
+use nineteenninetyfour\ghostwriter\comments\DraftComments;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 
@@ -34,6 +35,23 @@ class Presenter
         }
 
         return self::$names[$userId] ??= (Craft::$app->getUsers()->getUserById($userId)?->getName() ?? Craft::t('ghostwriter', 'Someone'));
+    }
+
+    /**
+     * The comments, or none shown when they can't be read: the panel still
+     * works without them.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function comments(Session $session): ?array
+    {
+        try {
+            return (new DraftComments())->present($session);
+        } catch (\Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't show the comments: {$exception->getMessage()}", 'ghostwriter');
+
+            return null;
+        }
     }
 
     private function me(): ?int
@@ -247,6 +265,9 @@ class Presenter
             // The layout cards and the Text tab's extras (§3).
             'layouts' => $layouts->layouts($session),
             'extras' => $layouts->extras($session),
+            // The comments sent on the draft (conversation messages), each
+            // with its state, in the chosen layout; and the next pin's number.
+            'comments' => $session->draft !== null && $problem === null ? $this->comments($session) : null,
             'words' => $words,
             'usage' => $session->usage,
             'appliedAt' => $session->appliedAt,
