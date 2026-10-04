@@ -135,7 +135,7 @@ class EntryChecks
             return array_map($map, $value);
         };
 
-        return new EntryData($map($entry->values), $entry->id, $entry->title(), $entry->parentId, $entry->parentTitle);
+        return $entry->withValues($map($entry->values));
     }
 
     /**
