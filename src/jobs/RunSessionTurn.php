@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Format;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Guides\Guide;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoPass;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Conversation;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
@@ -18,10 +20,12 @@ use Throwable;
 /**
  * Sends a session's latest message to the writer and stores what comes back:
  * its reply, the draft if it wrote or changed one, and the extras it
- * prepared with it. On the first draft, the layout planner then proposes
- * other layouts of the same words (page preview design §6.2): the draft is
- * shown as soon as it is in, while the piece is still working, and the
- * layouts follow.
+ * prepared with it. On the first draft, the SEO pass then links it to the
+ * site's other pages (SEO layer §7: two calls, "Checking headings and
+ * links…"), and the layout planner proposes other layouts of the same
+ * words (page preview design §6.2): the draft is shown as soon as it is
+ * in, while the piece is still working, its links once they are in, and
+ * the layouts follow.
  */
 class RunSessionTurn extends Job
 {
@@ -60,6 +64,9 @@ class RunSessionTurn extends Job
                 if ($planning) {
                     $session->status = Session::WORKING;
                     $session->startedWorkingAt = Format::Craft->stamp(new DateTimeImmutable());
+                    // Marked now, so the panel says "Checking headings and
+                    // links…" from the moment the draft shows.
+                    DraftLayouts::checking($session->id);
                 }
             };
         } catch (Throwable $exception) {
@@ -102,16 +109,48 @@ class RunSessionTurn extends Job
         }
 
         $copy = clone $session;
+        $written = $copy->draft;
 
         try {
-            $usage = $layouts->afterWriter($copy, $before, $response, $conversation, $context);
+            $usage = $layouts->afterWriter($copy, $before, $response, $conversation, $context, function(string $stage) use ($sessions, $copy, $written): void {
+                if ($stage === SeoPass::CHECKING) {
+                    DraftLayouts::checking($this->sessionId);
+
+                    return;
+                }
+
+                // The links are in: the draft shows with them while the
+                // planner looks for other layouts.
+                try {
+                    $sessions->change($this->sessionId, function(Session $session) use ($copy, $written): ?bool {
+                        if ($session->draft !== $written) {
+                            return false;
+                        }
+
+                        $session->draft = $copy->draft;
+                        $session->seo = $copy->seo;
+
+                        return null;
+                    });
+                } catch (Throwable $exception) {
+                    Craft::warning("Ghostwriter couldn't show the draft's links yet: {$exception->getMessage()}", 'ghostwriter');
+                }
+
+                DraftLayouts::checked($this->sessionId);
+            });
         } catch (Throwable $exception) {
             Craft::warning("Ghostwriter couldn't lay out the draft: {$exception->getMessage()}", 'ghostwriter');
             $usage = null;
+        } finally {
+            DraftLayouts::checked($this->sessionId);
         }
 
-        $sessions->change($this->sessionId, function(Session $session) use ($copy, $usage): void {
-            if ($usage !== null && $session->draft === $copy->draft) {
+        $sessions->change($this->sessionId, function(Session $session) use ($copy, $usage, $written): void {
+            // The SEO pass's links are the draft's own, unless it was
+            // edited meanwhile.
+            if ($usage !== null && ($session->draft === $written || $session->draft === $copy->draft)) {
+                $session->draft = $copy->draft;
+                $session->seo = $copy->seo;
                 $session->units = $copy->units;
                 $session->extras = $copy->extras;
                 $session->plans = $copy->plans;
@@ -120,6 +159,9 @@ class RunSessionTurn extends Job
                     'input' => (int) ($session->usage['input'] ?? 0) + $usage->input,
                     'output' => (int) ($session->usage['output'] ?? 0) + $usage->output,
                 ] + $session->usage;
+            } elseif ($copy->seo !== []) {
+                // Not its links, but the pass has been: it isn't run again.
+                $session->seo = (new SeoState(removed: SeoState::of($session)->removed, checked: SeoState::of($copy)->checked))->toArray();
             }
 
             if ($session->status === Session::WORKING) {
@@ -129,11 +171,12 @@ class RunSessionTurn extends Job
     }
 
     /**
-     * The writer and, on a first draft, the layout planner.
+     * The writer and, on a first draft, the SEO pass's two calls and the
+     * layout planner.
      */
     public function getTtr(): int
     {
-        return parent::getTtr() * 2;
+        return parent::getTtr() * 4;
     }
 
     protected function defaultDescription(): ?string

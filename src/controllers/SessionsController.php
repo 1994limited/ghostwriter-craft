@@ -428,7 +428,7 @@ class SessionsController extends Controller
         }
 
         if ($this->request->getBodyParam('format') === 'html') {
-            $value = (new HtmlToMarkdown())->convert($value);
+            $value = self::refTags((new HtmlToMarkdown())->convert($value));
         } else {
             $value = trim(str_replace("\r", '', $value));
         }
@@ -685,7 +685,7 @@ class SessionsController extends Controller
         $item = (string) $this->request->getRequiredBodyParam('item');
         $part = $this->request->getBodyParam('part');
         $value = (string) $this->request->getBodyParam('value');
-        $value = $this->request->getBodyParam('format') === 'html' ? trim((new HtmlToMarkdown())->convert($value)) : trim(str_replace("\r", '', $value));
+        $value = $this->request->getBodyParam('format') === 'html' ? trim(self::refTags((new HtmlToMarkdown())->convert($value))) : trim(str_replace("\r", '', $value));
 
         if ($value === '' || mb_strlen($value) > 5000) {
             return $this->refuse(Craft::t('ghostwriter', 'An extra can’t be empty. Delete it instead.'));
@@ -743,6 +743,26 @@ class SessionsController extends Controller
                 $layouts->core()->deleteExtra($session, $id, $site);
             }
         });
+    }
+
+    /**
+     * "Remove link" on a link Ghostwriter added (the Text tab's popover):
+     * its words stay, the link goes from the draft and its layouts, and
+     * the writer won't put it back. No model. Under the session's lock like
+     * a hand edit, so not while Ghostwriter is still working on the piece.
+     */
+    public function actionRemoveLink(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $href = (string) $this->request->getRequiredBodyParam('href');
+
+        if (trim($href) === '' || mb_strlen($href) > 2000) {
+            return $this->refuse(Craft::t('ghostwriter', 'That link isn’t in the draft any more.'));
+        }
+
+        return $this->extraEdit($session, fn(Session $session, DraftLayouts $layouts) => $layouts->removeLink($session, $href));
     }
 
     /**
@@ -1056,6 +1076,21 @@ class SessionsController extends Controller
         }
 
         return $refusal ?? $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
+     * A link to another page as Craft keeps it, `{entry:12@1:url||/contact}`,
+     * back from the panel's HTML, where it was shown percent-encoded
+     * (`%7Bentry:12@1:url%7C%7C/contact%7D`): written back encoded, Craft
+     * wouldn't know it for a reference tag when the draft is used.
+     */
+    public static function refTags(string $markdown): string
+    {
+        return (string) preg_replace_callback(
+            '/\]\(\s*<?(%7B(?:entry|asset|category)(?:%3A|:)[^()\s>]*?%7D)>?\s*\)/i',
+            fn(array $m) => '](' . rawurldecode($m[1]) . ')',
+            $markdown,
+        );
     }
 
     /** Where an extra item's words are, in a found marker's path: `['@extra', itemId, part]`. */

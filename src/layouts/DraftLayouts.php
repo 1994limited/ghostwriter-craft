@@ -2,8 +2,11 @@
 
 namespace nineteenninetyfour\ghostwriter\layouts;
 
+use Closure;
 use Craft;
+use craft\elements\Entry;
 use craft\models\EntryType;
+use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Usage;
 use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\Extras;
 use NineteenNinetyFour\Ghostwriter\Core\Arrange\LayoutContext;
@@ -21,9 +24,12 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\LinkContext;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
+use nineteenninetyfour\ghostwriter\gaps\Gaps;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
+use nineteenninetyfour\ghostwriter\suggest\EntryChecks;
 use Throwable;
 
 /**
@@ -32,7 +38,10 @@ use Throwable;
  * There is no setting: every first draft is laid out (decision 7).
  *
  * - After the writer's turn, afterWriter(): extras read, unit ids carried,
- *   and on the first draft one call to the layout planner.
+ *   any address the writer made up turned into a link to choose (core's
+ *   LinkGuard), and on the first draft the SEO pass's links to the site's
+ *   other pages (two calls; the panel says "Checking headings and
+ *   links…" meanwhile), then one call to the layout planner.
  * - After any other change to the draft, afterEdit(): no model.
  * - draftData(): the chosen layout's draft data, for "Use this draft",
  *   the Preview and the Blocks and Text views. The session's draft stays
@@ -43,6 +52,9 @@ use Throwable;
  */
 class DraftLayouts
 {
+    /** How long the SEO pass's link calls are shown as under way, at most. */
+    public const CHECKING_SECONDS = 600;
+
     /** @var array<string, LayoutContext> Contexts worked out in this request. */
     private array $contexts = [];
 
@@ -105,11 +117,97 @@ class DraftLayouts
      * first draft this calls the layout planner once. The planner's tokens
      * are added to the session's usage, and returned.
      */
-    public function afterWriter(Session $session, ?string $before, TaggedResponse $response, Conversation $conversation, WriterContext $writer): Usage
+    public function afterWriter(Session $session, ?string $before, TaggedResponse $response, Conversation $conversation, WriterContext $writer, ?Closure $progress = null): Usage
     {
         $site = $this->context($session);
 
-        return $site === null ? new Usage() : $this->core()->afterWriter($session, $before, $response, $conversation, $writer, $site);
+        return $site === null ? new Usage() : $this->core()->afterWriter($session, $before, $response, $conversation, $writer, $this->withLinks($site, $session, $writer), $progress);
+    }
+
+    /**
+     * The context with what the SEO pass needs to link a draft to the
+     * site's other pages (SEO layer §7): the link index (every routable
+     * page, decision 9), CKEditor's links (`{entry:12@1:url||/address}`),
+     * and the entry's section, site and language. Given on every writer
+     * turn, so core's LinkGuard also keeps the writer from making up an
+     * address; only a first draft is linked. Without it (it can't be told
+     * where the page is going) the draft goes on with no links.
+     */
+    public function withLinks(LayoutContext $site, Session $session, WriterContext $writer): LayoutContext
+    {
+        try {
+            $plugin = Plugin::getInstance();
+            $type = $plugin->types->find($session->kind)?->forSession($session);
+
+            if ($type === null) {
+                return $site;
+            }
+
+            $siteId = $session->siteId ?? Craft::$app->getSites()->getPrimarySite()->id;
+            $id = $session->source ?? $session->recordId;
+            $entry = is_numeric($id) ? Entry::find()->id((int) $id)->siteId($siteId)->drafts(null)->status(null)->one() : null;
+            $language = Craft::$app->getSites()->getSiteById($siteId, true)?->language ?? Craft::$app->language;
+
+            return new LayoutContext($site->schema, $site->pattern, $site->entries, $site->defaults, $site->exampleIds, $site->profile, new LinkContext(
+                $plugin->linkIndex,
+                Gaps::links(),
+                $type->group,
+                $siteId,
+                $entry instanceof Entry && $entry->getSection() !== null ? EntryChecks::ref($entry) : null,
+                $writer->kind,
+                $writer->voice,
+                $language,
+            ));
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't get ready to link the draft to the site's other pages: {$exception->getMessage()}", 'ghostwriter');
+
+            return $site;
+        }
+    }
+
+    /**
+     * "Remove link" on a link Ghostwriter added (the Text tab's popover):
+     * the words stay, the link goes from the draft and its layouts, and
+     * the writer won't put it back. No model.
+     *
+     * @throws InvalidArgumentException when the draft has no such link.
+     */
+    public function removeLink(Session $session, string $href): void
+    {
+        $site = $this->context($session) ?? throw new InvalidArgumentException('This piece’s section is no longer there.');
+
+        if (!$this->core()->removeLink($session, $href, $site)) {
+            throw new InvalidArgumentException('That link isn’t in the draft any more.');
+        }
+    }
+
+    // -- The SEO pass's links on a first draft, under way --------------------
+
+    /** Marked from the moment a first draft is in until its links are. */
+    public static function checking(string $sessionId): void
+    {
+        Craft::$app->getCache()->set(self::checkingKey($sessionId), true, self::CHECKING_SECONDS);
+    }
+
+    public static function checked(string $sessionId): void
+    {
+        Craft::$app->getCache()->delete(self::checkingKey($sessionId));
+    }
+
+    /**
+     * Whether the SEO pass is still linking this piece's first draft: the
+     * panel says "Checking headings and links…" and holds the draft. Only
+     * while the piece is working, so a mark left by a job that died never
+     * holds it.
+     */
+    public static function isChecking(Session $session): bool
+    {
+        return $session->isWorking() && (bool) Craft::$app->getCache()->get(self::checkingKey($session->id));
+    }
+
+    private static function checkingKey(string $sessionId): string
+    {
+        return "ghostwriter:seo-checking:{$sessionId}";
     }
 
     /**

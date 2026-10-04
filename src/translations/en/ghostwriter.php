@@ -2,10 +2,10 @@
 
 /*
  * Ghostwriter's English strings with keys rather than source text: those
- * for "Finish this page", the brief in the conversation, Suggest edits
- * and Content to revisit, copied from ghostwriter-core's
- * resources/lang/en/gaps.php, brief.php, suggest.php and revisit.php by
- * bin/sync-core-strings. Don't edit by hand.
+ * for "Finish this page", the brief in the conversation, Suggest edits,
+ * Content to revisit and the SEO layer, copied from ghostwriter-core's
+ * resources/lang/en/gaps.php, brief.php, suggest.php, revisit.php and
+ * seo.php by bin/sync-core-strings. Don't edit by hand.
  */
 
 return [
@@ -32,6 +32,8 @@ return [
     'gaps.missing-alt' => 'This image in {label} has no alt text.',
     'gaps.seo-length' => '{label} is too long.',
     'gaps.off-style-image' => 'The image in {label} doesn\'t look like the others here.',
+    'gaps.links-added' => 'Check {count} links Ghostwriter added. “{words}” goes to {title} ({url}). Keep it, or remove the link and keep the words.',
+    'gaps.links-added-one' => 'Check the link Ghostwriter added. “{words}” goes to {title} ({url}). Keep it, or remove the link and keep the words.',
     'gaps.speech.ask' => 'Fill this in',
     'gaps.speech.ask-value' => 'Fill this in',
     'gaps.speech.check' => 'Check me',
@@ -48,6 +50,7 @@ return [
     'gaps.speech.missing-alt' => 'Describe me',
     'gaps.speech.seo-length' => 'Too long',
     'gaps.speech.off-style-image' => 'Hmm',
+    'gaps.speech.links-added' => 'Linked',
     'gaps.fix.answer' => 'Type it in',
     'gaps.fix.confirm' => 'Looks right',
     'gaps.fix.use-count' => 'Use “{value}”',
@@ -69,6 +72,7 @@ return [
     'gaps.fix.focus' => 'I\'ll write it',
     'gaps.fix.remove' => 'Remove it',
     'gaps.fix.dismiss' => 'It\'s fine',
+    'gaps.fix.keep-link' => 'Keep it',
     'gaps.guide.title' => 'Finish this page',
     'gaps.guide.count' => '{count} things to finish',
     'gaps.guide.count-one' => '1 thing to finish',
@@ -207,4 +211,13 @@ return [
     'revisit.tile.missing-alt' => 'images without alt text',
     'revisit.external.setting' => 'Check links to other sites once a week',
     'revisit.external.help' => 'Off by default. Once a week, Ghostwriter asks each site your pages link to whether the page is still there (a HEAD request, at most one a second per site). Broken ones show as Link suggestions and in this list.',
+    'seo.notice.links' => 'I linked to {count} of your pages: {titles}.',
+    'seo.notice.links-one' => 'I linked to one of your pages: {titles}.',
+    'seo.notice.no-links' => 'I didn\'t find pages close enough to link to.',
+    'seo.status.checking' => 'Draft ready. Checking headings and links…',
+    'seo.link.added' => 'Added by Ghostwriter',
+    'seo.link.added-long' => 'Added by Ghostwriter. Removing it keeps the words.',
+    'seo.link.remove' => 'Remove link',
+    'seo.link.open' => 'Open page',
+    'seo.link.removed' => 'Link removed. The words stay.',
 ];

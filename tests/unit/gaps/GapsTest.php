@@ -319,8 +319,8 @@ class GapsTest extends TestCase
             $this->assertSame($english, $craft["brief.{$key}"] ?? null, "brief.{$key} is out of date: run php bin/sync-core-strings.");
         }
 
-        // Suggest edits' and Content to revisit's, likewise.
-        foreach (['suggest', 'revisit'] as $namespace) {
+        // Suggest edits', Content to revisit's and the SEO layer's, likewise.
+        foreach (['suggest', 'revisit', 'seo'] as $namespace) {
             foreach (Message::strings($namespace) as $key => $english) {
                 $this->assertSame(preg_replace('/:([a-zA-Z][a-zA-Z_]*)/', '{$1}', $english), $craft["{$namespace}.{$key}"] ?? null, "{$namespace}.{$key} is out of date: run php bin/sync-core-strings.");
             }

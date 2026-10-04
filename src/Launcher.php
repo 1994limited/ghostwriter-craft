@@ -33,6 +33,15 @@ class Launcher
         'brief.agree', 'brief.try-again', 'brief.show', 'brief.hide', 'brief.save', 'brief.saved',
     ];
 
+    /**
+     * The keyed strings the panel uses for the SEO layer (core's seo.php):
+     * "Checking headings and links…", and the marks and popover on the
+     * links Ghostwriter added.
+     */
+    public const SEO_STRINGS = [
+        'seo.status.checking', 'seo.link.added', 'seo.link.added-long', 'seo.link.remove', 'seo.link.open', 'seo.link.removed',
+    ];
+
     /** The menu's words, for the count read out (ghostwriter.js). */
     public const MENU_STRINGS = [
         '{count} to finish', '{count} suggestions', '1 suggestion', '{count} items: {finish}, {suggestions}',
@@ -90,6 +99,7 @@ class Launcher
 
         // The brief in the conversation's words, by key (core's brief.php).
         $view->registerTranslations('ghostwriter', self::BRIEF_STRINGS);
+        $view->registerTranslations('ghostwriter', self::SEO_STRINGS);
         $view->registerJs('new Ghostwriter.Launcher(' . Json::encode($config) . ');');
 
         $label = $editing ? Craft::t('ghostwriter', 'Edit with Ghostwriter') : Craft::t('ghostwriter', 'Write with Ghostwriter');
