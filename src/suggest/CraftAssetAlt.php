@@ -83,7 +83,8 @@ class CraftAssetAlt implements AssetAlt
     public function save(Asset $asset, string $alt): string
     {
         $before = (string) ($asset->alt ?? '');
-        $asset->alt = trim($alt) === '' ? null : trim($alt);
+        // Empty is an empty string: every Craft 5 release writes that back.
+        $asset->alt = trim($alt);
 
         if (!Craft::$app->getElements()->saveElement($asset)) {
             throw new \RuntimeException(implode(' ', $asset->getFirstErrors()) ?: 'The image couldn’t be saved.');
