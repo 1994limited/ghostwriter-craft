@@ -19,6 +19,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Suggest\IndexedParagraph;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\IndexRow;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\IndexScope;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\LinkIndex;
+use NineteenNinetyFour\Ghostwriter\Core\Suggest\LinkLookup;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\Shingles;
 use nineteenninetyfour\ghostwriter\Store;
 use Throwable;
@@ -42,7 +43,7 @@ use Throwable;
  *
  * No model, and no page is read when asked: only these rows.
  */
-class DbEntryIndex implements EntryIndex, LinkIndex
+class DbEntryIndex implements EntryIndex, LinkIndex, LinkLookup
 {
     /** @var array<string, array<string, array<string, mixed>>> A site's full rows, read once a request. */
     private array $loaded = [];
@@ -137,6 +138,27 @@ class DbEntryIndex implements EntryIndex, LinkIndex
         };
 
         return LinkCandidates::rank($rows(), $text, $group, $site, $except, $limit, $linked, $now, $locale);
+    }
+
+    /**
+     * The row a link already in a draft points at (`{entry:12@1:url||…}`,
+     * CKEditor's `…#entry:12@1:url`, or the page's address), so the
+     * writer's links to real pages are kept (LinkGuard).
+     */
+    public function linkRow(string $href, int|string|null $site = null): ?IndexRow
+    {
+        $locale = self::locale($site);
+        $rows = function() use ($site, $locale): iterable {
+            foreach ((new Query())->select(['data'])->from(Store::ENTRY_INDEX)->where(['site' => (string) ($site ?? '')])->each(500) as $record) {
+                $row = self::decode((string) $record['data'], $locale);
+
+                if ($row !== null) {
+                    yield $row;
+                }
+            }
+        };
+
+        return LinkCandidates::rowFor($rows(), $href, $site);
     }
 
     /**
