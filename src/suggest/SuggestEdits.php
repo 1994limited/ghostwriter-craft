@@ -427,6 +427,7 @@ class SuggestEdits extends Component
                     'length' => $field->length(),
                     'text' => $field->text,
                     'inheritsFrom' => $field->inheritsFrom,
+                    'source' => $field->source->value,
                     'writable' => $field->writable,
                 ];
             }

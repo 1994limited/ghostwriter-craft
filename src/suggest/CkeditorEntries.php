@@ -59,7 +59,7 @@ final class CkeditorEntries
             return [$schema, $entry];
         }
 
-        return [new Schema($fields), new EntryData($rows[0], $entry->id, $entry->title(), $entry->parentId, $entry->parentTitle)];
+        return [new Schema($fields), $entry->withValues($rows[0])];
     }
 
     /**

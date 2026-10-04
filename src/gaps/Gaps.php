@@ -146,7 +146,7 @@ class Gaps extends Component
 
         return new GapContext(
             schema: $schema,
-            entry: new EntryData((new EntryReader())->read($entry, $specs), (int) $entry->id, (string) $entry->title),
+            entry: new EntryData((new EntryReader())->read($entry, $specs), (int) $entry->id, (string) $entry->title, group: $entry->getSection()?->handle, site: $entry->getSite()->handle),
             richText: new HtmlDialect(),
             links: self::links(),
             placeholders: new CraftPlaceholderAssets(),
