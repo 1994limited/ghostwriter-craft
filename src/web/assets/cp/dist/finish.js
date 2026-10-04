@@ -2390,11 +2390,15 @@
             // While a review runs, its row stays, to open the guide's progress.
             row('suggest', suggestions, suggestions > 0 || reviewing);
 
-            // The rows' group and the line under it go when both rows do.
-            document.querySelectorAll('.gw-menu .menu-group').forEach((group) => {
-                const empty = !group.querySelector('[data-gw-menu-row]:not(.hidden)');
-                group.classList.toggle('hidden', empty);
-                if (group.nextElementSibling?.tagName === 'HR') group.nextElementSibling.classList.toggle('hidden', empty);
+            // The rows' group goes when both rows do; with nothing in the
+            // menu its button goes too, and Edit with Ghostwriter gets its
+            // right-hand corners back.
+            const empty = !(finish > 0 || suggestions > 0 || reviewing);
+
+            document.querySelectorAll('.gw-menu .menu-group').forEach((group) => group.classList.toggle('hidden', empty));
+            document.querySelectorAll('[data-gw-menu-btn]').forEach((button) => {
+                button.classList.toggle('hidden', empty);
+                button.closest('.btngroup')?.querySelector('#ghostwriter-launch')?.classList.toggle('btngroup-btn-last', empty);
             });
         },
     };

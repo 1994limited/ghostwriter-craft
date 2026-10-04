@@ -19,7 +19,8 @@ use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
  * left to finish plus the suggestions to review, amber while anything is
  * left to finish, plain with only suggestions, none at 0. The menu lists
  * Finish this page and Review suggestions with their counts, each only
- * while it has one, then Ghostwriter's own items. The guides report their
+ * while it has one (the button itself isn't repeated in it). With nothing
+ * in the menu its button is hidden, and Edit with Ghostwriter stands alone. The guides report their
  * counts as `ghostwriter:counts` events on the document (ghostwriter.js
  * paints them), and the rows open them with `ghostwriter:finish-show` and
  * `ghostwriter:suggest-show`.
@@ -93,16 +94,17 @@ class Launcher
         // Joined with its menu, like Craft's own Save button.
         return Html::tag('div', Html::button(Html::tag('span', '', ['class' => 'gw-mark', 'aria-hidden' => 'true']) . Html::tag('span', Html::encode($label), ['class' => 'gw-launch-label']), [
             'type' => 'button',
-            'class' => 'btn',
+            // Square on the right only while the menu's button shows (ghostwriter.js).
+            'class' => 'btn btngroup-btn-last',
             'id' => 'ghostwriter-launch',
             'title' => $label,
         ]) . self::menu($label), ['class' => 'btngroup gw-launch']);
     }
 
     /**
-     * The menu: the two count rows (hidden until their guide has a count),
-     * then Write or Edit with Ghostwriter when there is a button to open
-     * the panel. Its button shows the count before Craft's chevron.
+     * The menu: the two count rows, hidden until their guide has a count.
+     * Its button shows the count before Craft's chevron, and is hidden
+     * while there is nothing in the menu.
      */
     private static function menu(?string $launch): string
     {
@@ -128,11 +130,6 @@ class Launcher
             ],
         ]];
 
-        if ($launch !== null) {
-            $items[] = ['hr' => true];
-            $items[] = ['label' => $launch, 'attributes' => ['data' => ['gw-launch' => true]]];
-        }
-
         $name = $launch !== null ? Craft::t('ghostwriter', 'More ways to edit with Ghostwriter') : Craft::t('ghostwriter', 'Ghostwriter');
 
         return Cp::disclosureMenu($items, [
@@ -142,7 +139,7 @@ class Launcher
             'buttonHtml' => ($launch === null ? Html::tag('span', Html::encode($name)) : '')
                 . Html::tag('span', '', ['class' => 'gw-count gw-count--total hidden', 'data-gw-menu-total' => true, 'role' => 'img']),
             'buttonAttributes' => [
-                'class' => ['gw-menu-btn'],
+                'class' => ['gw-menu-btn', 'hidden'],
                 'data' => ['gw-menu-btn' => true, 'gw-name' => $name],
             ],
         ]);
