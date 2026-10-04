@@ -277,6 +277,41 @@ class SessionsController extends Controller
         return $this->asJson((new Presenter())->detail($this->session()));
     }
 
+    /**
+     * The answers to the writer's questions (core's Studio\Asks), by
+     * question id, sent as one message: an empty or missing one is
+     * skipped. `more` is anything else the person added.
+     */
+    public function actionAnswers(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        $answers = [];
+
+        foreach ((array) $this->request->getBodyParam('answers', []) as $id => $answer) {
+            $answers[(string) $id] = is_string($answer) ? mb_substr($answer, 0, 20000) : null;
+        }
+
+        $more = mb_substr(trim((string) $this->request->getBodyParam('more', '')), 0, 50000);
+
+        $session = $this->guarded(fn() => $plugin->domain->sessions()->answerQuestions($session->id, $answers, $more, $plugin->domain->viewer()));
+
+        if ($session instanceof Response) {
+            return $session;
+        }
+
+        FillBrief::next($session);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
     public function actionMessage(): Response
     {
         $this->requirePostRequest();

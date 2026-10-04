@@ -896,6 +896,11 @@
             this.adding = false;
             this.session = null;
             this.message = '';
+            // The answers to the writer's questions and the ones skipped, by
+            // question id; "Add anything else" opened.
+            this.replies = {};
+            this.skipped = {};
+            this.more = false;
             this.editing = false;
             this.raw = '';
             this.showBrief = false;
@@ -1117,7 +1122,13 @@
 
             // Questions waiting, or the quick details: put the cursor where
             // the answer goes.
-            if (this.asking() || (data.stage === 'details' && stepChanged)) {
+            if (this.asked()) {
+                const $first = this.$container.find('.gw-bubble--asking [data-model="ask-answer"]').first();
+                const active = document.activeElement;
+
+                if (!active || active === document.body || !$.contains(this.$container[0], active) || active.disabled) $first.trigger('focus');
+                this.announce(t('{count, plural, =1{Ghostwriter has # question for you.} other{Ghostwriter has # questions for you.}}', { count: this.asked().questions.length }));
+            } else if (this.asking() || (data.stage === 'details' && stepChanged)) {
                 this.$container.find('[data-model="message"]').trigger('focus');
             }
         },
@@ -1181,6 +1192,16 @@
 
         asking() {
             return this.session?.waitingOnYou === true && !this.working();
+        },
+
+        // The questions the writer is waiting on, when it asked them one by
+        // one (core's Studio\Asks): each has its own box.
+        asked() {
+            if (!this.asking()) return null;
+
+            const last = this.session.messages[this.session.messages.length - 1];
+
+            return last?.role === 'assistant' && last.asked ? last.asked : null;
         },
 
         progress() {
@@ -1253,7 +1274,15 @@
 
             const value = event.target.type === 'checkbox' ? event.target.checked : $el.val();
 
-            if (model === 'card-answer') this.card.answers[$el.data('handle')] = value;
+            if (model === 'ask-answer') {
+                this.replies[$el.data('ask')] = value;
+
+                // A box grows with its answer.
+                if (event.target.tagName === 'TEXTAREA') {
+                    event.target.style.height = 'auto';
+                    event.target.style.height = `${event.target.scrollHeight}px`;
+                }
+            } else if (model === 'card-answer') this.card.answers[$el.data('handle')] = value;
             else if (model === 'card-title') this.card.title = value;
             else if (model === 'message') this.message = value;
             else if (model === 'raw') this.raw = value;
@@ -1344,6 +1373,15 @@
                 return this.renderComments();
             }
 
+            // The writer's questions: ⌘↵ in any box (or in "Add anything
+            // else") sends the answers, and goes no further than the panel.
+            if ((model === 'ask-answer' || (model === 'message' && this.asked())) && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                return this.sendAnswers();
+            }
+
             if (model === 'message' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 this.send();
@@ -1388,7 +1426,10 @@
                     return;
                 case 'send': return this.send();
                 case 'retry': return this.retry();
-                case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); return this.send();
+                case 'skip': this.message = t('Please draft it with what you have. Put anything you are unsure of in square brackets.'); this.replies = {}; this.skipped = {}; this.more = false; return this.send(true);
+                case 'ask-skip': return this.skipQuestion(String($target.data('ask')));
+                case 'ask-more': this.more = true; this.renderComposer(); return this.$container.find('[data-model="message"]').trigger('focus');
+                case 'send-answers': return this.sendAnswers();
                 case 'reload-entry': return this.reloadEntry();
                 case 'edit': this.editing = true; return this.renderDraft();
                 case 'view': return this.switchView($target.data('view'), $target.is('[role=tab]'));
@@ -1467,7 +1508,10 @@
             }
         },
 
-        async send() {
+        // `plain`: a message as it is, even while questions wait ("Just draft it").
+        async send(plain = false) {
+            if (!plain && this.asked()) return this.sendAnswers();
+
             const message = this.message.trim();
 
             if (!message || this.working()) return;
@@ -1488,6 +1532,96 @@
                 // wait with them.
                 if (error?.response?.status === 409 && this.session.id) this.openSession(this.session.id);
             }
+        },
+
+        /**
+         * The answers to the writer's questions, as one message, with
+         * anything else in the box below. A skipped one goes as skipped.
+         */
+        async sendAnswers() {
+            const asked = this.asked();
+
+            if (!asked || this.working() || this.busy === 'answers') return;
+
+            const answers = Object.fromEntries(asked.questions.map((question) => [question.id, this.skipped[question.id] ? '' : (this.replies[question.id] ?? '')]));
+            const more = this.message.trim();
+
+            if (!Object.values(answers).some((answer) => answer.trim()) && !more) {
+                return Craft.cp.displayError(t('Answer at least one question, or ask for the draft as it is.'));
+            }
+
+            this.busy = 'answers';
+            this.renderComposer();
+
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/answers', { id: this.session.id, answers, more });
+
+                this.replies = {};
+                this.skipped = {};
+                this.message = '';
+                this.more = false;
+                this.busy = false;
+                this.receive(data);
+            } catch (error) {
+                this.busy = false;
+                this.renderComposer();
+
+                if (error?.response?.status === 409 && this.session.id) this.openSession(this.session.id);
+            }
+        },
+
+        // Skip a question, or answer it after all: its box comes and goes.
+        skipQuestion(id) {
+            this.skipped[id] = !this.skipped[id];
+            this.renderConversation();
+            this.$container.find(`[data-action="ask-skip"][data-ask="${CSS.escape(id)}"]`).trigger('focus');
+        },
+
+        // The writer's questions, in the conversation: a labelled region
+        // with an intro and a numbered list, a box per question while it
+        // waits (radios for set answers), each with Skip; once answered,
+        // each question with its answer, read-only.
+        asksCard(entry, live) {
+            const asked = entry.asked;
+            const off = this.working() || this.busy === 'answers' ? 'disabled' : '';
+            const id = (question) => `gw-ask-${entry.index ?? 'x'}-${question.id}`.replace(/[^\w-]/g, '-');
+
+            const field = (question) => {
+                const skipped = !!this.skipped[question.id];
+                const label = `${esc(question.question)}${question.optional ? ` <span class="light">(${esc(t('optional'))})</span>` : ''}`;
+                const hint = question.hint ? `<div class="instructions" id="${id(question)}-hint"><p>${esc(question.hint)}</p></div>` : '';
+                const describedBy = question.hint ? `aria-describedby="${id(question)}-hint"` : '';
+                const skip = `<button type="button" class="gw-link gw-asks__skip" data-action="ask-skip" data-ask="${esc(question.id)}" aria-pressed="${skipped}" aria-label="${esc(skipped ? t('Answer: {question}', { question: question.question }) : t('Skip: {question}', { question: question.question }))}" ${off}>${esc(skipped ? t('Answer it') : t('Skip'))}</button>`;
+
+                if (question.kind === 'choice') {
+                    return `<fieldset class="field gw-asks__field ${skipped ? 'gw-asks__field--skipped' : ''}" ${describedBy}>
+                        <legend class="heading"><span>${label}</span></legend>
+                        ${hint}
+                        ${skipped ? `<p class="light gw-asks__skipped">${esc(t('Skipped'))}</p>` : `<div class="input gw-asks__options">${question.options.map((option, n) => `
+                            <label class="gw-asks__option" for="${id(question)}-${n}"><input type="radio" class="radio" id="${id(question)}-${n}" name="${id(question)}" value="${esc(option)}" data-model="ask-answer" data-ask="${esc(question.id)}" ${this.replies[question.id] === option ? 'checked' : ''} ${off}> ${esc(option)}</label>`).join('')}</div>`}
+                        ${skip}
+                    </fieldset>`;
+                }
+
+                return `<div class="field gw-asks__field ${skipped ? 'gw-asks__field--skipped' : ''}">
+                    <div class="heading"><label for="${id(question)}">${label}</label></div>
+                    ${hint}
+                    ${skipped ? `<p class="light gw-asks__skipped">${esc(t('Skipped'))}</p>` : `<div class="input"><textarea id="${id(question)}" class="text fullwidth gw-asks__input" rows="1" data-model="ask-answer" data-ask="${esc(question.id)}" ${describedBy} ${off}>${esc(this.replies[question.id] ?? '')}</textarea></div>`}
+                    ${skip}
+                </div>`;
+            };
+
+            const answer = (question) => `<div class="gw-asks__question">${esc(question.question)}</div>
+                <div class="gw-asks__answer ${question.answer === null ? 'gw-asks__answer--none' : ''}">${esc(question.answer ?? (asked.answered ? t('Skipped') : t('Not answered')))}</div>`;
+
+            const heading = `gw-asks-${entry.index ?? 'x'}-heading`;
+
+            return `<section class="gw-bubble gw-bubble--them gw-asks ${live ? 'gw-bubble--asking' : ''}" role="region" aria-labelledby="${heading}" data-ghostwriter-asks>
+                <div class="gw-bubble__who" id="${heading}">${live ? `<span class="gw-bubble__flag">${esc(t('Ghostwriter needs your answer'))}</span>` : esc(t('Ghostwriter'))}</div>
+                ${asked.intro ? `<p class="gw-asks__intro">${esc(asked.intro)}</p>` : ''}
+                <ol class="gw-asks__list">${asked.questions.map((question) => `<li>${live ? field(question) : answer(question)}</li>`).join('')}</ol>
+                ${!live && asked.answered && asked.answeredBy ? `<p class="light smalltext">${esc(t('Answered by {name}', { name: asked.answeredBy }))}</p>` : ''}
+            </section>`;
         },
 
         /**
@@ -2029,6 +2163,25 @@
                     return;
                 }
 
+                // The writer's questions, one box each; once answered, each with its answer.
+                if (entry.role === 'assistant' && entry.asked) {
+                    html += this.asksCard({ ...entry, index }, asking && index === conversation.length - 1);
+
+                    return;
+                }
+
+                // The answers are in the questions' card: only anything else they said is a message.
+                if (entry.role === 'user' && entry.answers) {
+                    if (entry.more) {
+                        html += `<div class="gw-bubble gw-bubble--me">
+                            <div class="gw-bubble__who">${esc(entry.mine === false ? entry.from : t('You'))}</div>
+                            <div class="gw-bubble__text gw-pre">${esc(entry.more)}</div>
+                        </div>`;
+                    }
+
+                    return;
+                }
+
                 // The editor's comments, sent as one message: each pin's label and words; a click shows it on the page.
                 if (entry.role === 'user' && entry.comments?.items) {
                     html += `<div class="gw-bubble gw-bubble--me gw-bubble--comments" data-ghostwriter-comments-message>
@@ -2198,6 +2351,31 @@
                 this.$container.find('.gw-composer').removeClass('gw-composer--asking').html(`
                     <p class="light gw-composer__note">${esc(stage === 'proposed' ? t('Check the brief above, then start writing.') : t('brief.filling'))}</p>
                     <div class="gw-composer__actions">${startOver}</div>`);
+                Ghostwriter.prepareButtons(this.$container.find('.gw-composer'));
+
+                return;
+            }
+
+            const asked = this.asked();
+
+            // The questions have their own boxes: anything else is folded
+            // away until wanted, and Send sends the answers.
+            if (asked) {
+                const sending = this.busy === 'answers';
+                const open = this.more || !!this.message.trim();
+
+                this.$container.find('.gw-composer').addClass('gw-composer--asking').html(`
+                    <p class="gw-composer__flag"><span class="gw-dot" aria-hidden="true"></span>${esc(this.session.draft ? t('Your turn: answer above to carry on.') : t('Your turn: answer the questions above and the draft follows.'))}</p>
+                    ${open
+                        ? `<textarea class="text fullwidth" rows="2" data-model="message" aria-label="${esc(t('Anything else for Ghostwriter'))}" placeholder="${esc(t('Add anything else'))}…" ${sending ? 'disabled' : ''}>${esc(this.message)}</textarea>`
+                        : `<div><button type="button" class="gw-link" data-action="ask-more" aria-expanded="false">+ ${esc(t('Add anything else'))}</button></div>`}
+                    <div class="gw-composer__actions">
+                        ${startOver}
+                        <span class="light smalltext">${esc(t('⌘↵ to send'))}</span>
+                        <button type="button" class="btn" data-action="skip" ${sending ? 'disabled' : ''}>${esc(t('Just draft it with what you have'))}</button>
+                        <button type="button" class="btn submit ${sending ? 'loading' : ''}" data-action="send-answers" ${sending ? 'disabled' : ''}>${esc(t('Send answers'))}</button>
+                    </div>`);
+
                 Ghostwriter.prepareButtons(this.$container.find('.gw-composer'));
 
                 return;

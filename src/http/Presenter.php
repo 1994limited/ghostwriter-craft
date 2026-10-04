@@ -12,6 +12,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
+use NineteenNinetyFour\Ghostwriter\Core\Studio\Asks;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\comments\DraftComments;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
@@ -163,6 +164,26 @@ class Presenter
         return is_numeric($id) ? (int) $id : null;
     }
 
+    /**
+     * A writer's message with questions, as its card shows it, with who
+     * answered. Null for one without.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function asked(Session $session, int $index): ?array
+    {
+        $next = $session->messages[$index + 1] ?? null;
+        $asked = Asks::present($session->messages[$index], is_array($next) ? $next : null);
+
+        if ($asked === null) {
+            return null;
+        }
+
+        $by = $asked['answered'] && is_array($next) ? self::user($next['by'] ?? $session->startedBy) : null;
+
+        return $asked + ['answeredBy' => $by === null ? null : ($by === $this->me() ? Craft::t('ghostwriter', 'you') : self::name($by))];
+    }
+
     private function markdown(string $text): string
     {
         static $converter = null;
@@ -253,12 +274,15 @@ class Presenter
             // the same conversation. Older ones were the starter's. Only what
             // the conversation shows: the latest brief card, and none of the
             // brief's workings.
-            'messages' => array_values(array_map(fn(array $message) => ['step' => BriefThread::step($message)] + ($message['role'] === 'assistant'
-                ? $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
+            // The writer's questions (core's Studio\Asks) come with the
+            // answers given in the next message, as `asked`; that message is
+            // shown in their card, and only what else it said on its own.
+            'messages' => array_values(array_map(fn(int $index, array $message) => ['step' => BriefThread::step($message)] + ($message['role'] === 'assistant'
+                ? ['asked' => $this->asked($session, $index)] + $message + ['html' => $this->markdown((string) ($message['content'] ?? ''))]
                 : $message + [
                     'mine' => self::user($message['by'] ?? $session->startedBy) === $this->me(),
                     'from' => self::name(self::user($message['by'] ?? $session->startedBy)),
-                ]), $this->visible($session))),
+                ]), array_keys($visible = $this->visible($session)), $visible)),
             'draft' => $session->draft,
             'draftProblem' => $problem,
             'preview' => $preview,
