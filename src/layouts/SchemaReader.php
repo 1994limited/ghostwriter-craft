@@ -177,14 +177,26 @@ class SchemaReader
         $sets = [];
 
         foreach ($field->getEntryTypes() as $type) {
-            $sets[$type->handle] = [
-                'display' => (string) $type->name,
-                'instructions' => trim((string) ($type->description ?? '')),
-                'fields' => $this->layout($type->getFieldLayout(), (bool) $type->hasTitleField, $depth + 1),
-            ];
+            $sets[$type->handle] = $this->entryTypeSet($type, $depth + 1);
         }
 
         return $sets;
+    }
+
+    /**
+     * An entry type as one of a page builder's sets: a Matrix field's, or
+     * the entries nested in a CKEditor field (Suggest edits'
+     * CkeditorEntries).
+     *
+     * @return array{display: string, instructions: string, fields: array<int, array<string, mixed>>}
+     */
+    public function entryTypeSet(EntryType $type, int $depth = 1): array
+    {
+        return [
+            'display' => (string) $type->name,
+            'instructions' => trim((string) ($type->description ?? '')),
+            'fields' => $this->layout($type->getFieldLayout(), (bool) $type->hasTitleField, $depth),
+        ];
     }
 
     /**

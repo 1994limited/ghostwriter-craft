@@ -22,7 +22,8 @@ use Throwable;
  * What Suggest edits' free checks read on a Craft site: an entry as it
  * stands (the canonical entry, or someone's draft or provisional draft) in
  * core's CheckContext, with Finish this page's ports plus alt text and SEO
- * fields, the entry's age, its site's language, and the three settings.
+ * fields, the entries nested in its CKEditor fields read as blocks, the
+ * entry's age, its site's language, and the three settings.
  *
  * Nothing here calls a model or saves anything.
  */
@@ -45,7 +46,7 @@ class EntryChecks
     public function context(Entry $entry, ?DateTimeImmutable $now = null, ?EntryIndex $index = null, ?Quieted $quieted = null, array $external = []): CheckContext
     {
         return new CheckContext(
-            gaps: $this->withPorts(Plugin::getInstance()->gaps->context($entry)),
+            gaps: $this->withPorts(Plugin::getInstance()->gaps->context($entry), (int) $entry->siteId),
             now: $now ?? new DateTimeImmutable(),
             updatedAt: self::updatedAt($entry),
             language: self::language((int) $entry->siteId),
@@ -58,11 +59,18 @@ class EntryChecks
         );
     }
 
-    public function withPorts(GapContext $gaps): GapContext
+    /**
+     * Finish this page's context with the checks' ports, and, given the
+     * site, the entries nested in CKEditor fields read as blocks
+     * (CkeditorEntries).
+     */
+    public function withPorts(GapContext $gaps, ?int $siteId = null): GapContext
     {
+        [$schema, $entry] = $siteId === null ? [$gaps->schema, $gaps->entry] : (new CkeditorEntries($siteId))->expand($gaps->schema, $gaps->entry);
+
         return new GapContext(
-            schema: $gaps->schema,
-            entry: self::canonicalBlocks($gaps->entry),
+            schema: $schema,
+            entry: self::canonicalBlocks($entry),
             richText: $gaps->richText,
             links: $gaps->links,
             placeholders: $gaps->placeholders,
