@@ -7,6 +7,7 @@ use craft\elements\Entry;
 use craft\models\Section;
 use DateTimeImmutable;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\GapContext;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\EntryData;
 use NineteenNinetyFour\Ghostwriter\Core\Revisit\AgePolicy;
 use NineteenNinetyFour\Ghostwriter\Core\Revisit\LinkResult;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\CheckContext;
@@ -61,7 +62,7 @@ class EntryChecks
     {
         return new GapContext(
             schema: $gaps->schema,
-            entry: $gaps->entry,
+            entry: self::canonicalBlocks($gaps->entry),
             richText: $gaps->richText,
             links: $gaps->links,
             placeholders: $gaps->placeholders,
@@ -74,6 +75,57 @@ class EntryChecks
             alt: new CraftAssetAlt(),
             seo: new CraftSeoFields(),
         );
+    }
+
+    /**
+     * The entry's values with each Matrix entry and Neo block known by its
+     * canonical ID. A provisional draft has its own copy of each block it
+     * changed, under a new ID; by the canonical one, a review's places are
+     * the same in the entry and in anyone's draft of it, and a decision
+     * made in one holds in the other. The guide finds each block in the
+     * form it's showing (SuggestEdits).
+     */
+    public static function canonicalBlocks(EntryData $entry): EntryData
+    {
+        $ids = [];
+        $collect = function(mixed $value) use (&$collect, &$ids): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            if (isset($value['id'], $value['type']) && is_numeric($value['id'])) {
+                $ids[] = (int) $value['id'];
+            }
+
+            foreach ($value as $item) {
+                $collect($item);
+            }
+        };
+        $collect($entry->values);
+
+        if ($ids === []) {
+            return $entry;
+        }
+
+        $canonical = array_map('intval', array_filter((new \craft\db\Query())->select(['canonicalId', 'id'])->from('{{%elements}}')->where(['id' => array_unique($ids)])->andWhere(['not', ['canonicalId' => null]])->indexBy('id')->column()));
+
+        if ($canonical === []) {
+            return $entry;
+        }
+
+        $map = function(mixed $value) use (&$map, $canonical): mixed {
+            if (!is_array($value)) {
+                return $value;
+            }
+
+            if (isset($value['id'], $value['type']) && is_numeric($value['id']) && isset($canonical[(int) $value['id']])) {
+                $value['id'] = $canonical[(int) $value['id']];
+            }
+
+            return array_map($map, $value);
+        };
+
+        return new EntryData($map($entry->values), $entry->id, $entry->title(), $entry->parentId, $entry->parentTitle);
     }
 
     /**

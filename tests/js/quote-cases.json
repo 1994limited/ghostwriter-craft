@@ -1,0 +1,139 @@
+{
+    "about": "QuoteFinder's cases, shared with every front-end port of it. Offsets and lengths are in characters (code points). `expect` is the words found, as the text has them, or null when the quote isn't found or can't be told apart. `occurrence` and `markdown` are optional (null and false).",
+    "cases": [
+        {
+            "name": "plain: exact",
+            "text": "Four visits between November and February.",
+            "quote": {"exact": "between November and February"},
+            "expect": {"offset": 12, "length": 29, "text": "between November and February", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: whitespace and a line break in the text",
+            "text": "Four visits  between\nNovember and February.",
+            "quote": {"exact": "visits between November"},
+            "expect": {"offset": 5, "length": 24, "text": "visits  between\nNovember", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: a non-breaking space",
+            "text": "Visits from\u00a0£60 a\u00a0visit.",
+            "quote": {"exact": "from £60 a visit"},
+            "expect": {"offset": 7, "length": 16, "text": "from\u00a0£60 a\u00a0visit", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: curly quotes and a dash in the text, straight in the quote",
+            "text": "You probably don’t need it — and we’ll say so.",
+            "quote": {"exact": "don't need it - and we'll say so"},
+            "expect": {"offset": 13, "length": 32, "text": "don’t need it — and we’ll say so", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: an ellipsis character against three dots",
+            "text": "And then… nothing.",
+            "quote": {"exact": "then... nothing"},
+            "expect": {"offset": 4, "length": 13, "text": "then… nothing", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: a repeat picked by its prefix",
+            "text": "To book a visit in spring, or book a visit in autumn, call us.",
+            "quote": {"exact": "book a visit", "prefix": "spring, or ", "suffix": " in autumn"},
+            "expect": {"offset": 30, "length": 12, "text": "book a visit", "occurrence": 1, "fuzzy": false}
+        },
+        {
+            "name": "plain: a repeat picked by its suffix",
+            "text": "We prune. We prune hard in March.",
+            "quote": {"exact": "We prune", "suffix": " hard"},
+            "expect": {"offset": 10, "length": 8, "text": "We prune", "occurrence": 1, "fuzzy": false}
+        },
+        {
+            "name": "plain: a repeat with no context is ambiguous",
+            "text": "We prune. We prune hard in March.",
+            "quote": {"exact": "We prune"},
+            "expect": null
+        },
+        {
+            "name": "plain: a repeat with no context, picked by occurrence",
+            "text": "We prune. We prune hard in March.",
+            "quote": {"exact": "We prune"},
+            "occurrence": 1,
+            "expect": {"offset": 10, "length": 8, "text": "We prune", "occurrence": 1, "fuzzy": false}
+        },
+        {
+            "name": "plain: one fuzzy match",
+            "text": "Gardens with mixed borders, young trees and a lawn that matters to you.",
+            "quote": {"exact": "Gardens with mixed boarders, young trees"},
+            "expect": {"offset": 0, "length": 39, "text": "Gardens with mixed borders, young trees", "occurrence": 0, "fuzzy": true}
+        },
+        {
+            "name": "plain: two fuzzy matches are refused",
+            "text": "Gardens with mixed borders and trees. Gardens with mixed borders and shrubs.",
+            "quote": {"exact": "Gardens with mixed boarders and"},
+            "expect": null
+        },
+        {
+            "name": "plain: a short quote is never fuzzy",
+            "text": "Winter care visits",
+            "quote": {"exact": "Winter car"},
+            "expect": {"offset": 0, "length": 10, "text": "Winter car", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "plain: a short near miss is not found",
+            "text": "Winter care visits",
+            "quote": {"exact": "Wintre care"},
+            "expect": null
+        },
+        {
+            "name": "plain: not there",
+            "text": "Winter care visits",
+            "quote": {"exact": "summer planting plans"},
+            "expect": null
+        },
+        {
+            "name": "markdown: words inside bold",
+            "text": "**November: Cut back and protect.** Prune the shrubs that need it.",
+            "markdown": true,
+            "quote": {"exact": "Cut back and protect. Prune the shrubs"},
+            "expect": {"offset": 12, "length": 40, "text": "Cut back and protect.** Prune the shrubs", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: words across a link",
+            "text": "See [our 2023 show garden](entry::abc) for more.",
+            "markdown": true,
+            "quote": {"exact": "See our 2023 show garden for"},
+            "expect": {"offset": 0, "length": 42, "text": "See [our 2023 show garden](entry::abc) for", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: a heading's hashes are not words",
+            "text": "## Who it suits\n\nGardens with mixed borders.",
+            "markdown": true,
+            "quote": {"exact": "Who it suits"},
+            "expect": {"offset": 3, "length": 12, "text": "Who it suits", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: a list item",
+            "text": "- Adults: £12\n- Children go free",
+            "markdown": true,
+            "quote": {"exact": "Children go free"},
+            "expect": {"offset": 16, "length": 16, "text": "Children go free", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: across two list items, the bullet is skipped",
+            "text": "- Adults: £12\n- Children go free",
+            "markdown": true,
+            "quote": {"exact": "£12 Children"},
+            "expect": {"offset": 10, "length": 14, "text": "£12\n- Children", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: an emoji before the quote keeps offsets in characters",
+            "text": "🌿 Winter care for mixed borders",
+            "markdown": true,
+            "quote": {"exact": "care for mixed"},
+            "expect": {"offset": 9, "length": 14, "text": "care for mixed", "occurrence": 0, "fuzzy": false}
+        },
+        {
+            "name": "markdown: preview markers in the text are invisible",
+            "text": "󠁧󠁷󠁢󠀱󠁿Winter care visits",
+            "markdown": true,
+            "quote": {"exact": "Winter care"},
+            "expect": {"offset": 5, "length": 11, "text": "Winter care", "occurrence": 0, "fuzzy": false}
+        }
+    ]
+}

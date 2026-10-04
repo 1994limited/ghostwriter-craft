@@ -83,7 +83,8 @@ class CraftAssetAlt implements AssetAlt
     public function save(Asset $asset, string $alt): string
     {
         $before = (string) ($asset->alt ?? '');
-        $asset->alt = trim($alt) === '' ? null : trim($alt);
+        // Empty is an empty string: every Craft 5 release writes that back.
+        $asset->alt = trim($alt);
 
         if (!Craft::$app->getElements()->saveElement($asset)) {
             throw new \RuntimeException(implode(' ', $asset->getFirstErrors()) ?: 'The image couldn’t be saved.');
@@ -116,7 +117,13 @@ class CraftAssetAlt implements AssetAlt
                 ->andWhere(['like', 'es.content', '{asset:' . $asset->id . ':'])
                 ->column();
 
-            return count(array_unique([...array_map('intval', $related), ...array_map('intval', $inline)]));
+            $pages = array_unique([...array_map('intval', $related), ...array_map('intval', $inline)]);
+
+            // Pages themselves: not drafts, revisions or anything trashed.
+            return $pages === [] ? 0 : (int) (new \craft\db\Query())
+                ->from('{{%elements}}')
+                ->where(['id' => $pages, 'draftId' => null, 'revisionId' => null, 'dateDeleted' => null])
+                ->count();
         } catch (Throwable) {
             return 0;
         }

@@ -44,8 +44,10 @@ class Launcher
      * someone who may use it and save this entry. `$finish` says whether
      * Finish this page is on the screen (FinishGuide::register()): its row
      * is in the menu, and without the button the menu is there on its own.
+     * `$suggest` says whether Suggest edits is (SuggestGuide::register()):
+     * its item starts a review, and its row opens one.
      */
-    public static function buttonFor(Entry $entry, bool $finish = false): string
+    public static function buttonFor(Entry $entry, bool $finish = false, bool $suggest = false): string
     {
         $plugin = Plugin::getInstance();
         $request = Craft::$app->getRequest();
@@ -53,11 +55,11 @@ class Launcher
         $section = $entry->getSection();
 
         if (!$request->getIsCpRequest() || !$user || !$section) {
-            return $finish ? self::menu(null) : '';
+            return $finish ? self::menu(null, $suggest) : '';
         }
 
         if (!$user->can(Plugin::PERMISSION) || !$plugin->types->enabled($section->handle) || !Craft::$app->getElements()->canSave($entry, $user)) {
-            return $finish ? self::menu(null) : '';
+            return $finish ? self::menu(null, $suggest) : '';
         }
 
         // A new entry is written; one that exists already is edited, its
@@ -73,7 +75,8 @@ class Launcher
             'elementId' => (int) $entry->id,
             'siteId' => (int) $entry->siteId,
             // Opened from the dashboard or the plan: "new", or a session to resume.
-            'open' => $request->getQueryParam('ghostwriter'),
+            // ("suggest" is Suggest edits', from Content to revisit's Review.)
+            'open' => $request->getQueryParam('ghostwriter') === 'suggest' ? null : $request->getQueryParam('ghostwriter'),
             // The conversation already going for this entry, if there is one,
             // so coming back to the entry, or reloading it, carries on there.
             'current' => self::currentSession((int) $entry->getCanonicalId()),
@@ -98,7 +101,7 @@ class Launcher
             'class' => 'btn btngroup-btn-last',
             'id' => 'ghostwriter-launch',
             'title' => $label,
-        ]) . self::menu($label), ['class' => 'btngroup gw-launch']);
+        ]) . self::menu($label, $suggest && $editing), ['class' => 'btngroup gw-launch']);
     }
 
     /**
@@ -106,7 +109,7 @@ class Launcher
      * Its button shows the count before Craft's chevron, and is hidden
      * while there is nothing in the menu.
      */
-    private static function menu(?string $launch): string
+    private static function menu(?string $launch, bool $suggest = false): string
     {
         $view = Craft::$app->getView();
         $view->registerAssetBundle(GhostwriterAsset::class);
@@ -128,7 +131,22 @@ class Launcher
                 $row('finish', Craft::t('ghostwriter', 'Finish this page'), 'finish'),
                 $row('suggest', Craft::t('ghostwriter', 'Review suggestions'), 'suggest'),
             ],
+            'listAttributes' => ['data' => ['gw-menu-counts' => true]],
         ]];
+
+        // Suggest edits, on an entry that exists: always there, as it
+        // starts a review (its confirm says what it costs first).
+        if ($suggest) {
+            $items[] = [
+                'type' => 'group',
+                'items' => [[
+                    'html' => Html::tag('span', Html::encode(Craft::t('ghostwriter', 'Suggest edits')), ['class' => 'gw-menu-row-label'])
+                        . Html::tag('span', Html::encode(Craft::t('ghostwriter', 'Reads the page against your voice guide and checks each suggestion twice. Uses Ghostwriter.')), ['class' => 'gw-menu-row-info']),
+                    'icon' => 'wand-magic-sparkles',
+                    'attributes' => ['class' => ['gw-menu-row'], 'data' => ['ghostwriter-suggest' => true, 'gw-menu-always' => true]],
+                ]],
+            ];
+        }
 
         $name = $launch !== null ? Craft::t('ghostwriter', 'More ways to edit with Ghostwriter') : Craft::t('ghostwriter', 'Ghostwriter');
 
@@ -139,7 +157,7 @@ class Launcher
             'buttonHtml' => ($launch === null ? Html::tag('span', Html::encode($name)) : '')
                 . Html::tag('span', '', ['class' => 'gw-count gw-count--total hidden', 'data-gw-menu-total' => true, 'role' => 'img']),
             'buttonAttributes' => [
-                'class' => ['gw-menu-btn', 'hidden'],
+                'class' => array_filter(['gw-menu-btn', $suggest ? null : 'hidden']),
                 'data' => ['gw-menu-btn' => true, 'gw-name' => $name],
             ],
         ]);
