@@ -11,6 +11,11 @@
  * loads its images and fonts. Links in the frame do nothing: Craft adds the
  * preview token to every one.
  *
+ * The frame is as tall as its page and never scrolls itself: the draft's
+ * column scrolls, through the layouts, the hint and the whole page
+ * (framefit.js, shared with the Statamic addon, pins what the page sizes
+ * from the window's height first, so a taller frame can't grow it).
+ *
  * Gap markers the templates print as they are (`[[ask: …]]`, `[[check: …]]`,
  * `#gw-link:` links) are shown as chips once the locator has placed the
  * blocks (core's markers.js, copied as it is, beside this file). A chip is
@@ -51,6 +56,11 @@
 
     let locatorModule = null;
     const locator = () => (locatorModule ??= (Ghostwriter.previewLocator?.() ?? import(LOCATOR)));
+
+    // Sizing the frame to its page (framefit.js), beside this file too.
+    const FRAMEFIT = new URL('framefit.js', document.currentScript?.src ?? window.location.href).toString();
+    let framefitModule = null;
+    const framefit = () => (framefitModule ??= (Ghostwriter.previewFrameFit?.() ?? import(FRAMEFIT)));
 
     // Placing comments' pins (comments.js), beside this file too.
     const COMMENTS = new URL('comments.js', document.currentScript?.src ?? window.location.href).toString();
@@ -171,9 +181,9 @@
         },
 
         /**
-         * How tall the page's frame is: the draft's scrolling pane, less the
-         * frame's bar and padding, so once the pane is scrolled down to it
-         * the page fills the pane (the layouts and the hint scroll away above).
+         * The window the page is laid out for: the draft's scrolling pane,
+         * less the frame's bar and padding. The frame is then as tall as
+         * the page (framefit.js); this is its height until it's measured.
          */
         stageHeight(available, chrome) {
             return Math.max(MIN_STAGE, Math.floor((available || 0) - (chrome || 0)));
@@ -233,6 +243,8 @@
             this.resizer = new ResizeObserver(() => this.fit());
             this.resizer.observe(this.stage);
             this.scroller = null;
+            // The window's height the page is laid out for, in the CP's px.
+            this.pane = MIN_STAGE;
         }
 
         /**
@@ -244,6 +256,9 @@
             this.root.hidden = false;
             this.wanted = draft;
             this.fit();
+            // Shown again: its page may have changed size while hidden.
+            this.frame?.ghostwriterFit?.measure();
+            this.sizeStage();
 
             if (draft && draft !== this.rendered && !this.pending && !this.timer && !(paused && this.frame)) {
                 this.render(draft);
@@ -260,7 +275,7 @@
             this.pending = null;
             this.overlay?.stop();
             this.overlay = null;
-            this.frame?.remove();
+            this.drop(this.frame);
             this.frame = null;
             this.message.hidden = true;
             this.address('');
@@ -407,7 +422,14 @@
                     return this.fail(read);
                 }
 
-                this.swap(frame, data);
+                // As tall as its page, measured before it swaps in, so the column keeps its place.
+                framefit().then(({ fitFrame }) => {
+                    frame.ghostwriterFit = fitFrame(frame, { viewport: this.viewport(), onHeight: () => frame === this.frame && this.sizeStage() });
+                }).catch((error) => console.warn("Ghostwriter: the preview's frame couldn't be fitted to its page.", error)).finally(() => {
+                    if (sequence !== this.sequence) return this.drop(frame);
+
+                    this.swap(frame, data);
+                });
             });
 
             frame.src = data.url;
@@ -417,27 +439,23 @@
 
         swap(frame, data) {
             const old = this.frame;
-            const scroll = old ? this.scrollOf(old) : null;
 
             this.overlay?.stop();
-            old?.remove();
+            this.drop(old);
 
+            // The column keeps its scroll: the new page is already its own height.
             this.frame = frame;
             frame.tabIndex = this.comments.on ? 0 : -1;
             frame.classList.remove('is-loading');
             this.message.hidden = true;
             this.address(data.url);
-
-            const win = frame.contentWindow;
-
-            if (scroll && win) {
-                win.scrollTo(0, scroll);
-            }
+            this.fit();
 
             const overlay = new Overlay(frame, data.map, (text) => this.note(text), (found) => !this.comments.on && this.options.onGap?.(found), {
                 onPick: (pick) => this.pick(pick, data.map),
                 onPin: (number) => this.options.onPin?.(number),
                 onEscape: () => this.options.onEscape?.(),
+                reveal: (top) => this.reveal(top),
             });
             this.overlay = overlay;
             overlay.scale = this.scale ?? 1;
@@ -559,9 +577,10 @@
 
             this.overlay?.stop();
             this.overlay = null;
-            this.frame?.remove();
+            this.drop(this.frame);
             this.frame = null;
             this.address('');
+            this.sizeStage();
 
             let text;
 
@@ -622,19 +641,52 @@
             this.root.querySelector('[data-address]').textContent = text;
         }
 
-        scrollOf(frame) {
-            try {
-                return frame.contentWindow.scrollY;
-            } catch (error) {
-                return 0;
+        /** A frame gone: it stops following its page. */
+        drop(frame) {
+            frame?.ghostwriterFit?.stop();
+            frame?.remove();
+        }
+
+        /** The window's height the page is laid out for, in the frame's own px. */
+        viewport() {
+            return Math.round(this.pane / (this.scale || 1));
+        }
+
+        /** The stage is as tall as the page on show, scaled; the pane's height until there is one. */
+        sizeStage() {
+            const fitted = this.frame?.ghostwriterFit?.height;
+            const height = fitted ? Math.ceil(fitted * (this.scale || 1)) : this.pane;
+
+            if (this.stage.style && this.stage.style.height !== `${height}px`) this.stage.style.height = `${height}px`;
+        }
+
+        /**
+         * A point of the page (its y, in the frame's px) to the top of the
+         * draft's pane, which scrolls; the frame doesn't.
+         */
+        reveal(top) {
+            const frame = this.frame;
+
+            if (!frame) return;
+
+            if (!this.scroller) {
+                try {
+                    frame.contentWindow.scrollTo(0, top);
+                } catch (error) {}
+
+                return;
             }
+
+            const y = frame.getBoundingClientRect().top - this.scroller.getBoundingClientRect().top + this.scroller.scrollTop + Math.max(0, top) * (this.scale || 1);
+            this.scroller.scrollTop = Math.max(0, Math.round(y));
         }
 
         /**
          * Desktop fills the panel, laid out at 1280 px and scaled down when
-         * the panel is narrow; Phone is 390 px wide. The frame is as tall as
-         * the draft's scrolling pane (Helpers.stageHeight): the pane scrolls
-         * as one column, the page in its frame.
+         * the panel is narrow; Phone is 390 px wide. The page is laid out for
+         * a window as tall as the draft's scrolling pane (Helpers.stageHeight),
+         * and its frame is as tall as the page: the pane scrolls as one
+         * column, through the page; the frame never scrolls.
          */
         fit() {
             const stageWidth = this.stage.clientWidth;
@@ -651,22 +703,25 @@
 
             const style = scroller ? getComputedStyle(this.root) : null;
             const chrome = (parseFloat(style?.paddingTop) || 0) + (parseFloat(style?.paddingBottom) || 0) + (this.bar?.offsetHeight ?? 0) + 2;
-            const stageHeight = Helpers.stageHeight(scroller ? scroller.clientHeight : (window.innerHeight || 0) * 0.75, chrome);
-
-            if (this.stage.style && this.stage.style.height !== `${stageHeight}px`) this.stage.style.height = `${stageHeight}px`;
+            this.pane = Helpers.stageHeight(scroller ? scroller.clientHeight : (window.innerHeight || 0) * 0.75, chrome);
 
             const { width, scale } = Helpers.fit(this.width, stageWidth);
-            const height = stageHeight / scale;
 
+            this.scale = scale;
             this.root.dataset.width = this.width;
+
+            const viewport = this.viewport();
 
             this.stage.querySelectorAll('iframe').forEach((frame) => {
                 frame.style.width = `${width}px`;
-                frame.style.height = `${height}px`;
                 frame.style.transform = scale === 1 ? '' : `scale(${scale})`;
+
+                // Fitted: laid out again if the pane's height changed. Not yet: the pane's height.
+                if (frame.ghostwriterFit) frame.ghostwriterFit.setViewport(viewport);
+                else frame.style.height = `${viewport}px`;
             });
 
-            this.scale = scale;
+            this.sizeStage();
             this.overlay?.setScale?.(scale);
         }
     }
@@ -987,7 +1042,8 @@
             const pin = this.commenting.pins.find((candidate) => candidate.number === number);
             const box = pin ? this.boxes.get(pin.key) : null;
 
-            if (box) this.win.scrollTo(0, Math.max(0, box.top - 60));
+            // The frame is as tall as its page: the pane around it scrolls (reveal).
+            if (box) (this.comment.reveal ?? ((top) => this.win.scrollTo(0, top)))(Math.max(0, box.top - 60));
             button.focus({ preventScroll: true });
 
             return true;

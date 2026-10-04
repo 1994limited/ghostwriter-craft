@@ -1,7 +1,7 @@
 // The Preview tab's helpers and its "Updating preview…" state: run with `node --test tests/js`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 
@@ -86,6 +86,16 @@ function harness() {
         contentArea: (doc) => doc.body,
     });
     context.Ghostwriter.previewMarkers = () => Promise.resolve({ markGaps: () => [], countByRegion: () => ({}) });
+    // The frame fitted to a page 1800 px tall (framefit.js has its own tests).
+    const fits = [];
+    context.Ghostwriter.previewFrameFit = () => Promise.resolve({
+        fitFrame: (frame, { viewport }) => {
+            const fit = { frame, viewport, height: 1800, stopped: false, setViewport(value) { this.viewport = value; }, stop() { this.stopped = true; }, measure() {} };
+            fits.push(fit);
+            frame.style.height = '1800px';
+            return fit;
+        },
+    });
     vm.runInContext(readFileSync(new URL('preview.js', dist), 'utf8'), context);
     const preview = new context.Ghostwriter.PagePreview({ target: () => ({ id: 's', elementId: 1, siteId: 1 }), announce: (text) => announced.push(text) });
     const status = () => !preview.root.querySelector('[data-status]').hidden;
@@ -97,7 +107,7 @@ function harness() {
         frame.fire('load');
     };
     const settle = () => new Promise((r) => setTimeout(r, 5));
-    return { preview, requests, announced, status, busyAttr, frames, loadFrame, settle, H: context.Ghostwriter.PreviewHelpers };
+    return { preview, requests, announced, status, busyAttr, frames, loadFrame, settle, fits, H: context.Ghostwriter.PreviewHelpers };
 }
 
 test('“Updating preview…” shows only while a render is on its way', async () => {
@@ -222,4 +232,39 @@ test('the page is as tall as the draft’s scrolling pane, less its bar, and nev
     assert.equal(H.stageHeight(760, 60), 700);
     assert.equal(H.stageHeight(300, 60), 320);
     assert.equal(H.stageHeight(0, 0), 320);
+});
+
+test('the frame is as tall as its page, laid out for the pane’s height, and the stage with it', async () => {
+    const h = harness();
+    h.preview.root.hidden = false;
+    h.preview.fit();
+
+    h.preview.render('draft 1');
+    h.requests[0].resolve({ data: { preview: true, url: 'https://site.test/one', map: [], ms: 1 } });
+    await h.settle();
+    const [first] = h.frames();
+    assert.equal(first.style.height, '320px', 'Loading, it is as tall as the pane.');
+
+    h.loadFrame(first);
+    await h.settle();
+    assert.equal(h.fits.length, 1);
+    assert.equal(h.fits[0].viewport, 320, 'Laid out for a window as tall as the pane.');
+    assert.equal(h.preview.stage.style.height, '1800px', 'The stage is as tall as the page: the column scrolls, not the frame.');
+
+    // Fitting again (the panel resized) keeps the page's height.
+    h.preview.fit();
+    assert.equal(first.style.height, '1800px');
+
+    // The next render replaces it, and the old one stops following its page.
+    h.preview.render('draft 2');
+    h.requests[1].resolve({ data: { preview: true, url: 'https://site.test/two', map: [], ms: 1 } });
+    await h.settle();
+    h.loadFrame(h.frames().at(-1));
+    await h.settle();
+    assert.equal(h.fits[0].stopped, true);
+    assert.equal(h.fits[1].stopped, false);
+});
+
+test('framefit.js is the Statamic addon’s copy, unchanged', { skip: !existsSync(new URL('../../../ghostwriter-statamic/resources/js/preview/framefit.js', import.meta.url)) && 'No Statamic clone beside this one.' }, () => {
+    assert.equal(sha(new URL('framefit.js', dist)), sha(new URL('../../../ghostwriter-statamic/resources/js/preview/framefit.js', import.meta.url)), 'Copy resources/js/preview/framefit.js from ghostwriter-statamic again.');
 });
