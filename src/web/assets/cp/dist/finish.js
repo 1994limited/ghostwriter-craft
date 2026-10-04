@@ -353,6 +353,9 @@
 
             // The page's guide, for anything that needs to ask it (and for checking it by hand).
             Ghostwriter.finish = this;
+            // Every guide on the page (Finish this page, Suggest edits): one is open at a time.
+            Ghostwriter.guides = Ghostwriter.guides ?? new Set();
+            Ghostwriter.guides.add(this);
             this.gaps = [];
             this.steps = [];
             this.index = 0;
@@ -1140,6 +1143,11 @@
 
             if (typing || !['KeyN', 'KeyP', 'KeyG'].includes(code) || this.$root.hasClass('hidden')) return;
 
+            // Another guide on the page was opened last: the keys are its.
+            const active = Ghostwriter.activeGuide;
+
+            if (active && active !== this && !active.$root?.hasClass('hidden')) return;
+
             event.preventDefault();
 
             if (code === 'KeyG') {
@@ -1162,6 +1170,11 @@
          * ------------------------------------------------------------------ */
 
         minimise(on, remember = true) {
+            if (!on) {
+                Ghostwriter.activeGuide = this;
+                Ghostwriter.guides?.forEach((other) => other !== this && other.stepAside?.());
+            }
+
             if (on === this.minimised) return;
 
             this.minimised = on;
@@ -1221,6 +1234,19 @@
                 this.paint();
                 setTimeout(() => $guide.removeClass('gw-finish-guide--unfurling'), 600);
             }, 450);
+        },
+
+        /**
+         * Another guide opened: this one goes to its dock, quietly (what
+         * this person last chose isn't changed by it).
+         */
+        stepAside() {
+            if (this.minimised) return;
+
+            this.minimised = true;
+            this.$root.addClass('gw-finish--minimised');
+            this.$flyer.addClass('gw-finish-flyer--hidden');
+            this.paint();
         },
 
         /**
@@ -2394,11 +2420,13 @@
             // menu its button goes too, and Edit with Ghostwriter gets its
             // right-hand corners back.
             const empty = !(finish > 0 || suggestions > 0 || reviewing);
+            // An item that is always there (Suggest edits) keeps the menu.
+            const bare = empty && !document.querySelector('.gw-menu [data-gw-menu-always]');
 
-            document.querySelectorAll('.gw-menu .menu-group').forEach((group) => group.classList.toggle('hidden', empty));
+            document.querySelectorAll('.gw-menu [data-gw-menu-counts]').forEach((list) => list.closest('.menu-group')?.classList.toggle('hidden', empty));
             document.querySelectorAll('[data-gw-menu-btn]').forEach((button) => {
-                button.classList.toggle('hidden', empty);
-                button.closest('.btngroup')?.querySelector('#ghostwriter-launch')?.classList.toggle('btngroup-btn-last', empty);
+                button.classList.toggle('hidden', bare);
+                button.closest('.btngroup')?.querySelector('#ghostwriter-launch')?.classList.toggle('btngroup-btn-last', bare);
             });
         },
     };

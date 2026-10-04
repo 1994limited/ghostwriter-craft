@@ -272,11 +272,21 @@ class Gaps extends Component
      */
     public static function location(Gap $gap, int $elementId): array
     {
+        return self::locationOf($gap->path, $elementId);
+    }
+
+    /**
+     * The same for any place in an entry (a Suggest edits anchor's path).
+     *
+     * @return array{elementId: int, handle: string, blocks: list<int>, field: string}
+     */
+    public static function locationOf(FieldPath $path, int $elementId): array
+    {
         $owner = $elementId;
-        $handle = $gap->path->handle();
+        $handle = $path->handle();
         $blocks = [];
 
-        foreach ($gap->path->segments as $segment) {
+        foreach ($path->segments as $segment) {
             if (is_string($segment)) {
                 $handle = $segment;
 
@@ -292,7 +302,7 @@ class Gaps extends Component
             $blocks[] = $owner;
         }
 
-        return ['elementId' => $owner, 'handle' => $handle, 'blocks' => $blocks, 'field' => $gap->path->handle()];
+        return ['elementId' => $owner, 'handle' => $handle, 'blocks' => $blocks, 'field' => $path->handle()];
     }
 
     /**

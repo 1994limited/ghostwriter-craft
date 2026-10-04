@@ -92,6 +92,7 @@ use yii\base\Event;
  * @property-read \nineteenninetyfour\ghostwriter\suggest\DbRevisitStore $revisitStore
  * @property-read \nineteenninetyfour\ghostwriter\suggest\DbEntryIndex $entryIndex
  * @property-read \nineteenninetyfour\ghostwriter\suggest\Revisit $revisit
+ * @property-read \nineteenninetyfour\ghostwriter\suggest\SuggestEdits $suggest
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -156,6 +157,8 @@ class Plugin extends BasePlugin
                 'revisitStore' => \nineteenninetyfour\ghostwriter\suggest\DbRevisitStore::class,
                 'entryIndex' => \nineteenninetyfour\ghostwriter\suggest\DbEntryIndex::class,
                 'revisit' => \nineteenninetyfour\ghostwriter\suggest\Revisit::class,
+                // Suggest edits: what the guide shows, and the review's input.
+                'suggest' => \nineteenninetyfour\ghostwriter\suggest\SuggestEdits::class,
             ],
         ];
     }
@@ -205,10 +208,11 @@ class Plugin extends BasePlugin
             /** @var Entry $entry */
             $entry = $event->sender;
 
-            // "Finish this page": the guide, with its count on the
-            // launcher's menu.
+            // "Finish this page" and Suggest edits: their guides, with their
+            // counts and Suggest edits itself on the launcher's menu.
             $finish = \nineteenninetyfour\ghostwriter\gaps\FinishGuide::register($entry);
-            $event->html .= Launcher::buttonFor($entry, $finish);
+            $suggest = \nineteenninetyfour\ghostwriter\suggest\SuggestGuide::register($entry);
+            $event->html .= Launcher::buttonFor($entry, $finish, $suggest);
         });
 
         // And beside "New entry" on the entry index.

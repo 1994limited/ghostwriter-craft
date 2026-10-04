@@ -116,7 +116,13 @@ class CraftAssetAlt implements AssetAlt
                 ->andWhere(['like', 'es.content', '{asset:' . $asset->id . ':'])
                 ->column();
 
-            return count(array_unique([...array_map('intval', $related), ...array_map('intval', $inline)]));
+            $pages = array_unique([...array_map('intval', $related), ...array_map('intval', $inline)]);
+
+            // Pages themselves: not drafts, revisions or anything trashed.
+            return $pages === [] ? 0 : (int) (new \craft\db\Query())
+                ->from('{{%elements}}')
+                ->where(['id' => $pages, 'draftId' => null, 'revisionId' => null, 'dateDeleted' => null])
+                ->count();
         } catch (Throwable) {
             return 0;
         }

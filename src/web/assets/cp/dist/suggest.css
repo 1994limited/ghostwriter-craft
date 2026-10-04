@@ -1,0 +1,464 @@
+/*
+ * Suggest edits in the Finish this page guide, from the approved mockup:
+ * indigo for open suggestions, so a field with a suggestion never looks
+ * like a Finish gap (amber); green is done in both. The guide, dock, mark
+ * and phone sheet are Finish's own (finish.css); this adds the indigo
+ * states, the filters, the change in its sentence, the answer box and the
+ * confirms. Craft 5 has no dark mode.
+ */
+
+:root {
+    --gw-s-indigo: #5b4cf0;
+    --gw-s-indigo-ink: #3f30c9;
+    --gw-s-indigo-fill: rgb(91 76 240 / 0.07);
+    --gw-s-indigo-line: rgb(91 76 240 / 0.45);
+    --gw-s-indigo-tag: #e6e2ff;
+    --gw-s-indigo-tag-ink: #2c2190;
+    --gw-s-del: #b42318;
+    --gw-s-del-fill: rgb(239 107 107 / 0.12);
+    --gw-s-ins: #137a4b;
+    --gw-s-ins-fill: rgb(76 195 138 / 0.14);
+    --gw-s-chip: #f0eefc;
+    --gw-s-muted: #606d7b;
+    --gw-s-line: #dfe3e8;
+}
+
+/* Suggest edits in the menu beside Edit with Ghostwriter, with its hint */
+
+.gw-menu [data-ghostwriter-suggest] {
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.gw-menu-row-info {
+    display: block;
+    flex-basis: 100%;
+    max-width: 260px;
+    margin-top: 2px;
+    white-space: normal;
+    color: var(--gw-s-muted);
+    font-size: 12px;
+}
+
+@keyframes gw-s-breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* Fields: indigo when open, 2px when current, green when done */
+
+[data-gw-suggest] {
+    position: relative;
+    scroll-margin-top: 96px;
+    border-radius: 6px;
+    outline: 1px solid var(--gw-s-indigo-line);
+    outline-offset: 4px;
+    background-color: var(--gw-s-indigo-fill);
+    box-shadow: 0 0 0 4px var(--gw-s-indigo-fill);
+    transition: outline-color 0.25s, background-color 0.25s;
+}
+
+[data-gw-suggest="current"] {
+    outline: 2px solid var(--gw-s-indigo);
+}
+
+[data-gw-suggest="done"] {
+    outline-color: var(--gw-green-line);
+    background-color: color-mix(in srgb, var(--gw-green-fill) 70%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gw-green-fill) 70%, transparent);
+}
+
+/* A Finish gap in the same field keeps its own look. */
+.gw-gap-host[data-gw-suggest="open"],
+.gw-gap-host[data-gw-suggest="done"] {
+    outline-color: var(--gw-amber-line);
+    background-color: color-mix(in srgb, var(--gw-amber-fill) 55%, transparent);
+}
+
+.gw-gap-tag.gw-s-tag {
+    background: var(--gw-s-indigo-tag);
+    color: var(--gw-s-indigo-tag-ink);
+}
+
+[data-gw-suggest="current"] > .gw-s-tag,
+[data-gw-suggest="current"] > .heading > .gw-s-tag {
+    background: var(--gw-s-indigo);
+    color: #fff;
+}
+
+[data-gw-suggest="done"] > .gw-s-tag,
+[data-gw-suggest="done"] > .heading > .gw-s-tag {
+    background: var(--gw-green);
+    color: #fff;
+}
+
+/* Inside CKEditor: a dotted indigo underline on each range, the current one filled */
+
+.ck-content .gw-suggest-mark {
+    border-bottom: 1.5px dotted var(--gw-s-indigo);
+    border-radius: 3px;
+}
+
+.ck-content .gw-suggest-mark--current {
+    background: rgb(107 92 245 / 0.22);
+}
+
+@media (forced-colors: active) {
+    [data-gw-suggest] { outline: 1px dashed Mark; }
+    [data-gw-suggest="current"] { outline: 2px solid Highlight; }
+    .ck-content .gw-suggest-mark { border-bottom: 2px dotted Mark; }
+    .ck-content .gw-suggest-mark--current { border-bottom-color: Highlight; }
+}
+
+/* The guide: Finish's, a little wider, in indigo */
+
+.gw-finish--suggest .gw-finish-guide {
+    width: 400px;
+}
+
+.gw-finish--suggest .gw-finish-guide__seg--current {
+    background: var(--gw-s-indigo);
+}
+
+.gw-finish--suggest,
+.gw-s-modal {
+    --primary-button-bg: var(--gw-s-indigo);
+    --primary-button-bg--hover: var(--gw-s-indigo-ink);
+    --primary-button-bg--active: var(--gw-s-indigo-ink);
+    --primary-button-border: 1px solid var(--gw-s-indigo);
+    --primary-button-border--hover: 1px solid var(--gw-s-indigo-ink);
+    --primary-button-border--active: 1px solid var(--gw-s-indigo-ink);
+}
+
+.gw-finish--suggest :focus-visible {
+    outline-color: var(--gw-s-indigo);
+}
+
+/* The dock sits beside Finish's when both are minimised. */
+.gw-finish--suggest .gw-finish-dock {
+    inset-inline-end: 92px;
+}
+
+.gw-finish--suggest .gw-finish-dock__count {
+    background: var(--gw-s-indigo);
+    color: #fff;
+}
+
+.gw-finish--suggest .gw-finish-dock__count--ready {
+    background: var(--gw-green);
+}
+
+.gw-s-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 10px;
+    color: var(--gw-s-muted);
+    font-size: 12px;
+}
+
+.gw-s-spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--gw-s-indigo-line);
+    border-top-color: var(--gw-s-indigo);
+    animation: gw-s-spin 0.9s linear infinite;
+}
+
+@keyframes gw-s-spin {
+    to { transform: rotate(360deg); }
+}
+
+.gw-s-phases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    flex-basis: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 11px;
+}
+
+.gw-s-phases li::before { content: "○ "; }
+.gw-s-phases li.is-done::before { content: "✓ "; color: var(--gw-green); }
+.gw-s-phases li.is-now { color: var(--gw-s-indigo-ink); font-weight: 600; }
+.gw-s-phases li.is-now::before { content: "● "; }
+
+.gw-s-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.gw-s-filter {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--gw-s-line);
+    border-radius: 999px;
+    padding: 2px 9px;
+    background: none;
+    color: var(--gw-s-muted);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.gw-s-filter[aria-pressed="true"] {
+    background: var(--gw-s-chip);
+    color: var(--gw-ink);
+    border-color: var(--gw-s-indigo-line);
+}
+
+.gw-s-filter-n {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+.gw-s-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.gw-s-cat {
+    display: inline-flex;
+    border-radius: 6px;
+    padding: 1px 7px;
+    background: var(--gw-s-chip);
+    color: var(--gw-s-indigo-ink);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.gw-s-place {
+    color: var(--gw-s-muted);
+    font-size: 11px;
+}
+
+.gw-s-reason {
+    margin: 0 0 8px;
+    color: var(--gw-s-muted);
+    font-size: 12.5px;
+}
+
+/* The change in its sentence: the old line, then the new */
+
+.gw-s-diff {
+    margin-bottom: 10px;
+    border: 1px solid var(--gw-s-line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: #f7f8fa;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.gw-s-line {
+    margin: 0;
+}
+
+.gw-s-line + .gw-s-line {
+    margin-top: 4px;
+}
+
+.gw-s-ctx {
+    color: var(--gw-s-muted);
+}
+
+.gw-s-diff del {
+    border-radius: 3px;
+    padding: 0 2px;
+    background: var(--gw-s-del-fill);
+    color: var(--gw-s-del);
+    text-decoration-thickness: 1.5px;
+}
+
+.gw-s-diff ins {
+    border-radius: 3px;
+    padding: 0 2px;
+    background: var(--gw-s-ins-fill);
+    color: var(--gw-s-ins);
+    text-decoration: none;
+}
+
+.gw-s-phrase {
+    border-radius: 2px;
+    background: var(--gw-s-del-fill);
+    color: inherit;
+    font-weight: 600;
+}
+
+.gw-s-link-change {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+}
+
+.gw-s-arrow { color: var(--gw-s-muted); }
+.gw-s-target { font-weight: 600; }
+
+.gw-s-ask {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.gw-s-ask .text {
+    flex: 1;
+}
+
+.gw-s-edit {
+    margin-bottom: 8px;
+}
+
+.gw-s-edit[hidden],
+.gw-s-error[hidden],
+.gw-s-filters[hidden],
+.gw-s-status[hidden],
+.gw-s-all[hidden] {
+    display: none;
+}
+
+.gw-s-textarea {
+    width: 100%;
+    min-height: 3.2em;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.gw-s-hint,
+.gw-s-count {
+    margin: 4px 0 0;
+    color: var(--gw-s-muted);
+    font-size: 11.5px;
+}
+
+.gw-s-error {
+    margin: 6px 0 0;
+    color: var(--gw-s-del);
+    font-size: 12px;
+}
+
+.gw-s-src {
+    margin: 10px 0 0;
+    color: var(--gw-s-muted);
+    font-size: 11.5px;
+}
+
+.gw-s-last {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: var(--gw-green-fill);
+    color: var(--gw-green);
+    font-size: 12px;
+}
+
+.gw-s-linkbtn {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.gw-s-asset {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.gw-s-thumb {
+    flex: none;
+    width: 72px;
+    height: 52px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.gw-s-asset p {
+    margin: 2px 0 0;
+    color: var(--gw-s-muted);
+    font-size: 12px;
+}
+
+.gw-s-confirm {
+    margin-top: 10px;
+    border: 1px solid var(--gw-s-indigo-line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--gw-s-indigo-fill);
+}
+
+.gw-s-confirm p {
+    margin: 0 0 8px;
+}
+
+.gw-finish--suggest .gw-finish-guide__foot .gw-s-all {
+    color: var(--gw-s-indigo-ink);
+    font-weight: 500;
+}
+
+/* The confirm before a review */
+
+.gw-s-modal.modal {
+    width: 520px;
+    max-width: calc(100vw - 32px);
+    min-height: 0;
+    height: auto;
+}
+
+.gw-s-modal .body p {
+    margin: 0 0 10px;
+}
+
+.gw-s-modal .gw-s-cost {
+    font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gw-s-spinner {
+        animation: none;
+    }
+
+    [data-gw-suggest] {
+        transition: none;
+    }
+}
+
+@media (max-width: 639px) {
+    .gw-finish--suggest .gw-finish-guide {
+        width: auto;
+    }
+
+    .gw-finish--suggest .gw-finish-dock {
+        inset-inline-end: 84px;
+    }
+
+    [data-gw-suggest] {
+        outline-offset: 3px;
+    }
+}
+
+/* The step's words take focus to be read out, not to be typed in. */
+.gw-finish--suggest .gw-finish-guide__message:focus {
+    outline: none;
+}
