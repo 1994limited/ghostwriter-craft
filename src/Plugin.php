@@ -92,6 +92,7 @@ use yii\base\Event;
  * @property-read \nineteenninetyfour\ghostwriter\suggest\DbEditReviewStore $editReviewStore
  * @property-read \nineteenninetyfour\ghostwriter\suggest\DbRevisitStore $revisitStore
  * @property-read \nineteenninetyfour\ghostwriter\suggest\DbEntryIndex $entryIndex
+ * @property-read \NineteenNinetyFour\Ghostwriter\Core\Suggest\LinkIndex $linkIndex
  * @property-read \nineteenninetyfour\ghostwriter\suggest\Revisit $revisit
  * @property-read \nineteenninetyfour\ghostwriter\suggest\SuggestEdits $suggest
  * @method Settings getSettings()
@@ -104,7 +105,7 @@ class Plugin extends BasePlugin
     /** Licensing stock images spends money: a permission of its own, given to nobody by default (admins have it). */
     public const LICENSE_PERMISSION = 'ghostwriter:license';
 
-    public string $schemaVersion = '1.3.0';
+    public string $schemaVersion = '1.4.0';
 
     public bool $hasCpSettings = true;
 
@@ -170,6 +171,9 @@ class Plugin extends BasePlugin
 
         // Scripted model replies for the end-to-end tests: off unless set up on a local site.
         FakeScenarios::register();
+
+        // The link index (SEO layer §7.1) is the entry index.
+        Craft::$container->setSingleton(\NineteenNinetyFour\Ghostwriter\Core\Suggest\LinkIndex::class, fn() => $this->entryIndex);
 
         Event::on(UserPermissions::class, UserPermissions::EVENT_REGISTER_PERMISSIONS, function(RegisterUserPermissionsEvent $event): void {
             $event->permissions[] = [
@@ -268,7 +272,8 @@ class Plugin extends BasePlugin
             \nineteenninetyfour\ghostwriter\gaps\Gaps::forgetRates($entry);
 
             try {
-                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry)) {
+                // Ghostwriter's sections, and every other section with URLs (link rows, SEO layer §7.1).
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry) || \nineteenninetyfour\ghostwriter\suggest\Revisit::linksTo($entry)) {
                     \nineteenninetyfour\ghostwriter\suggest\Revisit::queue($entry);
                 }
             } catch (\Throwable $exception) {
@@ -276,12 +281,63 @@ class Plugin extends BasePlugin
             }
         });
 
+        // Categories with URLs are link targets too: their link rows kept
+        // current, queued once; a deleted one forgotten and its linkers
+        // checked again.
+        Event::on(\craft\elements\Category::class, Element::EVENT_AFTER_SAVE, function(ModelEvent $event): void {
+            /** @var \craft\elements\Category $category */
+            $category = $event->sender;
+
+            try {
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::linksTo($category)) {
+                    \nineteenninetyfour\ghostwriter\suggest\Revisit::queue($category);
+                }
+            } catch (\Throwable $exception) {
+                Craft::warning("Ghostwriter couldn't queue the link index for category {$category->id}: {$exception->getMessage()}", 'ghostwriter');
+            }
+        });
+
+        Event::on(\craft\elements\Category::class, Element::EVENT_AFTER_DELETE, function(\yii\base\Event $event): void {
+            /** @var \craft\elements\Category $category */
+            $category = $event->sender;
+
+            try {
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::linksTo($category)) {
+                    $this->revisit->deleted($category);
+                }
+            } catch (\Throwable $exception) {
+                Craft::warning("Ghostwriter couldn't update the link index for deleted category {$category->id}: {$exception->getMessage()}", 'ghostwriter');
+            }
+        });
+
+        // A section's or category group's URLs, or a structure's order (key
+        // pages, nested URIs), changed: its link rows are written again on
+        // the next daily pass.
+        Event::on(\craft\services\Entries::class, \craft\services\Entries::EVENT_AFTER_SAVE_SECTION, function(\craft\events\SectionEvent $event): void {
+            \nineteenninetyfour\ghostwriter\suggest\LinkRows::mark((string) $event->section->handle);
+        });
+
+        Event::on(\craft\services\Categories::class, \craft\services\Categories::EVENT_AFTER_SAVE_GROUP, function(\craft\events\CategoryGroupEvent $event): void {
+            \nineteenninetyfour\ghostwriter\suggest\LinkRows::mark(\nineteenninetyfour\ghostwriter\suggest\CraftLinkSource::CATEGORY . $event->categoryGroup->handle);
+        });
+
+        // Craft 5.9 renamed the move event; both are listened to.
+        foreach (['afterMoveElement', 'afterUpdateElement'] as $name) {
+            Event::on(\craft\services\Structures::class, $name, function(\craft\events\MoveElementEvent $event): void {
+                $group = \nineteenninetyfour\ghostwriter\suggest\CraftLinkSource::groupOfStructure((int) $event->structureId);
+
+                if ($group !== null) {
+                    \nineteenninetyfour\ghostwriter\suggest\LinkRows::mark($group);
+                }
+            });
+        }
+
         Event::on(Entry::class, Element::EVENT_AFTER_DELETE, function(\yii\base\Event $event): void {
             /** @var Entry $entry */
             $entry = $event->sender;
 
             try {
-                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry)) {
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry) || \nineteenninetyfour\ghostwriter\suggest\Revisit::linksTo($entry)) {
                     $this->revisit->deleted($entry);
                 }
             } catch (\Throwable $exception) {
@@ -367,6 +423,15 @@ class Plugin extends BasePlugin
      * started, removing anyone's piece when conversations are shared. Like
      * the plugin's settings, that is an admin's call.
      */
+    /**
+     * The site's link targets (core's LinkIndex, SEO layer §7.1): the
+     * entry index, over its full and link rows.
+     */
+    public function getLinkIndex(): \NineteenNinetyFour\Ghostwriter\Core\Suggest\LinkIndex
+    {
+        return $this->entryIndex;
+    }
+
     public static function canManage(?\craft\elements\User $user): bool
     {
         return (bool) $user?->admin;
@@ -405,6 +470,8 @@ class Plugin extends BasePlugin
             'stock' => $this->stockSettings(),
             // For developers: templates that print no H1, a logo as the H1, or several (render profiles).
             'templateNotes' => array_values(array_filter(array_map(fn($profile) => $profile->note(), \nineteenninetyfour\ghostwriter\seo\HeadingProfiles::store()->all()))),
+            // For developers: sections over the link index's cap (SEO layer §7.1).
+            'linkNotes' => $this->revisit->linkRows()->notes(),
             'revisit' => [
                 'lastRun' => $this->revisit->lastRunText(),
                 'cron' => \nineteenninetyfour\ghostwriter\suggest\Revisit::CRON,

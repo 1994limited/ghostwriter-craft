@@ -53,6 +53,9 @@ class Store extends Component
     /** Each entry's title, address, summary and paragraph shingles, for Suggest edits' duplicate check and digest. */
     public const ENTRY_INDEX = '{{%ghostwriter_entry_index}}';
 
+    /** Each index row's stems (SEO layer §7.1), so a big site's link candidates are narrowed before they're scored. */
+    public const INDEX_STEMS = '{{%ghostwriter_index_stems}}';
+
     public function document(string $kind, string $handle): ?string
     {
         $body = (new Query())->select('body')->from(self::DOCUMENTS)->where(['kind' => $kind, 'handle' => $handle])->scalar();

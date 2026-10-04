@@ -8,7 +8,8 @@ use nineteenninetyfour\ghostwriter\Plugin;
 use yii\console\ExitCode;
 
 /**
- * Content to revisit from the command line. No model, ever.
+ * Content to revisit and the link index from the command line. No model,
+ * ever.
  *
  *     php craft ghostwriter/revisit/refresh          daily, from cron
  *     php craft ghostwriter/revisit/refresh --full   every page read again
@@ -39,6 +40,10 @@ class RevisitController extends Controller
         $read = Plugin::getInstance()->revisit->daily(full: $this->full, site: $this->site);
 
         $this->stdout($read === 1 ? "Content to revisit: 1 entry read.\n" : "Content to revisit: {$read} entries read.\n", Console::FG_GREEN);
+
+        foreach (Plugin::getInstance()->revisit->linkResults as $site => $result) {
+            $this->stdout("Link index, site {$site}: {$result['written']} written, {$result['forgotten']} forgotten, {$result['promoted']} made full, {$result['pending']} left for the next run.\n");
+        }
 
         return ExitCode::OK;
     }
