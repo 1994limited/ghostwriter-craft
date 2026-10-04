@@ -533,7 +533,8 @@
             const above = anchor.top - outer.top - height - 6;
             const top = below + height > this.container.clientHeight - 4 && above > 4 ? above : Math.min(below, Math.max(4, this.container.clientHeight - height - 4));
 
-            Object.assign(this.root.style, { left: `${left}px`, top: `${top}px`, width: `${width}px` });
+            // In the container's own coordinates, should it have been scrolled (focus can scroll even a clipped box).
+            Object.assign(this.root.style, { left: `${left + this.container.scrollLeft}px`, top: `${top + this.container.scrollTop}px`, width: `${width}px` });
         }
 
         focusFirst() {
