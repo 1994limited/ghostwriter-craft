@@ -357,7 +357,9 @@ class SuggestEdits extends Component
                 ->innerJoin(['o' => '{{%elements_owners}}'], '[[o.elementId]] = [[e.id]]')
                 ->where(['o.ownerId' => $owner])
                 ->andWhere(['or', ['e.id' => [$id, $canonical]], ['e.canonicalId' => [$id, $canonical]]])
-                ->andWhere(['e.dateDeleted' => null])
+                // Not anyone's draft of the block (an entry opened in a
+                // slideout has its own): the copy the form shows.
+                ->andWhere(['e.dateDeleted' => null, 'e.draftId' => null, 'e.revisionId' => null])
                 ->orderBy(['e.id' => SORT_DESC])
                 ->scalar();
             $owner = $found ? (int) $found : $id;

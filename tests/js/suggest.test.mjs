@@ -115,3 +115,14 @@ test('inline markdown becomes words, or pieces with CKEditor attributes and Craf
     ]);
     assert.equal(S.editorHref('{entry:41@2:url}'), '#entry:41@2:url');
 });
+
+test('a CKEditor nested entry is found in the editor model by the entry ID it holds', () => {
+    const element = (name, entryId) => ({ name, getAttribute: (key) => (key === 'entryId' ? entryId : null) });
+    const quote = element('craftEntryModel', '655');
+    const walk = [{ item: element('paragraph') }, { item: element('craftEntryModel', '12') }, { item: quote }];
+
+    assert.equal(S.entryModel(walk, 655), quote);
+    assert.equal(S.entryModel(walk, '655'), quote);
+    assert.equal(S.entryModel(walk, 99), null);
+    assert.equal(S.entryModel(null, 655), null);
+});

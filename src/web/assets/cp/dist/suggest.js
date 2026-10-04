@@ -587,10 +587,26 @@
         return String(fact.template).replace('{answer}', filled);
     }
 
+    /**
+     * A CKEditor nested entry's element in the editor's model, by the
+     * entry ID it holds, from a walk of the model
+     * (`model.createRangeIn(root)`); null when it isn't there.
+     */
+    function entryModel(walk, id) {
+        for (const value of walk ?? []) {
+            const item = value?.item ?? value;
+
+            if (item?.name === 'craftEntryModel' && String(item.getAttribute?.('entryId')) === String(id)) return item;
+        }
+
+        return null;
+    }
+
     Ghostwriter.SuggestHelpers = {
         normalise, findQuote, utf16, rangeIn, FUZZY, FUZZY_MIN,
         tokens, plain, editorHref, pieces,
         WORDING, isOpen, stepsFrom, visible, nextOpen, previous, following, filters, counts, fieldStates, tagText, wordingFixes, versionsOf, fillFact,
+        entryModel,
     };
 
     if (!window.Garnish || !Ghostwriter.Finish) return;
@@ -1707,7 +1723,9 @@
          * Actions
          * ------------------------------------------------------------------ */
 
-        accept(step, words, { edited = false, answer = null } = {}) {
+        async accept(step, words, { edited = false, answer = null } = {}) {
+            await this.reachCard(step);
+
             const change = this.replace(step, words);
 
             if (!change) {
@@ -1764,6 +1782,7 @@
                     return;
                 }
             } else if (mine?.change) {
+                await this.reachCard(step);
                 this.restoreChange(step, mine.change);
             }
 
@@ -2175,6 +2194,92 @@
             return at;
         },
 
+        /**
+         * Reveal the step's field; in a nested entry shown as a card (an
+         * entry nested in a CKEditor field, or a Matrix entry in cards
+         * view), open the card's slideout first, as a double-click on it
+         * does, and wait for its form. A change made there goes into the
+         * person's draft when the slideout is saved, as any edit there
+         * does: nothing is saved to the entry.
+         */
+        async reach(step) {
+            const field = await this.reveal(step);
+
+            if (field) return field;
+
+            const found = this.cardFor(step);
+
+            if (!found) return null;
+
+            this.openCard(found);
+
+            const opened = await this.waitFor(() => this.locate(step));
+
+            if (opened) this.showTab(opened);
+
+            return opened;
+        },
+
+        /** The card's slideout, before a change goes in there, when its field isn't drawn in the form. */
+        async reachCard(step) {
+            if (step.scope !== 'asset' && !this.locate(step) && this.cardFor(step)) await this.reach(step);
+        },
+
+        /**
+         * A card's slideout: CKEditor's own for an entry nested in it (so
+         * its save goes into the person's draft as CKEditor puts it there),
+         * else Craft's element editor, as Finish opens a Matrix card.
+         */
+        openCard({ id, card }) {
+            const editor = card.closest('.ck-editor__editable')?.ckeditorInstance ?? null;
+            const ui = editor?.plugins?.has?.('CraftEntriesUI') ? editor.plugins.get('CraftEntriesUI') : null;
+            const model = ui ? H.entryModel(editor.model.createRangeIn(editor.model.document.getRoot()), card.dataset.id ?? id) : null;
+
+            if (model && typeof ui._initEditEntrySlideout === 'function') {
+                ui._initEditEntrySlideout(null, model);
+            } else {
+                Craft.createElementEditor(ENTRY, card, { siteId: this.config.siteId });
+            }
+
+            this.watchSlideout(id);
+        },
+
+        /**
+         * Once the card's slideout is open: saving it puts the nested entry
+         * in the person's draft, under an ID of its own there, so the guide
+         * asks where each suggestion is again; closing it, each one's words
+         * are looked for again.
+         */
+        async watchSlideout(id) {
+            const container = await this.waitFor(() => this.slideoutFor(id));
+            const slideout = container ? $(container).data('slideout') ?? $(container).closest('.slideout-container').data('slideout') : null;
+
+            if (!slideout?.on || slideout.gwSuggest) return;
+
+            slideout.gwSuggest = true;
+            slideout.on('submit', () => setTimeout(() => this.load(), 300));
+            slideout.on('close', () => this.later(100));
+        },
+
+        /** What `find` finds, looked for until it's there or a few seconds have passed (then null). */
+        waitFor(find, wait = 8000) {
+            const started = Date.now();
+
+            return new Promise((resolve) => {
+                const look = () => {
+                    const found = find();
+
+                    if (found || Date.now() - started > wait) {
+                        resolve(found ?? null);
+                    } else {
+                        setTimeout(look, 150);
+                    }
+                };
+
+                look();
+            });
+        },
+
         /** The input to write to for a plain value: the title, an SEOmatic value, or the field's text box. */
         inputFor(step) {
             const field = this.locate(step);
@@ -2317,7 +2422,7 @@
 
             if (!target) return null;
 
-            const field = await this.reveal(step);
+            const field = await this.reach(step);
             const editor = this.ckeditorIn(field);
 
             if (editor && step.quote) {

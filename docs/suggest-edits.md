@@ -9,7 +9,7 @@ On an existing entry, open the Ghostwriter menu beside **Edit with Ghostwriter**
 - **Two calls to your AI provider** for a page: one reviews the page, a second double-checks every suggestion before you see it. A long page is read in parts, and the confirm says how many calls that makes.
 - How many things the free checks found already, to be checked in context.
 
-The review reads the page as your form has it: your provisional draft, unsaved changes and all. It runs on the queue. While it runs, the menu beside **Edit with Ghostwriter** has **Review suggestions** (which opens the guide) and the guide shows its progress ("Reviewing… then double-checking"). You can keep working on the page; a decision made meanwhile is sent once the review is ready.
+The review reads the page as your form has it: your provisional draft, unsaved changes and all. That includes the entries nested in a CKEditor field (a pull quote, a call to action), each read as a Matrix entry is. It runs on the queue. While it runs, the menu beside **Edit with Ghostwriter** has **Review suggestions** (which opens the guide) and the guide shows its progress ("Reviewing… then double-checking"). You can keep working on the page; a decision made meanwhile is sent once the review is ready.
 
 ### What it suggests
 
@@ -32,7 +32,7 @@ The guide is Finish this page's: the flying mark, the dock and the highlights, w
 - **Filters**: All, then one per category, with how many are open.
 - **Accept all wording fixes** accepts every open Voice, Clarity and SEO suggestion in the filter (never facts, links, alt text or dates). **Undo all** puts them back.
 - **Undo** after any decision puts the words back.
-- Everything goes **into the form**: CKEditor through its own editor (bold, italic and links kept, so ⌘Z works too), text fields as if typed. Craft autosaves your provisional draft as it does for any typing; **nothing is saved to the entry until you save it** (alt text aside). When you do, the suggestions whose words are in the page are marked done, and the page's row on Content to revisit is checked again.
+- Everything goes **into the form**: CKEditor through its own editor (bold, italic and links kept, so ⌘Z works too), text fields as if typed. Craft autosaves your provisional draft as it does for any typing; **nothing is saved to the entry until you save it** (alt text aside). A suggestion in an entry nested in a CKEditor field (or a Matrix entry shown as cards) opens that entry's slideout and goes in there: **Save** in the slideout puts it into your draft, as any edit there does. When you do, the suggestions whose words are in the page are marked done, and the page's row on Content to revisit is checked again.
 - Decisions are shared with everyone who can edit the page (as conversations are, with **Shared conversations** on) and kept as the page's history. Suggestions nobody acted on expire after 14 days; the decisions stay.
 - A review opened later shows its count on the menu and the guide minimised (**Review suggestions** in the menu opens it). If you edit text a suggestion was about, it's marked "This text has changed since the review." Accepted but never saved, it's open again.
 - **Keyboard**: Alt+Shift+N and P step through, Alt+Shift+G opens or minimises, Esc minimises from inside the guide, Enter puts in an answer or your edit and Esc puts it back. Changes are announced to screen readers.
@@ -44,7 +44,7 @@ The guide is Finish this page's: the flying mark, the dock and the highlights, w
 
 ### What it checks
 
-Every live entry in a section Ghostwriter writes for is checked, for nothing: no model is ever asked.
+Every live entry in a section Ghostwriter writes for is checked, for nothing: no model is ever asked. The entries nested in its CKEditor fields are checked with it.
 
 | Reason | What it means |
 | --- | --- |
