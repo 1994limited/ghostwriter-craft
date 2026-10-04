@@ -909,7 +909,6 @@
             const cost = calls > 1
                 ? t('This page is long, so it’s read in {calls} parts, each reviewed and then double-checked: {total} calls to your AI provider.', { calls, total: calls * 2 })
                 : t('Uses Ghostwriter twice: one call reviews the page, a second double-checks every suggestion before you see it.');
-            const found = info.candidates ? (info.candidates === 1 ? t('1 thing found already, without AI, to check in context.') : t('{count} things found already, without AI, to check in context.', { count: info.candidates })) : '';
             const id = `gw-s-confirm-${Date.now()}`;
             const $modal = $(`
                 <div class="modal fitted gw-s-modal" role="dialog" aria-modal="true" aria-labelledby="${id}" data-ghostwriter-suggest-confirm>
@@ -917,7 +916,6 @@
                         <h2 id="${id}">${esc(t('Suggest edits'))}</h2>
                         <p>${esc(t('Ghostwriter reads this page against your voice guide and the rest of the site, and suggests small changes for you to accept or not. Each suggestion is checked in its paragraph before you see it.'))}</p>
                         <p>${esc(t('Nothing changes until you accept a suggestion, and nothing is saved until you save. Alt text is the one exception: it’s saved to the image, after you confirm.'))}</p>
-                        ${found ? `<p class="light">${esc(found)}</p>` : ''}
                         ${info.configured ? `<p class="gw-s-cost">${esc(cost)}</p>` : `<p class="warning">${esc(t('Add an API key first: Suggest edits reads the page with your AI provider.'))}</p>`}
                         <p class="error hidden" role="alert"></p>
                     </div>
@@ -1145,7 +1143,6 @@
 
             if (this.status === 'running') text = review?.status === 'queued' ? t('Waiting to start…') : t('Reviewing… then double-checking. Ghostwriter reads each thing it found in its paragraph, then checks every suggestion again before you see it.');
             else if (this.status === 'failed') text = t('I couldn’t finish reading the page: {reason}', { reason: review?.error ?? t('the AI provider didn’t answer') });
-            else if (this.status === 'ready' && this.data.checked) text = this.data.checked === 1 ? t('1 thing it found was fine in context, so it isn’t shown.') : t('{count} things it found were fine in context, so they aren’t shown.', { count: this.data.checked });
             else if (review?.truncated) text = t('I ran out of room; these are the first {count}.', { count: this.steps.length });
             else if (review && !review.fresh && review.ago) text = t('From a review {ago}. The page has changed since; suggestions that no longer fit are marked.', { ago: review.ago });
 
@@ -1153,9 +1150,12 @@
 
             if (!text) return;
 
-            if (this.status === 'running') this.$status.append('<span class="gw-s-spinner" aria-hidden="true"></span>');
+            // The spinner sits before the words, on their first line.
+            const $line = $('<span class="gw-s-status__line"/>').appendTo(this.$status);
 
-            this.$status.append($('<span/>').text(text));
+            if (this.status === 'running') $line.append('<span class="gw-s-spinner" aria-hidden="true"></span>');
+
+            $line.append($('<span class="gw-s-status__text"/>').text(text));
 
             if (this.status === 'running') {
                 this.$status.append(`<ol class="gw-s-phases" aria-label="${esc(t('Progress'))}">
@@ -1209,7 +1209,8 @@
             this.$guide.find('.gw-finish-guide__step').text('');
 
             const finish = Ghostwriter.finish;
-            const left = finish && finish !== this ? finish.count?.() ?? 0 : 0;
+            // The same number as the menu's: nothing while Finish this page isn't out.
+            const left = finish && finish !== this ? finish.left?.() ?? 0 : 0;
             let text;
 
             if (this.status === 'running') text = t('Suggestions show here once Ghostwriter has checked each one in its paragraph.');
@@ -1231,8 +1232,7 @@
             if (left) {
                 this.button(left === 1 ? t('1 thing still to finish') : t('{count} things still to finish', { count: left }), () => {
                     this.minimise(true);
-                    finish.minimise(false);
-                    finish.go(finish.firstOpen());
+                    finish.open();
                 }).appendTo($fixes);
             }
 

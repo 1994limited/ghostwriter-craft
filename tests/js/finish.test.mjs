@@ -311,3 +311,48 @@ test('the mark\'s words go where they fit', () => {
     assert.equal(H.saySide(150, 300, 375), 'below-right');
     assert.equal(H.saySide(250, 300, 375), 'below-left');
 });
+
+// Entry 168, "A roof garden for a cafe in Newcastle": its one gap was the
+// required Hero image left empty (severity `required`, nothing that blocks),
+// so Finish this page stayed in (`shown` false) and the menu said nothing,
+// but Suggest edits' end said "1 thing still to finish", and its button
+// opened a guide that was never out.
+const heroImage = () => ({
+    id: 'image-empty|heroImage||0', kind: 'image-empty', severity: 'required', path: 'heroImage', dotted: 'heroImage', field: 'heroImage', label: 'Hero image',
+    hint: null, excerpt: null, occurrence: 0, message: 'Hero image is empty. Pages like this usually have an image here.', speech: 'Empty!', blocks: false, meta: [],
+    fixes: [{ label: 'Find a photo', action: 'find-photo', cost: 'free', primary: true }, { label: 'Choose from Assets', action: 'choose-asset', cost: 'free', primary: false }],
+    location: { elementId: 172, handle: 'heroImage', blocks: [], field: 'heroImage' },
+});
+
+test('what is left to finish is one number everywhere: nothing until the guide is out', () => {
+    const steps = H.stepsFrom([heroImage()]);
+
+    assert.equal(H.counts(steps, 0).count, 1, 'The guide itself counts the empty hero image.');
+    assert.equal(H.published(steps, 0, false), 0, 'Not out yet: the menu, its row and Suggest edits say nothing.');
+    assert.equal(H.published(steps, 0, true), 1, 'Once out, every count says 1.');
+});
+
+test('a guide opened from a count lands on what it counted, skipped or not', () => {
+    const open = H.stepsFrom([heroImage()]);
+    const skipped = H.stepsFrom([heroImage()], { skipped: new Set(['image-empty|heroImage||0']) });
+
+    assert.equal(H.firstToDo(open), 0);
+    assert.equal(H.firstOpen(skipped), 1, 'Nothing open: the end.');
+    assert.equal(H.firstToDo(skipped), 0, 'But the skipped one still counts, so the guide opens on it.');
+    assert.equal(H.firstToDo([]), 0);
+});
+
+test('the mark’s words go where they cover none of the page’s text', () => {
+    // Above the guide, near the right edge: the sidebar's "Updated at" value is on its left.
+    const covered = new Set(['left', 'below-left', 'below-right']);
+
+    assert.equal(H.saySide(1330, 60, 1400, { covers: (side) => covered.has(side), y: 700 }), 'above-left');
+    assert.equal(H.saySide(500, 60, 1400, { covers: () => false, y: 700 }), 'right', 'Nothing in the way: the reading side.');
+    assert.equal(H.saySide(500, 60, 1400, { covers: (side) => side === 'right', y: 700 }), 'left');
+    assert.equal(H.saySide(1330, 60, 1400, { covers: () => true, y: 700 }), 'left', 'Text everywhere: the side that fits.');
+    assert.equal(H.saySide(1330, 60, 1400, { covers: (side) => side !== 'below-left', y: 10 }), 'below-left', 'No room above.');
+
+    const rect = H.sayRect('above-left', 1330, 700, 60, 20);
+    assert.deepEqual({ ...rect }, { left: 1314, top: 676, right: 1374, bottom: 696 });
+    assert.deepEqual({ ...H.sayRect('left', 1330, 700, 60, 20) }, { left: 1268, top: 702, right: 1328, bottom: 722 });
+});

@@ -522,11 +522,18 @@
     top: 46px;
 }
 
+.gw-finish-flyer[data-say^="above"] .gw-finish-flyer__say {
+    top: auto;
+    bottom: calc(100% + 4px);
+}
+
+.gw-finish-flyer[data-say="above-left"] .gw-finish-flyer__say,
 .gw-finish-flyer[data-say="below-left"] .gw-finish-flyer__say {
     left: auto;
     right: 0;
 }
 
+.gw-finish-flyer[data-say="above-right"] .gw-finish-flyer__say,
 .gw-finish-flyer[data-say="below-right"] .gw-finish-flyer__say {
     left: 0;
     right: auto;
