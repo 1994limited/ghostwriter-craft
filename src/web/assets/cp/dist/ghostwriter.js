@@ -339,7 +339,8 @@
             this.panel = null;
 
             $(() => {
-                this.addListener($('#ghostwriter-launch'), 'click', () => this.open(this.panel ? null : config.current));
+                // The button, or its own item in the menu beside it.
+                this.addListener($('#ghostwriter-launch, [data-gw-launch]'), 'click', () => this.open(this.panel ? null : config.current));
 
                 // A conversation named in the address wins; otherwise carry
                 // on with this entry's own, unless a plan idea is being opened.

@@ -4,7 +4,6 @@ namespace nineteenninetyfour\ghostwriter\gaps;
 
 use Craft;
 use craft\elements\Entry;
-use craft\helpers\Html;
 use craft\helpers\Json;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
 use nineteenninetyfour\ghostwriter\controllers\GapsController;
@@ -12,8 +11,8 @@ use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\web\assets\cp\GhostwriterAsset;
 
 /**
- * "Finish this page" on an entry's edit screen: the count pill beside the
- * entry's buttons, and the guide (the floating panel, the dock it
+ * "Finish this page" on an entry's edit screen: its count on the menu
+ * beside Edit with Ghostwriter (Launcher), and the guide (the floating panel, the dock it
  * minimises to, the flying Ghostwriter mark and the highlights), which
  * asks gaps/check what is unfinished in the entry as the form has it.
  *
@@ -47,17 +46,22 @@ class FinishGuide
         'Ghostwriter couldn’t find that gap in the field any more.', 'Something went wrong.', 'That didn’t change the field. Try another fix, or change it yourself.',
     ];
 
-    public static function buttonFor(Entry $entry): string
+    /**
+     * Puts the guide on this entry's screen, where it belongs, and says
+     * whether it did. Its count is on the menu beside Edit with
+     * Ghostwriter (Launcher::buttonFor()).
+     */
+    public static function register(Entry $entry): bool
     {
         $request = Craft::$app->getRequest();
         $user = Craft::$app->getUser()->getIdentity();
 
         if (!$request->getIsCpRequest() || !$user || !$entry->id || $entry->getIsRevision()) {
-            return '';
+            return false;
         }
 
         if (!$user->can(Plugin::PERMISSION) || !Gaps::writesHere($entry) || !Craft::$app->getElements()->canView($entry, $user)) {
-            return '';
+            return false;
         }
 
         $view = Craft::$app->getView();
@@ -83,13 +87,7 @@ class FinishGuide
         $view->registerTranslations('ghostwriter', self::JS_STRINGS);
         $view->registerJs('new Ghostwriter.Finish(' . Json::encode($config) . ');');
 
-        // Filled in by the script once it knows the count; hidden until then.
-        return Html::button(Html::tag('span', '', ['class' => 'gw-mark', 'aria-hidden' => 'true']) . Html::tag('span', '', ['class' => 'gw-finish-pill__text']), [
-            'type' => 'button',
-            'class' => 'btn gw-finish-pill hidden',
-            'id' => 'gw-finish-pill',
-            'aria-keyshortcuts' => 'Alt+Shift+G',
-        ]);
+        return true;
     }
 
     /**

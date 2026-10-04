@@ -36,7 +36,7 @@ test('counted gaps come first, suggestions after, numbered on their own', () => 
     assert.equal(numbers.number, 1);
     assert.equal(numbers.suggestions, 1);
     assert.equal(numbers.total, 8);
-    assert.equal(numbers.count, 8, 'The pill counts what blocks, not the suggestion.');
+    assert.equal(numbers.count, 8, 'The menu counts what blocks, not the suggestion.');
     assert.equal(H.counts(steps, 6).number, 7);
 });
 
@@ -257,4 +257,14 @@ test('a chip row goes after the wrappers holding only the box, inside its field 
     node('.input', [box, node('p')]);
     assert.equal(H.rowAnchor(withRow), box, 'its own row isn’t a sibling that counts');
     assert.match(H.CHIP_CONTROLS, /table\.editable textarea/);
+});
+
+test('the menu beside Edit with Ghostwriter: one count, amber while anything is left to finish, read out in full', () => {
+    const plain = (value) => JSON.parse(JSON.stringify(value));
+
+    assert.deepEqual(plain(H.menuBadge(3, 7)), { total: 10, tone: 'finish', label: '10 items: 3 to finish, 7 suggestions' });
+    assert.deepEqual(plain(H.menuBadge(2, 1)), { total: 3, tone: 'finish', label: '3 items: 2 to finish, 1 suggestion' });
+    assert.deepEqual(plain(H.menuBadge(3, 0)), { total: 3, tone: 'finish', label: '3 to finish' });
+    assert.deepEqual(plain(H.menuBadge(0, 7)), { total: 7, tone: 'suggest', label: '7 suggestions' }, 'Only suggestions: grey, never amber.');
+    assert.deepEqual(plain(H.menuBadge(0, 0)), { total: 0, tone: 'suggest', label: '' }, 'Nothing: no count.');
 });

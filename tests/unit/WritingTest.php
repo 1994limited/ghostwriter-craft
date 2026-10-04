@@ -691,6 +691,17 @@ class WritingTest extends TestCase
         // An entry that already exists is edited instead.
         $this->assertStringContainsString('Edit with Ghostwriter', Launcher::buttonFor($this->entry('One')));
 
+        // With its menu: the counted rows first (hidden until a guide has a
+        // count), then the button's own item; the count goes on the menu's button.
+        $html = Launcher::buttonFor($this->entry('One'), true);
+        $this->assertStringContainsString('class="btngroup gw-launch"', $html);
+        $this->assertStringContainsString('data-gw-menu-row="finish"', $html);
+        $this->assertStringContainsString('data-gw-menu-row="suggest"', $html);
+        $this->assertStringContainsString('data-gw-launch', $html);
+        $this->assertStringContainsString('data-gw-menu-total', $html);
+        $this->assertStringContainsString('aria-label="More ways to edit with Ghostwriter"', $html);
+        $this->assertLessThan(strpos($html, 'data-gw-launch'), strpos($html, 'data-gw-menu-row="finish"'));
+
         // Not in a section it does not write for.
         $this->plugin->getSettings()->sections = ['press'];
         $this->assertSame('', Launcher::buttonFor($this->newDraft($this->articles)));
@@ -741,7 +752,7 @@ class WritingTest extends TestCase
             $view->clear();
             Launcher::buttonFor($entry);
             $js = implode("\n", array_merge(...array_values($view->js ?: [[]])));
-            preg_match('/new Ghostwriter\.Launcher\((\{.*\})\);/s', $js, $m);
+            preg_match('/new Ghostwriter\.Launcher\((\{.*\})\);$/m', $js, $m);
 
             return json_decode($m[1], true);
         };
