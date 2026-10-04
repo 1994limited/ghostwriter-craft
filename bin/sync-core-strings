@@ -5,9 +5,9 @@
  * Copies core's English strings with keys into Craft's translation file for
  * the `ghostwriter` category: "Finish this page" (resources/lang/en/gaps.php)
  * as `gaps.<key>`, and the brief in the conversation
- * (resources/lang/en/brief.php) as `brief.<key>`, and Suggest edits and
- * Content to revisit (suggest.php, revisit.php) as `suggest.<key>` and
- * `revisit.<key>`, with Craft's `{name}`
+ * (resources/lang/en/brief.php) as `brief.<key>`, and Suggest edits,
+ * Content to revisit and the SEO layer (suggest.php, revisit.php, seo.php)
+ * as `suggest.<key>`, `revisit.<key>` and `seo.<key>`, with Craft's `{name}`
  * parameters in place of Laravel's `:name`. Run it after updating core; a
  * test fails while the two differ.
  *
@@ -30,13 +30,13 @@ foreach (require dirname(__DIR__) . '/vendor/1994/ghostwriter-core/resources/lan
     $strings["brief.{$key}"] = $craft($text);
 }
 
-foreach (['suggest', 'revisit'] as $namespace) {
+foreach (['suggest', 'revisit', 'seo'] as $namespace) {
     foreach (Message::strings($namespace) as $key => $text) {
         $strings["{$namespace}.{$key}"] = $craft($text);
     }
 }
 
-$lines = ["<?php", "", "/*", " * Ghostwriter's English strings with keys rather than source text: those", " * for \"Finish this page\", the brief in the conversation, Suggest edits", " * and Content to revisit, copied from ghostwriter-core's", " * resources/lang/en/gaps.php, brief.php, suggest.php and revisit.php by", " * bin/sync-core-strings. Don't edit by hand.", " */", "", "return ["];
+$lines = ["<?php", "", "/*", " * Ghostwriter's English strings with keys rather than source text: those", " * for \"Finish this page\", the brief in the conversation, Suggest edits,", " * Content to revisit and the SEO layer, copied from ghostwriter-core's", " * resources/lang/en/gaps.php, brief.php, suggest.php, revisit.php and", " * seo.php by bin/sync-core-strings. Don't edit by hand.", " */", "", "return ["];
 
 foreach ($strings as $key => $text) {
     $lines[] = '    ' . var_export($key, true) . ' => ' . var_export($text, true) . ',';

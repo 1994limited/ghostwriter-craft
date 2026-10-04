@@ -685,6 +685,129 @@
     Ghostwriter.GapPopover = GapPopover;
 
     /**
+     * A link Ghostwriter added to another page of the site, in the Text and
+     * Blocks tabs (SEO layer §7.5): hovering, focusing or clicking its
+     * dotted words opens this small popover beside them with the page it
+     * goes to (title, type, address), why it was chosen, Open page, and
+     * Remove link, which keeps the words. It isn't modal: the draft stays
+     * usable, Esc closes it and puts focus back on the writing, and moving
+     * away closes it after a moment.
+     */
+    class LinkPopover {
+        /**
+         * @param {{words: string, href: string, title: string, type: string, url: ?string, open_url: ?string, why: string}} link
+         * @param {HTMLElement} anchor The link's element in the draft.
+         * @param {HTMLElement} container The positioned element it sits in.
+         * @param {{remove: (href: string) => void, close: (refocus: boolean) => void, stay: () => void, leave: () => void}} actions
+         * @param {{disabled: boolean}} options
+         */
+        constructor(link, anchor, container, actions, { disabled = false } = {}) {
+            this.link = link;
+            this.anchor = anchor;
+            this.container = container;
+            this.actions = actions;
+            this.busy = false;
+            this.disabled = disabled;
+            this.id = `gw-link-${++LinkPopover.ids}`;
+
+            const root = document.createElement('div');
+            root.className = 'gw-link-popover';
+            root.setAttribute('role', 'dialog');
+            root.setAttribute('aria-labelledby', `${this.id}-title`);
+            root.setAttribute('aria-describedby', `${this.id}-by`);
+            root.setAttribute('tabindex', '-1');
+            root.dataset.ghostwriterLinkPopover = '';
+            this.root = root;
+            this.draw();
+            container.appendChild(root);
+
+            this.place = this.place.bind(this);
+            root.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+
+                event.preventDefault();
+                event.stopPropagation();
+                this.actions.close(true);
+            });
+            root.addEventListener('click', (event) => {
+                if (event.target.closest('[data-ghostwriter-remove-link]') && !this.busy && !this.disabled) {
+                    this.busy = true;
+                    this.draw();
+                    this.actions.remove(this.link.href);
+                }
+            });
+            root.addEventListener('mouseenter', () => this.actions.stay());
+            root.addEventListener('mouseleave', () => this.actions.leave());
+            document.addEventListener('scroll', this.place, true);
+            window.addEventListener('resize', this.place);
+
+            this.place();
+        }
+
+        draw() {
+            const link = this.link;
+            const ghost = '<svg class="gw-link-popover__mark" viewBox="0 0 14 14" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M2.5 12.5V6a4.5 4.5 0 0 1 9 0V9.5H8.5V12.5Z M4.75 6.25a.65.65 0 1 0 1.3 0a.65.65 0 1 0-1.3 0Z M7.95 6.25a.65.65 0 1 0 1.3 0a.65.65 0 1 0-1.3 0Z"/></svg>';
+
+            this.root.innerHTML = `
+                <p class="gw-link-popover__head"><span class="gw-link-popover__title" id="${this.id}-title">${esc(link.title)}</span>${link.type ? `<span class="gw-link-popover__type">${esc(link.type)}</span>` : ''}</p>
+                ${link.url ? `<p class="gw-link-popover__url" title="${esc(link.url)}">${esc(link.url)}</p>` : ''}
+                ${link.why ? `<p class="gw-link-popover__why">${esc(link.why)}</p>` : ''}
+                <p class="gw-link-popover__by light" id="${this.id}-by">${ghost}${esc(t('seo.link.added-long'))}</p>
+                <div class="gw-link-popover__actions">
+                    ${link.open_url ? `<a class="btn small" href="${esc(link.open_url)}" target="_blank" rel="noopener" data-ghostwriter-open-link>${esc(t('seo.link.open'))} <span aria-hidden="true">↗</span><span class="visually-hidden"> (${esc(t('opens in a new tab'))})</span></a>` : ''}
+                    <button type="button" class="btn small ${this.busy ? 'loading' : ''}" data-ghostwriter-remove-link ${this.busy || this.disabled ? 'disabled' : ''}>${esc(t('seo.link.remove'))}</button>
+                </div>`;
+        }
+
+        // Below the words (above them when there's no room), inside the container.
+        place() {
+            if (!this.anchor?.isConnected) return;
+
+            const outer = this.container.getBoundingClientRect();
+            const anchor = this.anchor.getBoundingClientRect();
+            const width = Math.min(330, Math.max(220, this.container.clientWidth - 16));
+            const height = this.root.offsetHeight || 150;
+            const left = Math.min(Math.max(8, anchor.left - outer.left), Math.max(8, this.container.clientWidth - width - 8));
+            const below = anchor.bottom - outer.top + 6;
+            const above = anchor.top - outer.top - height - 6;
+            const top = below + height > this.container.clientHeight - 4 && above > 4 ? above : below;
+
+            Object.assign(this.root.style, { left: `${left + this.container.scrollLeft}px`, top: `${top + this.container.scrollTop}px`, width: `${width}px` });
+        }
+
+        // Another render: the same link's new element, or none.
+        moveTo(anchor) {
+            this.anchor = anchor;
+            this.place();
+        }
+
+        setDisabled(disabled) {
+            if (this.disabled === disabled) return;
+
+            this.disabled = disabled;
+            this.draw();
+        }
+
+        idle() {
+            this.busy = false;
+            this.draw();
+        }
+
+        focus() {
+            (this.root.querySelector('button:not([disabled]), a[href]') ?? this.root).focus();
+        }
+
+        destroy() {
+            document.removeEventListener('scroll', this.place, true);
+            window.removeEventListener('resize', this.place);
+            this.root.remove();
+        }
+    }
+
+    LinkPopover.ids = 0;
+    Ghostwriter.LinkPopover = LinkPopover;
+
+    /**
      * A comment pinned where it was made: the block clicked (or the words
      * selected) in the Preview, inside the draft's pane, over the frame. It
      * isn't sent: it joins the editor's pins, to apply together. Opened again
@@ -956,6 +1079,10 @@
             this.addListener(this.$container, 'focusin', 'onFocusIn');
             this.addListener(this.$container, 'focusout', 'onFocusOut');
             this.addListener(this.$container, 'mousedown', 'onMouseDown');
+            // A link Ghostwriter added: hovering it, or the caret in it, opens its popover.
+            this.addListener(this.$container, 'mouseover', 'onMouseOver');
+            this.addListener(this.$container, 'mouseout', 'onMouseOut');
+            this.addListener(this.$container, 'keyup', 'onKeyUp');
 
             this.sizer = new ResizeObserver(() => this.measure());
             this.sizer.observe(this.$container[0]);
@@ -1051,6 +1178,8 @@
             }
             const stepChanged = !this.session;
             const filled = data.stage === 'proposed' && this.session?.stage === 'filling';
+            // The SEO pass has finished on the first draft: its notice is read out.
+            const checked = data.id === this.session?.id && this.session?.seo?.checking && !data.seo?.checking;
 
             // Another piece: its own preview. The same one: render the new
             // draft once the changes stop, or at once for the first draft.
@@ -1060,6 +1189,7 @@
                 this.page?.reset();
                 this.cards?.reset();
                 this.closeGap(false);
+                this.closeLink(false);
                 this.closeBox(false);
                 this.focusedComment = null;
                 this.pending = this.storedPending(data.id);
@@ -1104,6 +1234,8 @@
 
             this.$container.find('.gw-chat-log').each((i, log) => (log.scrollTop = log.scrollHeight));
             this.revealPicked(this.$container.find('.gw-brief-card'));
+
+            if (checked) this.announce(data.seo?.notice ? `${t('Checked.')} ${data.seo.notice}` : t('Checked.'));
 
             // The brief is filled in: say so, and bring the card into view
             // with the focus on it, unless the person is typing elsewhere.
@@ -1190,6 +1322,12 @@
             return this.session?.status === 'working';
         },
 
+        // The SEO pass is still checking a first draft's headings and links:
+        // the draft can be read, but not used or changed until it's done.
+        checking() {
+            return Boolean(this.session?.seo?.checking);
+        },
+
         asking() {
             return this.session?.waitingOnYou === true && !this.working();
         },
@@ -1208,6 +1346,7 @@
             const drafted = !!this.session?.draft;
 
             if (this.session?.stage === 'filling') return t('brief.filling');
+            if (this.checking()) return t('seo.status.checking');
             if (this.session?.layouts?.planning) return t('Finding other layouts…');
 
             if (this.waited < 8) return drafted ? t('Reading your message…') : t('Reading the brief…');
@@ -1395,6 +1534,16 @@
         },
 
         onClick(event) {
+            // A link Ghostwriter added isn't followed from the draft: a click opens its popover.
+            const added = this.addedLinkAt(event.target);
+
+            if (added) {
+                event.preventDefault();
+                this.openLink(added);
+
+                return;
+            }
+
             const $target = $(event.target).closest('[data-action]');
 
             if (!$target.length || $target.prop('disabled')) return;
@@ -1707,8 +1856,16 @@
             if (element.querySelector('.gw-gap') && Ghostwriter.gapMarkersLoaded) {
                 const clone = element.cloneNode(true);
                 Ghostwriter.gapMarkersLoaded.unmarkGaps(clone);
+                this.unmarkAddedLinks(clone);
 
                 return html ? clone.innerHTML : clone.textContent.replace(/\n$/, '');
+            }
+
+            if (html && element.querySelector('a.gw-added-link')) {
+                const clone = element.cloneNode(true);
+                this.unmarkAddedLinks(clone);
+
+                return clone.innerHTML;
             }
 
             return html ? $field.html() : element.innerText.replace(/\n$/, '');
@@ -1716,7 +1873,7 @@
 
         // A piece of writing that can be changed in place.
         editable(node, extra = '') {
-            const off = this.working() || this.editing;
+            const off = this.working() || this.editing || this.checking();
             // An extra's words are edited as the extra; the rest where they
             // are in the draft, which every layout shares.
             const where = node.extra
@@ -2183,6 +2340,10 @@
                     ${this.showBrief ? `<div class="gw-pre">${esc(session.briefText)}</div>` : ''}
                 </div>`;
 
+            // The first message with a draft: the SEO pass's notice goes under it.
+            const firstDraft = conversation.findIndex((entry) => entry.role === 'assistant' && entry.draft);
+            const checking = this.checking();
+
             conversation.forEach((entry, index) => {
                 if (entry.step === 'card') {
                     html += session.editing ? '' : this.briefCard(entry);
@@ -2245,6 +2406,7 @@
                         <div class="gw-bubble__who">${waiting ? `<span class="gw-bubble__flag">${esc(t('Ghostwriter needs your answer'))}</span>` : esc(!mine ? t('Ghostwriter') : (entry.mine === false ? entry.from : t('You')))}</div>
                         ${!mine && entry.html ? `<div class="gw-bubble__text gw-prose">${entry.html}</div>` : `<div class="gw-bubble__text gw-pre">${esc(entry.content)}</div>`}
                         ${entry.draft ? `<div class="gw-bubble__draft">✓ ${esc(this.draftNote(entry.draft))}</div>` : ''}
+                        ${index === firstDraft && (checking || session.seo?.notice) ? `<div class="gw-bubble__seo" data-ghostwriter-seo-notice>${esc(checking ? t('Checking headings and links…') : session.seo.notice)}</div>` : ''}
                     </div>`;
             });
 
@@ -2426,6 +2588,7 @@
         renderDraft() {
             const session = this.session;
             const working = this.working();
+            const checking = this.checking();
             let toolbar = `<span class="light" data-words>${esc(session.draft ? t('{count} words', { count: session.words.toLocaleString() }) : t('Draft'))}</span>`;
 
             const view = this.currentView();
@@ -2456,8 +2619,8 @@
                 toolbar += this.editing
                     ? `<div class="flex"><button type="button" class="btn small" data-action="cancel-edit">${esc(t('Cancel'))}</button><button type="button" class="btn small submit" data-action="save-draft">${esc(t('Save changes'))}</button></div>`
                     : `<div class="flex">
-                           <button type="button" class="btn small" data-action="edit" ${working ? 'disabled' : ''} title="${esc(t('Change the structure: add, move or remove blocks'))}">${esc(t('Edit YAML'))}</button>
-                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(session.editing ? t('Use these changes') : (session.layouts?.plans?.length > 1 && session.layouts.chosenName ? t('Use this draft ({layout})', { layout: session.layouts.chosenName }) : t('Use this draft')))}</button>
+                           <button type="button" class="btn small" data-action="edit" ${working || checking ? 'disabled' : ''} title="${esc(t('Change the structure: add, move or remove blocks'))}">${esc(t('Edit YAML'))}</button>
+                           <button type="button" class="btn small submit ${this.busy ? 'loading' : ''} ${working || checking || session.draftProblem ? 'disabled' : ''}" data-action="apply" ${working || checking || session.draftProblem || this.busy ? 'disabled' : ''}>${esc(session.editing ? t('Use these changes') : (session.layouts?.plans?.length > 1 && session.layouts.chosenName ? t('Use this draft ({layout})', { layout: session.layouts.chosenName }) : t('Use this draft')))}</button>
                        </div>`;
             }
 
@@ -2477,8 +2640,21 @@
                         ? `<textarea class="text fullwidth code gw-raw" rows="28" data-model="raw">${esc(this.raw)}</textarea>`
                         : (view === 'text' ? this.textView(session.preview) : (view === 'preview' ? '' : this.preview(session.preview))));
 
+                // The links Ghostwriter added are marked in the words (markAddedLinks()).
+                if (!this.editing && !session.draftProblem && view !== 'preview' && Object.keys(this.addedLinks()).length) {
+                    body = `<p class="light gw-added-links-note" id="gw-added-link-note" data-ghostwriter-added-links-note><span class="gw-added-link-sample" aria-hidden="true">${esc(t('Dotted links'))}</span> ${esc(t('were added by Ghostwriter. Hover one to see where it goes, or remove it.'))}</p>` + body;
+                }
+
                 if (!this.editing && !session.draftProblem && !working && view !== 'preview') {
                     body = `<p class="light gw-edit-hint">${esc(t('Click any writing (or Tab to it) to change it. It’s saved when you leave it; Esc puts it back.'))}</p>` + body;
+                }
+
+                // The SEO pass on a first draft: the draft can be read meanwhile, not used.
+                if (checking && !this.editing && !session.draftProblem) {
+                    body = `<div class="gw-checking" role="status" data-ghostwriter-checking>
+                        <p class="gw-checking__title"><span class="spinner small" aria-hidden="true"></span>${esc(t('seo.status.checking'))}</p>
+                        <p class="light">${esc(t('You can read the draft meanwhile. Use this draft is ready once the checks finish, so nothing changes under you.'))}</p>
+                    </div>` + body;
                 }
             }
 
@@ -2508,7 +2684,8 @@
 
             if (!$.contains($scroll[0], this.cards.root)) $scroll.prepend(this.cards.root);
 
-            this.cards.update(this.editing ? null : session, { busy: working || this.busy, previewable: this.config.preview });
+            // Not while the links are checked: the layouts come after them.
+            this.cards.update(this.editing || checking ? null : session, { busy: working || this.busy, previewable: this.config.preview });
             $scroll.children('.gw-draft__body')
                 .html(body)
                 .attr({ id: 'gw-draft-panel', role: session.draft && !this.editing ? 'tabpanel' : null, 'aria-labelledby': session.draft && !this.editing ? `gw-tab-${view}` : null })
@@ -2542,6 +2719,183 @@
             if (this.gap && (view !== this.gapView || this.editing)) this.closeGap(false);
 
             if (view === 'text' && !this.editing) this.paintChips();
+
+            this.markAddedLinks();
+            this.followLink();
+        },
+
+        // ---- Links Ghostwriter added (the Text and Blocks tabs) ------------
+
+        // The links Ghostwriter added to the draft, by the page they go to.
+        addedLinks() {
+            const links = {};
+
+            (this.session?.seo?.links ?? []).forEach((link) => {
+                const key = Ghostwriter.FinishHelpers?.linkKey(link.href);
+
+                if (key) links[key] = link;
+            });
+
+            return links;
+        },
+
+        // Each link to a page the SEO pass added gets a dotted mark (CSS
+        // only: nothing is written into the words, and fieldValue() leaves
+        // the mark out of what is saved). Run after every render, and
+        // whenever the writing is put back (a field left, chips painted).
+        markAddedLinks() {
+            const root = this.$container.find('.gw-draft__body')[0];
+
+            if (!root) {
+                this.linkWatch?.disconnect();
+                this.linkWatch = null;
+                this.linkRoot = null;
+
+                return;
+            }
+
+            if (this.linkRoot !== root) {
+                this.linkWatch?.disconnect();
+                this.linkRoot = root;
+                this.linkWatch = new MutationObserver(() => this.markAddedLinks());
+            }
+
+            this.linkWatch.disconnect();
+
+            const links = this.addedLinks();
+
+            root.querySelectorAll('a[href]').forEach((anchor) => {
+                const added = links[Ghostwriter.FinishHelpers?.linkKey(anchor.getAttribute('href'))];
+
+                anchor.classList.toggle('gw-added-link', Boolean(added));
+
+                if (added) {
+                    anchor.dataset.gwAdded = '';
+                    anchor.setAttribute('aria-describedby', 'gw-added-link-note');
+                } else if (anchor.dataset.gwAdded !== undefined) {
+                    delete anchor.dataset.gwAdded;
+                    anchor.removeAttribute('aria-describedby');
+                }
+
+                if (!anchor.classList.length) anchor.removeAttribute('class');
+            });
+
+            this.linkWatch.observe(root, { childList: true, subtree: true });
+        },
+
+        // What is saved never carries the mark.
+        unmarkAddedLinks(element) {
+            element.querySelectorAll('a.gw-added-link, a[data-gw-added]').forEach((anchor) => {
+                anchor.classList.remove('gw-added-link');
+                delete anchor.dataset.gwAdded;
+                anchor.removeAttribute('aria-describedby');
+
+                if (!anchor.classList.length) anchor.removeAttribute('class');
+            });
+        },
+
+        addedLinkAt(target) {
+            const anchor = target instanceof Element ? target.closest('a.gw-added-link') : null;
+
+            if (!anchor || !this.$container[0].contains(anchor)) return null;
+
+            const link = this.addedLinks()[Ghostwriter.FinishHelpers?.linkKey(anchor.getAttribute('href'))];
+
+            return link ? { link, anchor } : null;
+        },
+
+        openLink(found) {
+            clearTimeout(this.linkTimer);
+
+            if (this.linkPop?.anchor === found.anchor) return;
+
+            this.closeLink(false);
+
+            const container = this.$container.find('.gw-draft')[0];
+
+            if (!container) return;
+
+            this.linkPop = new LinkPopover(found.link, found.anchor, container, {
+                remove: (href) => this.removeAddedLink(href),
+                close: (refocus) => this.closeLink(refocus),
+                stay: () => clearTimeout(this.linkTimer),
+                leave: () => this.leaveLink(),
+            }, { disabled: this.working() || this.checking() });
+        },
+
+        // Moving away closes it after a moment, unless the pointer goes into it.
+        leaveLink() {
+            if (!this.linkPop || this.linkPop.busy) return;
+
+            clearTimeout(this.linkTimer);
+            this.linkTimer = setTimeout(() => this.closeLink(false), 300);
+        },
+
+        closeLink(refocus = false) {
+            clearTimeout(this.linkTimer);
+
+            const anchor = this.linkPop?.anchor;
+
+            this.linkPop?.destroy();
+            this.linkPop = null;
+
+            if (refocus && anchor?.isConnected) anchor.closest('[data-edit-path], [data-edit-extra], [tabindex]')?.focus();
+        },
+
+        // After a render: the open popover follows its link's new element, or closes.
+        followLink() {
+            if (!this.linkPop) return;
+
+            const key = Ghostwriter.FinishHelpers?.linkKey(this.linkPop.link.href);
+            const anchor = this.linkPop.anchor?.isConnected
+                ? this.linkPop.anchor
+                : [...(this.$container.find('.gw-draft__body')[0]?.querySelectorAll('a.gw-added-link') ?? [])].find((one) => Ghostwriter.FinishHelpers.linkKey(one.getAttribute('href')) === key);
+
+            if (!anchor || !this.addedLinks()[key] || this.editing || this.currentView() === 'preview') {
+                this.closeLink(false);
+
+                return;
+            }
+
+            this.linkPop.moveTo(anchor);
+            this.linkPop.setDisabled(this.working() || this.checking());
+        },
+
+        onMouseOver(event) {
+            const found = this.addedLinkAt(event.target);
+
+            if (found) this.openLink(found);
+        },
+
+        onMouseOut(event) {
+            if (this.addedLinkAt(event.target) && !this.linkPop?.root.contains(event.relatedTarget)) this.leaveLink();
+        },
+
+        // The caret moved into a link Ghostwriter added (arrows, Tab into the
+        // writing): its popover opens beside it, as it does on hover.
+        onKeyUp(event) {
+            if (!event.target.closest?.('.gw-draft__body') || event.key === 'Escape') return;
+
+            const node = document.getSelection()?.anchorNode;
+            const found = this.addedLinkAt(node?.nodeType === Node.TEXT_NODE ? node.parentElement : node);
+
+            if (found) this.openLink(found);
+            else if (this.linkPop) this.closeLink(false);
+        },
+
+        // Remove link: the words stay, the link goes from the draft and its
+        // layouts, and the writer won't put it back. No model.
+        async removeAddedLink(href) {
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/remove-link', { id: this.session.id, href });
+
+                this.closeLink(false);
+                this.receive(data);
+                this.page?.changed(this.pageKey(data));
+                this.announce(t('seo.link.removed'));
+            } catch (error) {
+                this.linkPop?.idle();
+            }
         },
 
         // ---- Comments -------------------------------------------------------

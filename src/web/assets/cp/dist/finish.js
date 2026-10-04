@@ -31,7 +31,7 @@
     const REDUCED = '(prefers-reduced-motion: reduce)';
     const FLIGHT = 900;
     const ANSWER_KINDS = ['ask'];
-    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
+    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'links-added', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
 
     /** A regular expression from core's patterns.json entry. */
     const pattern = (entry) => (entry ? new RegExp(entry.source, entry.flags.includes('g') ? entry.flags : entry.flags + 'g') : null);
@@ -238,6 +238,57 @@
          */
         key(gap) {
             return [gap.kind, gap.dotted ?? gap.path, String(gap.hint ?? '').toLowerCase().replace(/\s+/g, ' ').trim(), gap.occurrence ?? 0].join('|');
+        },
+
+        /**
+         * One form for the ways a link to a page is written (core's
+         * Seo\LinkCandidates::linkKey()): `entry:12` for Craft's
+         * `{entry:12@1:url||…}` (as stored, or percent-encoded as the
+         * panel's preview shows it) and CKEditor's `…#entry:12@1:url`,
+         * `entry::abc` for Statamic's, `path:/contact` for an address. Null
+         * for anything else (a link to choose, mailto:, an anchor). For the
+         * links Ghostwriter added (SEO layer §7.5, `links-added`).
+         */
+        linkKey(href) {
+            if (typeof href !== 'string' || href.trim() === '') return null;
+
+            let value = href.trim();
+
+            try {
+                value = decodeURI(value);
+            } catch (error) {
+                // A stray `%`: kept as written.
+            }
+
+            if (value.toLowerCase().startsWith('statamic://')) value = value.slice('statamic://'.length);
+
+            let m = value.match(/^(\w+)::(.+)$/);
+            if (m) return `${m[1].toLowerCase()}::${m[2]}`;
+
+            m = value.match(/^\{(\w+):(\d+)(?:@\d+)?(?::[\w.]*)?(?:\|\|.*)?\}$/s);
+            if (m) return `${m[1].toLowerCase()}:${m[2]}`;
+
+            m = value.match(/#(entry|category|asset):(\d+)(?:@\d+)?(?::[\w.]*)?$/);
+            if (m) return `${m[1]}:${m[2]}`;
+
+            if (/^(#|mailto:|tel:|javascript:)/i.test(value)) return null;
+
+            try {
+                return `path:${new URL(value, 'http://x').pathname.replace(/\/+$/, '').toLowerCase()}`;
+            } catch (error) {
+                return null;
+            }
+        },
+
+        /** Markdown links to a page (`[words](href)`) in plain text, as core's AddedLinks finds them. */
+        linksTo(text, href) {
+            const key = this.linkKey(href);
+
+            if (!key) return [];
+
+            return [...String(text ?? '').matchAll(/(?<!!)\[([^\[\]\n]*)\]\(\s*<?([^()\s>]*)>?(?:\s+"[^"\n]*")?\s*\)/gu)]
+                .filter((m) => this.linkKey(m[2]) === key)
+                .map((m) => ({ index: m.index, length: m[0].length, match: m[0], words: m[1], href: m[2] }));
         },
 
         /**
@@ -1834,6 +1885,9 @@
             (this.shown ? this.steps : []).forEach(({ gap, status }) => {
                 if (!INLINE_KINDS.includes(gap.kind) || status === 'fixed') return;
 
+                // A link Ghostwriter added isn't a marker: only the one being checked is marked.
+                if (gap.kind === 'links-added' && current?.id !== gap.id) return;
+
                 const editor = this.ckeditorIn(this.locate(gap));
 
                 if (!editor) return;
@@ -1924,6 +1978,33 @@
                 }
 
                 return found[gap.occurrence ?? 0] ?? found[0] ?? null;
+            }
+
+            // A link Ghostwriter added: the words linked to its page (one
+            // link may be split across text nodes), the run with its words.
+            if (gap.kind === 'links-added') {
+                const helpers = Ghostwriter.FinishHelpers;
+                const key = helpers.linkKey(gap.meta?.formHref ?? gap.meta?.href ?? '');
+                const runs = [];
+
+                if (!key) return null;
+
+                for (const item of model.createRangeIn(root).getItems()) {
+                    if (!item.is('$textProxy') || helpers.linkKey(item.getAttribute('linkHref') ?? '') !== key) continue;
+
+                    const last = runs[runs.length - 1];
+
+                    if (last && last.range.end.isEqual(model.createPositionBefore(item))) {
+                        last.range = model.createRange(last.range.start, model.createPositionAfter(item));
+                        last.words += item.data;
+                    } else {
+                        runs.push({ range: model.createRange(model.createPositionBefore(item), model.createPositionAfter(item)), words: item.data });
+                    }
+                }
+
+                const same = runs.filter((run) => this.normalise(run.words) === this.normalise(gap.hint));
+
+                return (same[gap.occurrence ?? 0] ?? same[0] ?? runs[0])?.range ?? null;
             }
 
             // An image inline in CKEditor: the image itself, by its asset.
@@ -2406,9 +2487,25 @@
             });
         },
 
+        /**
+         * The link taken off, the words kept: in CKEditor through its model,
+         * so undo works; in a plain box by its value, as if typed.
+         */
         removeLink(gap, field) {
             const editor = this.ckeditorIn(field);
             const range = editor ? this.rangeFor(editor, gap) : null;
+
+            if (!editor && gap.kind === 'links-added') {
+                const input = this.inputIn(field);
+                const found = Ghostwriter.FinishHelpers.linksTo(input?.value ?? '', gap.meta?.formHref ?? gap.meta?.href ?? '');
+                const link = found.find((one) => this.normalise(one.words) === this.normalise(gap.hint)) ?? found[0];
+
+                if (!link) return this.focus(gap, field);
+
+                this.setInput(input, input.value.slice(0, link.index) + link.words + input.value.slice(link.index + link.length));
+
+                return this.fixed(gap);
+            }
 
             if (!range) return this.focus(gap, field);
 

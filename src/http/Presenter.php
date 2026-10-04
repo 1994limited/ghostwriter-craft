@@ -12,9 +12,12 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Asks;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\comments\DraftComments;
+use nineteenninetyfour\ghostwriter\gaps\Gaps;
+use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 
@@ -297,6 +300,44 @@ class Presenter
             'appliedAt' => $session->appliedAt,
             'images' => [],
             'shared' => $plugin->domain->options()->shared,
+            // What the SEO pass did: the links Ghostwriter added (the Text
+            // and Blocks tabs mark them, with a popover), its one-line
+            // notice, and whether it is still checking a first draft.
+            'seo' => $this->seo($session),
         ] + $this->people($session);
+    }
+
+    /**
+     * @return array{checking: bool, notice: ?string, links: list<array<string, mixed>>}
+     */
+    private function seo(Session $session): array
+    {
+        $state = SeoState::of($session);
+        $message = $state->message();
+
+        return [
+            'checking' => DraftLayouts::isChecking($session),
+            'notice' => $message === null ? null : Gaps::translate($message),
+            // `open_url`: the page on the site, for "Open page".
+            'links' => array_map(fn(array $link) => $link + ['open_url' => self::siteUrl($link['url'] ?? null, $session->siteId)], $state->links),
+        ];
+    }
+
+    /** A site-relative address ("/contact") on the piece's site; a full one as it is. */
+    private static function siteUrl(mixed $url, ?int $siteId): ?string
+    {
+        if (!is_string($url) || trim($url) === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $url) === 1) {
+            return $url;
+        }
+
+        try {
+            return UrlHelper::siteUrl(ltrim($url, '/'), null, null, $siteId);
+        } catch (\Throwable) {
+            return $url;
+        }
     }
 }

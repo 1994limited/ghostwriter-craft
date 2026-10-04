@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const window = {};
-const context = vm.createContext({ window, Garnish: { Base: { extend: (proto) => proto } }, $: () => {}, Craft: { t: (category, message, params) => message.replace(/\{(\w+)\}/g, (m, name) => params?.[name] ?? m) }, console, setTimeout, clearTimeout });
+const context = vm.createContext({ window, Garnish: { Base: { extend: (proto) => proto } }, $: () => {}, Craft: { t: (category, message, params) => message.replace(/\{(\w+)\}/g, (m, name) => params?.[name] ?? m) }, console, setTimeout, clearTimeout, URL });
 context.window = context;
 vm.runInContext(readFileSync(new URL('../../src/web/assets/cp/dist/finish.js', import.meta.url), 'utf8'), context);
 const H = context.Ghostwriter.FinishHelpers;
@@ -365,4 +365,23 @@ test('the mark’s words go where they cover none of the page’s text', () => {
     const rect = H.sayRect('above-left', 1330, 700, 60, 20);
     assert.deepEqual({ ...rect }, { left: 1314, top: 676, right: 1374, bottom: 696 });
     assert.deepEqual({ ...H.sayRect('left', 1330, 700, 60, 20) }, { left: 1268, top: 702, right: 1328, bottom: 722 });
+});
+
+test('a link to a page is known however it is written (links Ghostwriter added)', () => {
+    assert.equal(H.linkKey('{entry:12@1:url||/contact}'), 'entry:12');
+    assert.equal(H.linkKey('{entry:12@1:url}'), 'entry:12');
+    assert.equal(H.linkKey('%7Bentry:12@1:url%7C%7C/contact%7D'), 'entry:12', 'As the panel shows it.');
+    assert.equal(H.linkKey('https://northfold.test/contact#entry:12@1:url'), 'entry:12', 'As CKEditor holds it.');
+    assert.equal(H.linkKey('statamic://entry::abc-1'), 'entry::abc-1');
+    assert.equal(H.linkKey('https://northfold.test/contact/'), 'path:/contact');
+    assert.equal(H.linkKey('#gw-link:contact-page'), null, 'A link to choose is no page.');
+    assert.equal(H.linkKey('mailto:hello@northfold.test'), null);
+    assert.equal(H.linkKey(''), null);
+});
+
+test('the links to a page in plain text, with their words', () => {
+    const text = 'Do [tell us]({entry:12@1:url||/contact}), see [plans]({entry:14@1:url||/plans}) and ![a photo](/a.jpg).';
+
+    assert.deepEqual(Array.from(H.linksTo(text, 'https://northfold.test/contact#entry:12@1:url'), (m) => [m.words, m.match, m.index]), [['tell us', '[tell us]({entry:12@1:url||/contact})', 3]]);
+    assert.deepEqual(Array.from(H.linksTo(text, '{entry:99@1:url}')), []);
 });

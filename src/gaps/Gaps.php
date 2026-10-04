@@ -183,15 +183,18 @@ class Gaps extends Component
     }
 
     /**
-     * The gap list kept when Ghostwriter last put a draft into this entry.
+     * The gap list kept when Ghostwriter last put a draft into this entry,
+     * and the links its SEO pass added ("Check 3 links Ghostwriter added").
      */
     public function sessionGaps(Entry $entry): SessionGaps
     {
         $id = (int) ($entry->getCanonicalId() ?? $entry->id);
 
         foreach (Plugin::getInstance()->sessions->forElement($id) as $session) {
-            if ($session->gaps !== []) {
-                return SessionGaps::fromSession($session);
+            $gaps = SessionGaps::fromSession($session);
+
+            if (!$gaps->isEmpty()) {
+                return $gaps;
             }
         }
 
