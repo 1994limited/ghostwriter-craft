@@ -44,7 +44,7 @@ class LayoutsPresenter
         $chosen = $session->plans === [] ? null : $this->layouts->core()->chosen($session);
         // What each layout changes against the writer's: words for its chip, and where to point on a switch.
         $schema = count($plans) > 1 ? $this->safeSchema($session) : null;
-        $changes = $schema === null ? [] : $this->layouts->core()->changes($session, $schema);
+        $changes = $schema === null ? [] : $this->layouts->core()->changes($session, $schema, $this->layouts->profile($session));
 
         return [
             'planning' => DraftLayouts::planning($session),

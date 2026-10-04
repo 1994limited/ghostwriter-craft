@@ -21,6 +21,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Schema\EntryData;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Field;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Kind;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Layout;
 
 /**
@@ -117,9 +118,9 @@ class Layouts
     /**
      * What the type analyst and the writer are shown of a kind of entry.
      */
-    public function layout(Schema $schema, Pattern $pattern): Layout
+    public function layout(Schema $schema, Pattern $pattern, ?RenderProfile $profile = null): Layout
     {
-        $layout = Layout::fromSchema($schema, $pattern, $this->core->describer());
+        $layout = Layout::fromSchema($schema, $pattern, $this->core->describer(), $profile);
         LayoutLog::record('describe', $layout->fields);
 
         return $layout;

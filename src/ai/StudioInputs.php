@@ -26,6 +26,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
 
 /**
  * Craft's objects as the inputs core's Studio takes: sections, entry types
@@ -80,8 +81,10 @@ class StudioInputs
 
         $layouts = Plugin::getInstance()->layouts;
         $schema = (new SchemaReader())->schema($entryType);
+        $study = $layouts->study($type->group, $schema, $type->variant, $type->where, $type->examples);
 
-        return $layouts->layout($schema, $layouts->pattern($type->group, $schema, $type->variant, $type->where, $type->examples));
+        // Each rich-text field's heading levels, as the SEO pass will fit them (the same profile).
+        return $layouts->layout($schema, $study['pattern'], HeadingProfiles::for($type, $entryType, $schema, $study['entries']));
     }
 
     /**

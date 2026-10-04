@@ -20,6 +20,7 @@ use craft\fields\Range;
 use craft\fields\Table;
 use craft\models\EntryType;
 use craft\models\FieldLayout;
+use NineteenNinetyFour\Ghostwriter\Core\Schema\HeadingLevels;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 
 /**
@@ -115,6 +116,11 @@ class SchemaReader
             $spec['maxLength'] = (int) $field->charLimit;
         }
 
+        // The heading levels a CKEditor field's toolbar offers: the SEO pass never uses another.
+        if (is_a($field, 'craft\ckeditor\Field')) {
+            $spec['headings'] = self::headingLevels($field);
+        }
+
         if ($field instanceof Assets) {
             $spec['max_files'] = $field->maxRelations ? (int) $field->maxRelations : null;
             $spec['sources'] = $field->sources;
@@ -146,6 +152,33 @@ class SchemaReader
         }
 
         return $spec;
+    }
+
+    /**
+     * The heading levels a CKEditor field offers: its `headingLevels` when
+     * `heading` is in its toolbar. Without it CKEditor loads no heading
+     * plugin and turns every heading into a paragraph; a level it doesn't
+     * list becomes a paragraph too, when the field is next opened.
+     *
+     * @return list<int>
+     */
+    public static function headingLevels(object $field): array
+    {
+        $toolbar = [];
+        $items = property_exists($field, 'toolbar') ? (array) $field->toolbar : [];
+        array_walk_recursive($items, function($item) use (&$toolbar) {
+            if (is_string($item)) {
+                $toolbar[] = $item;
+            }
+        });
+
+        if (!in_array('heading', $toolbar, true)) {
+            return [];
+        }
+
+        $levels = property_exists($field, 'headingLevels') ? $field->headingLevels : HeadingLevels::ALL;
+
+        return is_array($levels) ? HeadingLevels::normalise($levels) : [];
     }
 
     private function kind(FieldInterface $field): string

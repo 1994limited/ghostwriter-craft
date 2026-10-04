@@ -22,6 +22,12 @@
 
 {% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
 
+{% for note in templateNotes ?? [] %}
+    <div class="warning with-icon" style="margin-bottom: 24px;">
+        <strong>{{ 'Page template'|t('ghostwriter') }}:</strong> {{ note }}
+    </div>
+{% endfor %}
+
 <h2>{{ 'Sections'|t('ghostwriter') }}</h2>
 
 {{ forms.checkboxSelectField({

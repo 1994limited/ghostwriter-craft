@@ -21,7 +21,9 @@ use NineteenNinetyFour\Ghostwriter\Core\Studio\WriterContext;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
 use Throwable;
 
 /**
@@ -76,7 +78,7 @@ class DraftLayouts
         $schema = (new SchemaReader())->schema($entryType);
 
         if ($session->isEditing()) {
-            return $this->contexts[$key] = new LayoutContext($schema);
+            return $this->contexts[$key] = new LayoutContext($schema, profile: HeadingProfiles::for($type, $entryType, $schema));
         }
 
         $study = $plugin->layouts->study($type->group, $schema, $entryType->handle, $type->where, $type->examples);
@@ -84,7 +86,7 @@ class DraftLayouts
         // The writer is shown the first two (Pattern::$examples), in order.
         $exampleIds = array_map(fn($entry) => $entry->id, array_slice($study['entries'], 0, 2));
 
-        return $this->contexts[$key] = new LayoutContext($schema, $study['pattern'], $study['entries'], $type->defaults, $exampleIds);
+        return $this->contexts[$key] = new LayoutContext($schema, $study['pattern'], $study['entries'], $type->defaults, $exampleIds, HeadingProfiles::for($type, $entryType, $schema, $study['entries']));
     }
 
     /**
@@ -154,14 +156,27 @@ class DraftLayouts
      */
     public function draftData(Session $session, Schema $schema, ?string $planId = null): array
     {
-        $draft = Draft::parse((string) $session->draft);
         $plan = $this->plan($session, $planId);
 
-        if ($plan === null || $plan->id === Plan::WRITER) {
-            return $draft->data;
-        }
+        // The writer's layout too: the SEO pass fits its headings to the
+        // template as the profile has it now, which a render may have changed.
+        return $this->core()->draftData($session, new LayoutContext($schema, profile: $this->profile($session)), $plan?->id);
+    }
 
-        return $this->core()->draftData($session, new LayoutContext($schema), $plan->id);
+    /** How the piece's entry type prints headings; the default when it can't be told. */
+    public function profile(Session $session): ?RenderProfile
+    {
+        try {
+            $plugin = Plugin::getInstance();
+            $type = $plugin->types->find($session->kind)?->forSession($session);
+            $entryType = $type ? $plugin->types->entryType($type) : null;
+
+            return $type && $entryType ? HeadingProfiles::for($type, $entryType, (new SchemaReader())->schema($entryType)) : null;
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't read how the template prints headings: {$exception->getMessage()}", 'ghostwriter');
+
+            return null;
+        }
     }
 
     /**

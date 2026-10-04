@@ -396,6 +396,8 @@ class Plugin extends BasePlugin
             'openrouterChoices' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::OPENROUTER_TEXT_CHOICES,
             'canManage' => self::canManage(Craft::$app->getUser()->getIdentity()),
             'stock' => $this->stockSettings(),
+            // For developers: templates that print no H1, a logo as the H1, or several (render profiles).
+            'templateNotes' => array_values(array_filter(array_map(fn($profile) => $profile->note(), \nineteenninetyfour\ghostwriter\seo\HeadingProfiles::store()->all()))),
             'revisit' => [
                 'lastRun' => $this->revisit->lastRunText(),
                 'cron' => \nineteenninetyfour\ghostwriter\suggest\Revisit::CRON,

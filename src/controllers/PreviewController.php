@@ -10,7 +10,12 @@ use craft\web\TemplateResponseFormatter;
 use craft\web\View;
 use InvalidArgumentException;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\Outline;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoPass;
+use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
+use nineteenninetyfour\ghostwriter\seo\StateRenderProfiles;
 use nineteenninetyfour\ghostwriter\preview\CannotPreview;
 use Throwable;
 use Twig\Error\Error as TwigError;
@@ -95,6 +100,39 @@ class PreviewController extends Controller
         }
 
         return $this->asJson(['preview' => true] + $result);
+    }
+
+    /**
+     * The rendered page's headings (core's locator.js outline()), posted by
+     * the panel after each render: recorded on the entry type's render
+     * profile (two renders must agree to change it). `changed` asks the
+     * panel to render once more, as the draft's headings are now fitted to
+     * a different template.
+     */
+    public function actionOutline(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+        $type = $this->type($session->kind)->forSession($session);
+        $entryType = $plugin->types->entryType($type);
+        $outline = $this->request->getBodyParam('outline');
+
+        if ($entryType === null || !is_array($outline) || count($outline) > Outline::MAX) {
+            return $this->refuse('That outline can’t be read.');
+        }
+
+        $siteId = $this->request->getBodyParam('siteId');
+        $site = ($siteId ? Craft::$app->getSites()->getSiteById((int) $siteId) : null) ?? Craft::$app->getSites()->getPrimarySite();
+        $key = StateRenderProfiles::key($type->group, $entryType->handle, $site->handle);
+
+        [$profile, $changed] = (new SeoPass(logger: $plugin->studio->logger ?? new CraftLogger()))
+            ->observe(HeadingProfiles::store(), $key, Outline::fromArray($outline), HeadingProfiles::label($type->group));
+
+        HeadingProfiles::forget();
+
+        return $this->asJson(['changed' => $changed, 'h1' => $profile->h1->value, 'renders' => $profile->renders]);
     }
 
     /**
