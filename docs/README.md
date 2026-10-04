@@ -18,6 +18,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 - [Kinds of content](kinds.md)
 - [Images](images.md)
 - [Finish this page](finish-this-page.md): facts to add, links and images to choose, and why a page won't publish yet.
+- [Suggest edits and Content to revisit](suggest-edits.md): a review of an existing page, and the pages worth revisiting, found without AI.
 - [Stock photos](stock-photos.md): paid libraries (Shutterstock; Getty Images and iStock are coming), previews, licensing, the ledger.
 - [Content plan](content-plan.md)
 - [The Overview and the widget](dashboard.md)

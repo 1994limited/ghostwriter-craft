@@ -88,6 +88,10 @@ use yii\base\Event;
  * @property-read Onboarding $onboarding
  * @property-read Layouts $layouts
  * @property-read \nineteenninetyfour\ghostwriter\preview\Previews $previews
+ * @property-read \nineteenninetyfour\ghostwriter\suggest\DbEditReviewStore $editReviewStore
+ * @property-read \nineteenninetyfour\ghostwriter\suggest\DbRevisitStore $revisitStore
+ * @property-read \nineteenninetyfour\ghostwriter\suggest\DbEntryIndex $entryIndex
+ * @property-read \nineteenninetyfour\ghostwriter\suggest\Revisit $revisit
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -98,7 +102,7 @@ class Plugin extends BasePlugin
     /** Licensing stock images spends money: a permission of its own, given to nobody by default (admins have it). */
     public const LICENSE_PERMISSION = 'ghostwriter:license';
 
-    public string $schemaVersion = '1.2.0';
+    public string $schemaVersion = '1.3.0';
 
     public bool $hasCpSettings = true;
 
@@ -146,6 +150,12 @@ class Plugin extends BasePlugin
                 'gaps' => \nineteenninetyfour\ghostwriter\gaps\Gaps::class,
                 // The Preview tab: the draft rendered by the site's own templates, unsaved.
                 'previews' => \nineteenninetyfour\ghostwriter\preview\Previews::class,
+                // Suggest edits' reviews, and Content to revisit: its rows, the
+                // entry index, and the service that keeps them current.
+                'editReviewStore' => \nineteenninetyfour\ghostwriter\suggest\DbEditReviewStore::class,
+                'revisitStore' => \nineteenninetyfour\ghostwriter\suggest\DbRevisitStore::class,
+                'entryIndex' => \nineteenninetyfour\ghostwriter\suggest\DbEntryIndex::class,
+                'revisit' => \nineteenninetyfour\ghostwriter\suggest\Revisit::class,
             ],
         ];
     }
@@ -231,6 +241,38 @@ class Plugin extends BasePlugin
         // collection (§7.4).
         Event::on(Gc::class, Gc::EVENT_RUN, function(): void {
             $this->stockCleanup->run();
+            // Content to revisit's daily pass, on a site with no cron.
+            $this->revisit->queueIfDue();
+        });
+
+        // Content to revisit and Suggest edits kept current: a saved entry
+        // (the entry itself, not a draft or revision) is checked again,
+        // queued once; a deleted one is forgotten and the pages that
+        // linked to it checked again. No model; never in a save's way.
+        Event::on(Entry::class, Element::EVENT_AFTER_SAVE, function(ModelEvent $event): void {
+            /** @var Entry $entry */
+            $entry = $event->sender;
+
+            try {
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry)) {
+                    \nineteenninetyfour\ghostwriter\suggest\Revisit::queue($entry);
+                }
+            } catch (\Throwable $exception) {
+                Craft::warning("Ghostwriter couldn't queue Content to revisit for entry {$entry->id}: {$exception->getMessage()}", 'ghostwriter');
+            }
+        });
+
+        Event::on(Entry::class, Element::EVENT_AFTER_DELETE, function(\yii\base\Event $event): void {
+            /** @var Entry $entry */
+            $entry = $event->sender;
+
+            try {
+                if (\nineteenninetyfour\ghostwriter\suggest\Revisit::follows($entry)) {
+                    $this->revisit->deleted($entry);
+                }
+            } catch (\Throwable $exception) {
+                Craft::warning("Ghostwriter couldn't update Content to revisit for deleted entry {$entry->id}: {$exception->getMessage()}", 'ghostwriter');
+            }
         });
 
         // Editors see a paid photo's comp where the stand-in is (§7.0).
@@ -346,6 +388,10 @@ class Plugin extends BasePlugin
             'openrouterChoices' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::OPENROUTER_TEXT_CHOICES,
             'canManage' => self::canManage(Craft::$app->getUser()->getIdentity()),
             'stock' => $this->stockSettings(),
+            'revisit' => [
+                'lastRun' => $this->revisit->lastRunText(),
+                'cron' => \nineteenninetyfour\ghostwriter\suggest\Revisit::CRON,
+            ],
         ]);
     }
 

@@ -15,6 +15,7 @@ class Install extends Migration
     {
         self::createTables($this);
         self::createStockTables($this);
+        self::createSuggestTables($this);
         (new FileImport($this))->run();
 
         return true;
@@ -31,7 +32,7 @@ class Install extends Migration
             LedgerExport::beforeUninstall($this->db);
         }
 
-        foreach ([Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
+        foreach ([Store::REVISIT_LINKS, Store::REVISIT, Store::ENTRY_INDEX, Store::EDIT_REVIEWS, Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
             $this->dropTableIfExists($table);
         }
 
@@ -151,6 +152,82 @@ class Install extends Migration
             $migration->createIndex(null, Store::STOCK_USAGES, ['ownerType', 'ownerId']);
             $migration->createIndex(null, Store::STOCK_USAGES, ['elementId']);
             $migration->addForeignKey(null, Store::STOCK_USAGES, ['stockImageId'], Store::STOCK_IMAGES, ['id'], 'CASCADE');
+        }
+    }
+
+    /**
+     * Suggest edits and Content to revisit. A review's record is the JSON
+     * in `data`; a revisit row's too, beside the columns the list is
+     * sorted and filtered by. `seq` keeps the order reviews were made in.
+     */
+    public static function createSuggestTables(Migration $migration): void
+    {
+        if (!$migration->db->tableExists(Store::EDIT_REVIEWS)) {
+            $migration->createTable(Store::EDIT_REVIEWS, [
+                'seq' => $migration->primaryKey(),
+                'id' => $migration->string(26)->notNull(),
+                'entryKey' => $migration->string(255)->notNull(),
+                'status' => $migration->string(16)->notNull(),
+                'version' => $migration->integer()->notNull()->defaultValue(0),
+                'expiresAt' => $migration->dateTime(),
+                'data' => $migration->mediumText()->notNull(),
+                'dateCreated' => $migration->dateTime()->notNull(),
+                'dateUpdated' => $migration->dateTime()->notNull(),
+                'uid' => $migration->uid(),
+            ]);
+            $migration->createIndex(null, Store::EDIT_REVIEWS, ['id'], true);
+            $migration->createIndex(null, Store::EDIT_REVIEWS, ['entryKey']);
+            $migration->createIndex(null, Store::EDIT_REVIEWS, ['status', 'expiresAt']);
+        }
+
+        if (!$migration->db->tableExists(Store::REVISIT)) {
+            $migration->createTable(Store::REVISIT, [
+                'id' => $migration->primaryKey(),
+                'entryKey' => $migration->string(255)->notNull(),
+                'site' => $migration->string(64)->notNull()->defaultValue(''),
+                'groupHandle' => $migration->string(191)->notNull(),
+                'title' => $migration->string(255)->notNull()->defaultValue(''),
+                'score' => $migration->integer()->notNull()->defaultValue(0),
+                // ",past-year,broken-link,": the reason kinds, for the tiles' filters.
+                'kinds' => $migration->string(500)->notNull()->defaultValue(''),
+                'snoozedUntil' => $migration->dateTime(),
+                'data' => $migration->mediumText()->notNull(),
+                'dateCreated' => $migration->dateTime()->notNull(),
+                'dateUpdated' => $migration->dateTime()->notNull(),
+                'uid' => $migration->uid(),
+            ]);
+            $migration->createIndex(null, Store::REVISIT, ['entryKey'], true);
+            $migration->createIndex(null, Store::REVISIT, ['site', 'score']);
+            $migration->createIndex(null, Store::REVISIT, ['site', 'groupHandle']);
+        }
+
+        if (!$migration->db->tableExists(Store::REVISIT_LINKS)) {
+            $migration->createTable(Store::REVISIT_LINKS, [
+                'id' => $migration->primaryKey(),
+                'entryKey' => $migration->string(255)->notNull(),
+                'site' => $migration->string(64)->notNull()->defaultValue(''),
+                // The link as stored, hashed; and the element it holds ("entry:41"), when it holds one.
+                'target' => $migration->char(40)->notNull(),
+                'element' => $migration->string(64),
+            ]);
+            $migration->createIndex(null, Store::REVISIT_LINKS, ['target']);
+            $migration->createIndex(null, Store::REVISIT_LINKS, ['element']);
+            $migration->createIndex(null, Store::REVISIT_LINKS, ['entryKey']);
+        }
+
+        if (!$migration->db->tableExists(Store::ENTRY_INDEX)) {
+            $migration->createTable(Store::ENTRY_INDEX, [
+                'id' => $migration->primaryKey(),
+                'entryKey' => $migration->string(255)->notNull(),
+                'site' => $migration->string(64)->notNull()->defaultValue(''),
+                'groupHandle' => $migration->string(191)->notNull(),
+                'data' => $migration->mediumText()->notNull(),
+                'dateCreated' => $migration->dateTime()->notNull(),
+                'dateUpdated' => $migration->dateTime()->notNull(),
+                'uid' => $migration->uid(),
+            ]);
+            $migration->createIndex(null, Store::ENTRY_INDEX, ['entryKey'], true);
+            $migration->createIndex(null, Store::ENTRY_INDEX, ['site']);
         }
     }
 }

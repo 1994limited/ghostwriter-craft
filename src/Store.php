@@ -20,7 +20,9 @@ use yii\base\Component;
  *   files      pictures made or uploaded, while they wait to be used
  *
  * Sessions have a table of their own, and so does the stock image ledger
- * (`stock_images`, with `stock_usages` beside it), which is never cleared. Core's stores (see domain/) read and
+ * (`stock_images`, with `stock_usages` beside it), which is never cleared.
+ * Suggest edits' reviews and Content to revisit have theirs (`edit_reviews`,
+ * `revisit` with `revisit_links`, and `entry_index`). Core's stores (see domain/) read and
  * write their records here; its Lock is Craft's mutex (domain/CraftLock).
  */
 class Store extends Component
@@ -38,6 +40,18 @@ class Store extends Component
 
     /** Where each ledger image is used, from Craft's relations. */
     public const STOCK_USAGES = '{{%ghostwriter_stock_usages}}';
+
+    /** Suggest edits' reviews, one row each: the page's history. Never deleted but with the entry. */
+    public const EDIT_REVIEWS = '{{%ghostwriter_edit_reviews}}';
+
+    /** Content to revisit: one row per entry and site, found without a model. */
+    public const REVISIT = '{{%ghostwriter_revisit}}';
+
+    /** What each revisit row's links point at, indexed on the target, for a deleted entry's linkers. */
+    public const REVISIT_LINKS = '{{%ghostwriter_revisit_links}}';
+
+    /** Each entry's title, address, summary and paragraph shingles, for Suggest edits' duplicate check and digest. */
+    public const ENTRY_INDEX = '{{%ghostwriter_entry_index}}';
 
     public function document(string $kind, string $handle): ?string
     {
