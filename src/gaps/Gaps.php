@@ -24,15 +24,19 @@ use NineteenNinetyFour\Ghostwriter\Core\Gaps\Readiness;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\SessionGaps;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\EntryData;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\Links\CraftLinks;
+use NineteenNinetyFour\Ghostwriter\Core\Layout\FillRates;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\Pattern;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\HtmlDialect;
 use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
 use nineteenninetyfour\ghostwriter\stock\StockView;
 use Throwable;
+use yii\caching\TagDependency;
 
 /**
  * "Finish this page" for Craft: core's GapFinder and PublishReadiness over
@@ -43,14 +47,16 @@ use Throwable;
  *   stock previews are looked for, as the stock feature always did: a
  *   `[[name]]` in a site's own content is not ours to block.
  * - Nothing here calls a model. The section's fill rates (which empty
- *   fields are "expected") are learned from its live entries, as the house
- *   style is, and kept for ten minutes; the publish guard doesn't need
- *   them, so it never reads them.
+ *   fields are "expected", which images look needed) are counted over its
+ *   newest live entries of the type (core's FillRates), kept per section
+ *   and type, and counted again when an entry in the section is saved
+ *   (forgetRates()); the publish guard doesn't need them, so it never
+ *   reads them.
  */
 class Gaps extends Component
 {
-    /** How long a section's fill rates are kept. */
-    private const RATES_TTL = 600;
+    /** How long a section's fill rates are kept at most; a save in the section forgets them sooner. */
+    private const RATES_TTL = 86400;
 
     /**
      * Whether Ghostwriter writes for this entry's section, so all of its
@@ -149,6 +155,8 @@ class Gaps extends Component
             stock: $plugin->stockUsages->ledgerIsEmpty() ? null : $plugin->domain->stock(),
             pattern: $rates ? $this->rates($entry, $schema) : null,
             session: $this->sessionGaps($entry),
+            group: self::group($entry),
+            profile: self::profile($entry),
             // What a count to check was counted from: the person's
             // messages and answers, and the draft. A count whose list has
             // changed since says so.
@@ -236,6 +244,8 @@ class Gaps extends Component
 
         return [
             'count' => $report->count(),
+            // Gaps that bring the guide out on their own: what blocks, and images the page looks like it needs.
+            'prompting' => count($report->prompting()),
             'suggestions' => $report->suggestions(),
             'mode' => Plugin::getInstance()->getSettings()->onPublish()->value,
             'gaps' => array_map(fn(Gap $gap) => $this->gap($gap, (int) $entry->id, $badges), $report->all()),
@@ -352,8 +362,9 @@ class Gaps extends Component
     }
 
     /**
-     * How often the section's live entries of this type fill each place,
-     * as a pattern holding only that.
+     * How often the section's newest live entries of this type fill each
+     * place, and how many there were: FillRates over at most 20 of them,
+     * kept until an entry in the section is saved.
      */
     private function rates(Entry $entry, Schema $schema): ?Pattern
     {
@@ -364,16 +375,74 @@ class Gaps extends Component
         }
 
         $type = $entry->getType()->handle;
-        $key = "ghostwriter:gap-rates:{$section->handle}:{$type}";
+        $key = "ghostwriter:gap-rates:{$section->handle}:{$type}:" . md5((string) json_encode($schema->toSpecs()));
 
         try {
-            $filled = Craft::$app->getCache()->getOrSet($key, fn() => Plugin::getInstance()->layouts->pattern($section->handle, $schema, $type)->filled, self::RATES_TTL);
+            $rates = Craft::$app->getCache()->getOrSet($key, function() use ($section, $type, $schema): array {
+                $specs = $schema->toSpecs();
+                $reader = new EntryReader();
+                $entries = array_map(
+                    fn(Entry $sibling) => new EntryData($reader->read($sibling, $specs), (int) $sibling->id),
+                    Layouts::published($section->handle, $type, FillRates::SIBLINGS),
+                );
+                $pattern = FillRates::pattern($schema, $entries);
+
+                return ['entries' => $pattern->entries, 'filled' => $pattern->filled];
+            }, self::RATES_TTL, new TagDependency(['tags' => [self::ratesTag($section->handle)]]));
         } catch (Throwable $exception) {
-            Craft::warning("Ghostwriter couldn't learn which fields {$section->handle} entries fill: {$exception->getMessage()}", 'ghostwriter');
+            Craft::warning("Ghostwriter couldn't count which fields {$section->handle} entries fill: {$exception->getMessage()}", 'ghostwriter');
 
             return null;
         }
 
-        return is_array($filled) ? new Pattern(filled: $filled) : null;
+        return is_array($rates) && is_array($rates['filled'] ?? null) ? new Pattern(entries: (int) ($rates['entries'] ?? 0), filled: $rates['filled']) : null;
+    }
+
+    /**
+     * After an entry is saved: its section's fill rates are counted again
+     * on the next check. Drafts and revisions change nothing published.
+     */
+    public static function forgetRates(Entry $entry): void
+    {
+        if ($entry->getIsDraft() || $entry->getIsRevision() || ($section = $entry->getSection()) === null) {
+            return;
+        }
+
+        TagDependency::invalidate(Craft::$app->getCache(), self::ratesTag($section->handle));
+    }
+
+    private static function ratesTag(string $section): string
+    {
+        return "ghostwriter:gap-rates:{$section}";
+    }
+
+    /** What editors call the entry's section ("Journal"), for "Most Journal entries have one". */
+    private static function group(Entry $entry): string
+    {
+        $section = $entry->getSection();
+
+        return $section === null ? '' : Craft::t('site', $section->name);
+    }
+
+    /**
+     * The section's render profile for this type, when a preview has shown
+     * one: the block type the template prints the `h1` from is the hero.
+     * Only what is stored; nothing is rendered or studied for it.
+     */
+    private static function profile(Entry $entry): ?RenderProfile
+    {
+        $section = $entry->getSection();
+
+        if ($section === null) {
+            return null;
+        }
+
+        try {
+            $profile = HeadingProfiles::store()->for($section->handle, $entry->getType()->handle, $entry->getSite()->handle);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $profile !== null && $profile->rendered() ? $profile : null;
     }
 }
