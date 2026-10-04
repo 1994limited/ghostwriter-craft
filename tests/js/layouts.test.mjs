@@ -41,3 +41,33 @@ test('block counts', () => {
     assert.equal(count({ blocks: 6 }), '6 blocks');
     assert.equal(count({ blocks: null }), '');
 });
+
+test('a layout says what it changes, on one line', () => {
+    assert.equal(helpers.changes({ changes: ['Call to action added', 'Text split into 3 blocks'] }), 'Call to action added · Text split into 3 blocks');
+    assert.equal(helpers.changes(plans[0]), '');
+});
+
+test('the places a layout changed are found in the render’s block map', () => {
+    const map = [
+        { key: 'f1', kind: 'field', type: 'title', path: 'title', parent: null },
+        { key: 'b1', kind: 'block', type: 'hero', path: 'pageBuilder/0', parent: null },
+        { key: 'b2', kind: 'block', type: 'cta', path: 'pageBuilder/1', parent: null },
+        { key: 'b3', kind: 'block', type: 'text', path: 'pageBuilder/2', parent: null },
+        { key: 's1', kind: 'section', path: 'pageBuilder/2/text', parent: 'b3' },
+        { key: 's2', kind: 'section', path: 'pageBuilder/2/text', parent: 'b3' },
+        { key: 'f2', kind: 'field', type: 'body', path: 'body', parent: null },
+        { key: 's3', kind: 'section', path: 'body', parent: 'f2' },
+        { key: 's4', kind: 'section', path: 'body', parent: 'f2' },
+    ];
+    const keys = (places) => JSON.parse(JSON.stringify(helpers.keysForPlaces(map, places)));
+
+    assert.deepEqual(keys([{ field: 'pageBuilder', block: 2, section: 1 }, { field: 'pageBuilder', block: 1, section: null }]), ['b2', 's2'], 'in page order');
+    assert.deepEqual(keys([{ field: 'body', block: null, section: 1 }]), ['s4']);
+    assert.deepEqual(keys([{ field: 'pageBuilder', block: 0, section: 3 }]), ['b1'], 'no sections there: the block');
+    assert.deepEqual(keys([{ field: 'pageBuilder', block: 9, section: null }, { field: 'gone', block: null, section: null }]), []);
+    assert.deepEqual(JSON.parse(JSON.stringify(helpers.keysForPlaces(null, []))), []);
+});
+
+test('in Blocks and Text, a layout’s places are its blocks, or whole fields', () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(helpers.markSelectors([{ field: 'pageBuilder', block: 2, section: 1 }, { field: 'pageBuilder', block: 2, section: 0 }, { field: 'body', block: null, section: 4 }]))), ['[data-gw-field="pageBuilder"][data-gw-block="2"]', '[data-gw-field="body"]:not([data-gw-block])']);
+});

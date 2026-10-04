@@ -59,6 +59,60 @@
             return plans.length > 1 ? plans : [];
         },
 
+        /** What a layout changes against the writer's, on one line: "Quote moved up · Text blocks joined". */
+        changes(plan) {
+            return (plan?.changes ?? []).join(' · ');
+        },
+
+        /**
+         * The preview's blocks to point at after switching to a layout: its
+         * `places` ({field, block, section}, as core's LayoutDiff counts
+         * them) found in the render's block map. A page builder's nth
+         * top-level block of that field, or the top-level field itself, and
+         * in it the nth section of rich text when the map has sections
+         * there (else the whole block). In page order, each once.
+         */
+        keysForPlaces(map, places) {
+            if (!Array.isArray(map) || !Array.isArray(places)) return [];
+
+            const keys = [];
+
+            for (const place of places) {
+                const owner = place.block === null || place.block === undefined
+                    ? map.find((entry) => entry.kind === 'field' && entry.type === place.field)
+                    : map.filter((entry) => entry.kind === 'block' && !entry.parent && String(entry.path ?? '').split('/')[0] === place.field)[place.block];
+
+                if (!owner) continue;
+
+                const sections = map.filter((entry) => entry.kind === 'section' && entry.parent === owner.key);
+                const key = place.section !== null && place.section !== undefined && sections.length ? sections[place.section]?.key ?? owner.key : owner.key;
+
+                if (!keys.includes(key)) keys.push(key);
+            }
+
+            const order = map.map((entry) => entry.key);
+
+            return keys.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        },
+
+        /**
+         * The same places in the draft's Blocks and Text views: selectors for
+         * a page builder's nth block, or a whole top-level field (rich text
+         * isn't split into its sections there).
+         */
+        markSelectors(places) {
+            const selectors = [];
+
+            for (const place of places ?? []) {
+                const field = `[data-gw-field="${CSS.escape(String(place.field))}"]`;
+                const selector = place.block === null || place.block === undefined ? `${field}:not([data-gw-block])` : `${field}[data-gw-block="${Number(place.block)}"]`;
+
+                if (!selectors.includes(selector)) selectors.push(selector);
+            }
+
+            return selectors;
+        },
+
         /** "6 blocks" */
         count(plan) {
             if (plan.blocks === null || plan.blocks === undefined) return '';
@@ -189,7 +243,8 @@
             const on = card.id === chosen;
             const off = busy || card.stale;
             const state = card.stale ? t('Needs refreshing') : '';
-            const label = [card.name, card.suggested ? t('Suggested') : '', Helpers.count(card), card.description, state].filter(Boolean).join('. ');
+            const changes = card.stale ? '' : Helpers.changes(card);
+            const label = [card.name, card.suggested ? t('Suggested') : '', Helpers.count(card), changes ? t('Changes: {changes}', { changes: (card.changes ?? []).join(', ') }) : '', card.description, state].filter(Boolean).join('. ');
 
             return `<button type="button" class="gw-layout-card${on ? ' is-chosen' : ''}${card.stale ? ' is-stale' : ''}" data-plan="${esc(card.id)}" data-index="${index}" aria-pressed="${on}" aria-label="${esc(label)}" ${off ? 'aria-disabled="true"' : ''}>
                 <span class="gw-layout-card__thumb" data-thumb="${esc(card.id)}" aria-hidden="true"></span>
@@ -197,6 +252,7 @@
                     <span class="gw-layout-card__name">${esc(card.name)}</span>
                     ${card.suggested ? `<span class="gw-layout-card__badge">${esc(t('Suggested'))}</span>` : ''}
                     <span class="gw-layout-card__count">${esc(Helpers.count(card))}</span>
+                    ${changes ? `<span class="gw-layout-card__changes" title="${esc(changes)}">${esc(changes)}</span>` : ''}
                 </span>
                 <span class="gw-layout-card__desc" aria-hidden="true">${esc(card.stale ? t('Needs refreshing') : card.description)}</span>
             </button>`;

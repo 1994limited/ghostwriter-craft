@@ -428,7 +428,7 @@
                 }).catch((error) => console.warn("Ghostwriter: the preview's frame couldn't be fitted to its page.", error)).finally(() => {
                     if (sequence !== this.sequence) return this.drop(frame);
 
-                    this.swap(frame, data);
+                    this.swap(frame, data, sequence);
                 });
             });
 
@@ -437,7 +437,7 @@
             this.fit();
         }
 
-        swap(frame, data) {
+        swap(frame, data, sequence = 0) {
             const old = this.frame;
 
             this.overlay?.stop();
@@ -455,7 +455,7 @@
                 onPick: (pick) => this.pick(pick, data.map),
                 onPin: (number) => this.options.onPin?.(number),
                 onEscape: () => this.options.onEscape?.(),
-                reveal: (top) => this.reveal(top),
+                reveal: (top, smooth) => this.reveal(top, smooth),
             });
             this.overlay = overlay;
             overlay.scale = this.scale ?? 1;
@@ -467,6 +467,7 @@
                 this.root.dataset.timing = JSON.stringify(this.timing);
                 if (this.overlay === overlay) {
                     this.drawComments();
+                    this.applySwitch(overlay, sequence);
                     this.options.rendered?.();
                 }
             }, (error) => console.warn("Ghostwriter: the preview's blocks couldn't be found.", error)).finally(() => {
@@ -489,6 +490,25 @@
         setPicked(key) {
             this.comments.picked = key;
             this.overlay?.setPicked?.(key);
+        }
+
+        /**
+         * A layout just switched to (its `places`): once its render has
+         * swapped in, the first block it changes is scrolled to in the
+         * draft's column and every changed block outlined for a moment.
+         * Only while the tab shows: a later visit isn't a switch.
+         */
+        switched(places) {
+            this.switching = this.visible && places?.length ? { places, after: this.sequence } : null;
+        }
+
+        applySwitch(overlay, sequence) {
+            if (!this.switching || sequence <= this.switching.after || overlay !== this.overlay || this.pending) return;
+
+            const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            overlay.highlight(Ghostwriter.LayoutHelpers?.keysForPlaces(overlay.map, this.switching.places) ?? [], { smooth: !reduce });
+            this.switching = null;
         }
 
         /** The blocks of these comments flash once, on the render that shows their change. */
@@ -664,7 +684,7 @@
          * A point of the page (its y, in the frame's px) to the top of the
          * draft's pane, which scrolls; the frame doesn't.
          */
-        reveal(top) {
+        reveal(top, smooth = false) {
             const frame = this.frame;
 
             if (!frame) return;
@@ -677,8 +697,13 @@
                 return;
             }
 
-            const y = frame.getBoundingClientRect().top - this.scroller.getBoundingClientRect().top + this.scroller.scrollTop + Math.max(0, top) * (this.scale || 1);
-            this.scroller.scrollTop = Math.max(0, Math.round(y));
+            const y = Math.max(0, Math.round(frame.getBoundingClientRect().top - this.scroller.getBoundingClientRect().top + this.scroller.scrollTop + Math.max(0, top) * (this.scale || 1)));
+
+            if (smooth) {
+                this.scroller.scrollTo({ top: y, behavior: 'smooth' });
+            } else {
+                this.scroller.scrollTop = y;
+            }
         }
 
         /**
@@ -739,7 +764,7 @@
             this.onGap = onGap;
             this.comment = comment;
             this.ready = false;
-            this.commenting = { on: false, pins: [], changed: [], flashing: new Set(), picked: null, target: null, focused: null };
+            this.commenting = { on: false, pins: [], changed: [], flashing: new Set(), switched: [], picked: null, target: null, focused: null };
             this.pinButtons = new Map();
             this.targetButtons = new Map();
             this.map = map ?? [];
@@ -933,6 +958,10 @@
                 .changed.flash { animation: gw-flash 2.6s ease-out 1; }
                 @keyframes gw-flash { 0% { box-shadow: inset 0 0 0 calc(3px / var(--s, 1)) #2f9e6b, 0 0 0 calc(8px / var(--s, 1)) rgba(47,158,107,.35); } 100% { box-shadow: inset 0 0 0 calc(3px / var(--s, 1)) rgba(47,158,107,0), 0 0 0 calc(8px / var(--s, 1)) rgba(47,158,107,0); } }
                 @media (prefers-reduced-motion: reduce) { .changed.flash { animation: none; } }
+                .switched { position: absolute; box-sizing: border-box; border-radius: calc(4px / var(--s, 1)); pointer-events: none; animation: gw-switched 2.2s ease-out 1 forwards; }
+                @keyframes gw-switched { 0%, 30% { box-shadow: inset 0 0 0 calc(3px / var(--s, 1)) #5b4cf0, 0 0 0 calc(6px / var(--s, 1)) rgba(91,76,240,.18); background: rgba(91,76,240,.06); } 100% { box-shadow: inset 0 0 0 calc(3px / var(--s, 1)) rgba(91,76,240,0), 0 0 0 calc(6px / var(--s, 1)) rgba(91,76,240,0); background: rgba(91,76,240,0); } }
+                @media (prefers-reduced-motion: reduce) { .switched { animation: none; box-shadow: inset 0 0 0 calc(3px / var(--s, 1)) #5b4cf0; } }
+                @media (forced-colors: active) { .switched { forced-color-adjust: none; animation: none; box-shadow: inset 0 0 0 3px Highlight; } }
                 .picked { position: absolute; box-sizing: border-box; border: calc(2px / var(--s, 1)) solid #5b4cf0; border-radius: calc(3px / var(--s, 1)); background: rgba(91,76,240,.06); pointer-events: none; }
                 .target { position: absolute; box-sizing: border-box; margin: 0; padding: 0; background: transparent; border: 0; opacity: 0; pointer-events: none; }
                 .target:focus { opacity: 1; outline: calc(3px / var(--s, 1)) solid #5b4cf0; outline-offset: -3px; }
@@ -1030,6 +1059,28 @@
             keys.forEach((key) => this.commenting.flashing.add(key));
             this.paintComments();
             setTimeout(() => keys.forEach((key) => this.commenting.flashing.delete(key)), 2700);
+        }
+
+        /**
+         * A layout just switched to: its changed blocks outlined, fading over
+         * about two seconds (a still outline for that long under reduced
+         * motion), and the first brought into view.
+         */
+        highlight(keys, { smooth = true } = {}) {
+            clearTimeout(this.unswitch);
+            this.commenting.switched = keys.filter((key) => this.boxes.get(key));
+            this.paintComments();
+
+            const first = this.commenting.switched.length ? this.boxes.get(this.commenting.switched[0]) : null;
+
+            if (first) (this.comment.reveal ?? ((top) => this.win.scrollTo(0, top)))(Math.max(0, first.top - 60), smooth);
+
+            this.unswitch = setTimeout(() => {
+                this.commenting.switched = [];
+                this.paintComments();
+            }, 2200);
+
+            return this.commenting.switched.length;
         }
 
         focusPin(number) {
@@ -1175,6 +1226,18 @@
                 chip.className = 'chip';
                 chip.textContent = t('Changed');
                 mark.appendChild(chip);
+                this.marksEl.appendChild(mark);
+            }
+
+            // A layout just switched to: what it changes, outlined for a moment.
+            for (const key of this.commenting.switched) {
+                const box = this.boxes.get(key);
+
+                if (!box) continue;
+
+                const mark = this.doc.createElement('div');
+                mark.className = 'switched';
+                place(mark, box);
                 this.marksEl.appendChild(mark);
             }
 

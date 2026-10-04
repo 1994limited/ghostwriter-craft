@@ -42,6 +42,9 @@ class LayoutsPresenter
     {
         $plans = Plans::fromArray($session->plans);
         $chosen = $session->plans === [] ? null : $this->layouts->core()->chosen($session);
+        // What each layout changes against the writer's: words for its chip, and where to point on a switch.
+        $schema = count($plans) > 1 ? $this->safeSchema($session) : null;
+        $changes = $schema === null ? [] : $this->layouts->core()->changes($session, $schema);
 
         return [
             'planning' => DraftLayouts::planning($session),
@@ -58,8 +61,21 @@ class LayoutsPresenter
                 'writer' => $plan->origin === PlanOrigin::Writer,
                 // Its blocks in order, for a card with no page to show.
                 'outline' => array_merge(...array_values($plan->sequences())),
+                // "Closing line as a quote": one to three, against the writer's.
+                'changes' => $changes[$plan->id]['summary'] ?? [],
+                // Where it changed: {field, block, section}, as the preview's map counts them.
+                'places' => $changes[$plan->id]['places'] ?? [],
             ], $plans->all()),
         ];
+    }
+
+    private function safeSchema(Session $session): ?Schema
+    {
+        try {
+            return $this->layouts->schema($session);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
