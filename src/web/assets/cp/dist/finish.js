@@ -1555,19 +1555,25 @@
         },
 
         /**
-         * Whether a box on screen would sit on the page's text: a few points
-         * in it, each over the words of the topmost element there that isn't
-         * Ghostwriter's own (or over a text box).
+         * Whether a box on screen would sit on the page's text: the topmost
+         * element that isn't the mark's own at each of nine points in it,
+         * and whether any of their words (or a text box) meet the box.
          */
         coversText(rect) {
-            const points = [[rect.left + 2, rect.top + 2], [rect.right - 2, rect.top + 2], [rect.left + 2, rect.bottom - 2], [rect.right - 2, rect.bottom - 2], [(rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2]];
+            const pad = 2;
+            const found = new Set();
 
-            return points.some(([px, py]) => {
-                if (px < 0 || py < 0 || px > window.innerWidth || py > window.innerHeight) return false;
+            [rect.left + 1, (rect.left + rect.right) / 2, rect.right - 1].forEach((px) => [rect.top + 1, (rect.top + rect.bottom) / 2, rect.bottom - 1].forEach((py) => {
+                if (px < 0 || py < 0 || px > window.innerWidth || py > window.innerHeight) return;
 
                 const el = document.elementsFromPoint(px, py).find((node) => !node.closest('.gw-finish-flyer, .gw-finish-flash'));
 
-                if (!el || el === document.body || el === document.documentElement) return false;
+                if (el && el !== document.body && el !== document.documentElement) found.add(el);
+            }));
+
+            const meets = (box) => box.right > rect.left - pad && box.left < rect.right + pad && box.bottom > rect.top - pad && box.top < rect.bottom + pad;
+
+            return [...found].some((el) => {
                 if (el.matches('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]')) return true;
 
                 return [...el.childNodes].some((node) => {
@@ -1576,7 +1582,7 @@
                     const range = document.createRange();
                     range.selectNodeContents(node);
 
-                    return [...range.getClientRects()].some((box) => px >= box.left && px <= box.right && py >= box.top && py <= box.bottom);
+                    return [...range.getClientRects()].some(meets);
                 });
             });
         },
