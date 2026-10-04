@@ -223,6 +223,77 @@
         },
 
         /**
+         * Whether a link in CKEditor is the one to choose a page for: its
+         * `#gw-link:` hint, which CKEditor may hold encoded ("Winter%20structure").
+         */
+        isLinkFor(href, hint) {
+            const at = String(href ?? '').indexOf('#gw-link:');
+
+            if (at < 0) return false;
+            if (!hint) return true;
+
+            const raw = String(href).slice(at + '#gw-link:'.length);
+            let decoded = raw;
+
+            try {
+                decoded = decodeURIComponent(raw);
+            } catch (error) {
+                // Not encoded after all.
+            }
+
+            return raw === hint || decoded === String(hint);
+        },
+
+        /**
+         * A fix's label in parts, so only the name in it is cut short:
+         * "Link to " stays, "Winter structure: plants that…" gives way.
+         * Names past `cap` characters are shortened whatever the room.
+         */
+        labelParts(label, name, cap = 40) {
+            const text = String(label ?? '');
+            const at = name ? text.indexOf(String(name)) : -1;
+
+            if (at < 0) return { lead: '', name: text, tail: '' };
+
+            const whole = String(name);
+            const shown = whole.length > cap ? `${whole.slice(0, cap - 1).trimEnd()}…` : whole;
+
+            return { lead: text.slice(0, at), name: shown, tail: text.slice(at + whole.length) };
+        },
+
+        /**
+         * Where the mark sits for words inside an editor (a link, a marker):
+         * just above their first line, its middle over where they start, so
+         * it never covers them; below the line when the CP header or the
+         * editor's toolbar leaves no room above. Null while the line is
+         * under that chrome or off screen.
+         */
+        inlineSpot(line, { top = 0, width, height, size = 44, mirror = false }) {
+            if (line.bottom <= top + 2 || line.top >= height - 2) return null;
+
+            const start = mirror ? line.right : line.left;
+            const x = Math.min(Math.max(4, start - size / 2), width - size - 4);
+            const above = line.top - size - 2;
+
+            return { x, y: above >= top + 4 ? above : line.bottom + 4 };
+        },
+
+        /**
+         * Which side of the mark its words go: the reading side when they
+         * fit in the window, the other side when not, else under it,
+         * leaning away from the nearer edge.
+         */
+        saySide(x, label, width, { size = 44, mirror = false } = {}) {
+            const room = { right: width - (x + size + 2) - 8, left: x - 2 - 8 };
+            const [first, second] = mirror ? ['left', 'right'] : ['right', 'left'];
+
+            if (label <= room[first]) return first;
+            if (label <= room[second]) return second;
+
+            return x + size / 2 > width / 2 ? 'below-left' : 'below-right';
+        },
+
+        /**
          * Open Craft's own element picker for a field's element select
          * input. A field that is full (an image field holding the
          * placeholder) can't take another, so Craft hides its add button;
@@ -884,7 +955,7 @@
 
                 // "Change it": the count in a box to correct, put in on Enter.
                 if (fix.action === 'change') {
-                    const $change = $(`<button type="button" class="btn small${fix.primary ? ' submit' : ''}" aria-expanded="false">${esc(fix.label)}</button>`);
+                    const $change = this.fixButton(fix.label, { primary: fix.primary }).attr('aria-expanded', 'false');
 
                     $change.on('click', () => {
                         $change.attr('aria-expanded', 'true');
@@ -895,8 +966,7 @@
                     return;
                 }
 
-                const cost = fix.cost === 'model' ? ` <span class="gw-finish-fix__cost">${esc(t('uses Ghostwriter'))}</span>` : '';
-                const $button = $(`<button type="button" class="btn small${fix.primary ? ' submit' : ''}">${fix.primary ? '<span class="gw-mark" aria-hidden="true"></span>' : ''}${esc(fix.label)}${cost}</button>`);
+                const $button = this.fixButton(fix.label, { name: fix.name, primary: fix.primary, model: fix.cost === 'model' });
 
                 $button.on('click', async () => {
                     $button.addClass('loading').prop('disabled', true);
@@ -911,6 +981,21 @@
             });
 
             Ghostwriter.prepareButtons($fixes);
+        },
+
+        /**
+         * A fix's button. The label stays on one line inside the guide: the
+         * name in it (an entry's title) is cut short with an ellipsis when
+         * there's no room, so "Link to" always shows, and the whole label is
+         * its tooltip and accessible name. "uses Ghostwriter" is kept apart.
+         */
+        fixButton(label, { name = null, primary = false, model = false } = {}) {
+            const parts = Ghostwriter.FinishHelpers.labelParts(label, name);
+            const uses = t('uses Ghostwriter');
+            const keep = (text) => (text ? `<span class="gw-fix__keep">${esc(text)}</span>` : '');
+
+            return $(`<button type="button" class="btn small gw-fix${primary ? ' submit' : ''}">${primary ? '<span class="gw-mark" aria-hidden="true"></span>' : ''}<span class="gw-fix__text">${keep(parts.lead)}<span class="gw-fix__name">${esc(parts.name)}</span>${keep(parts.tail)}</span>${model ? `<span class="gw-finish-fix__cost">${esc(uses)}</span>` : ''}</button>`)
+                .attr({ title: label, 'aria-label': model ? `${label} (${uses})` : label });
         },
 
         /**
@@ -1324,9 +1409,12 @@
         },
 
         /**
-         * Where the mark sits: beside the current field's tag, or above the
-         * guide. Measured again on scroll (any scrolling pane), resize and
-         * when the form changes. Not on phones, where the tag says enough.
+         * Where the mark sits: beside the current gap's words when they're
+         * inline in an editor (a link, a marker), else beside the field's
+         * tag, else above the guide; never over the CP header or the
+         * editor's toolbar. Its words go on whichever side has room.
+         * Measured again on scroll (any scrolling pane), resize and when
+         * the form changes. Not on phones, where the tag says enough.
          */
         placeFlyer(flying = false) {
             if (!this.$flyer || this.phone || this.minimised) {
@@ -1337,27 +1425,39 @@
 
             cancelAnimationFrame(this.frame);
             this.frame = requestAnimationFrame(() => {
+                const H = Ghostwriter.FinishHelpers;
                 const mirror = document.documentElement.dir === 'rtl';
                 let x;
                 let y;
 
                 if (this.flyTarget && document.body.contains(this.flyTarget)) {
                     const box = this.flyTarget.getBoundingClientRect();
-                    const tag = this.flyTarget.querySelector(':scope > .heading .gw-gap-tag, :scope > .gw-gap-tag')?.getBoundingClientRect();
+                    const inline = this.inlineTarget(this.flyTarget);
+                    const top = this.chromeBottom(inline);
 
-                    // Just past the tag beside the field's name, above the field.
-                    if (tag && tag.width) {
-                        x = mirror ? Math.max(8, tag.left - 52) : Math.min(tag.right + 8, window.innerWidth - 60);
-                        y = Math.max(8, tag.top - 34);
+                    if (inline) {
+                        const spot = H.inlineSpot(inline.getClientRects()[0], { top, width: window.innerWidth, height: window.innerHeight, mirror });
+
+                        if (spot) ({ x, y } = spot);
                     } else {
-                        x = mirror ? box.left + 120 : box.right - 170;
-                        y = Math.max(8, box.top - 46);
+                        const tag = this.flyTarget.querySelector(':scope > .heading .gw-gap-tag, :scope > .gw-gap-tag')?.getBoundingClientRect();
+
+                        // Just past the tag beside the field's name, above the field.
+                        if (tag && tag.width) {
+                            x = mirror ? Math.max(8, tag.left - 52) : Math.min(tag.right + 8, window.innerWidth - 60);
+                            y = Math.max(top + 4, tag.top - 34);
+                        } else {
+                            x = mirror ? box.left + 120 : box.right - 170;
+                            y = Math.max(top + 4, box.top - 46);
+                        }
+
+                        // Off screen, or under the header: wait by the guide.
+                        if (box.bottom < top || box.top > window.innerHeight) {
+                            x = undefined;
+                        }
                     }
 
-                    // Off screen: wait by the guide until it scrolls back.
-                    if (box.bottom < 0 || box.top > window.innerHeight) {
-                        this.flyTarget = null;
-                    }
+                    this.placeFlash();
                 }
 
                 if (x === undefined) {
@@ -1370,9 +1470,14 @@
                     this.$flyer.find('.gw-finish-flyer__tilt').css('transform', `rotate(${x < this.lastX ? -12 : 12}deg)`);
                 }
 
+                const $say = this.$flyer.find('.gw-finish-flyer__say');
+
                 this.$flyer.removeClass('gw-finish-flyer--arrived');
-                this.$flyer.find('.gw-finish-flyer__say').text(this.flySpeech ?? '');
-                this.move(Math.max(4, x), Math.max(4, y));
+                $say.text(this.flySpeech ?? '');
+                x = Math.max(4, x);
+                y = Math.max(4, y);
+                this.$flyer.attr('data-say', H.saySide(x, $say[0].offsetWidth, window.innerWidth, { mirror }));
+                this.move(x, y);
                 this.lastX = x;
 
                 clearTimeout(this.arriveTimer);
@@ -1387,12 +1492,76 @@
             this.$flyer.css('transform', `translate(${Math.round(x)}px, ${Math.round(y)}px) ${extra}`);
         },
 
-        scrollTo(field) {
-            const box = field.getBoundingClientRect();
+        /** The current gap's words in the field's editor, as CKEditor's marker draws them; null when it has none. */
+        inlineTarget(field) {
+            return field?.querySelector(this.inlineSelector ?? '.gw-gap-mark--current') ?? null;
+        },
 
-            if (box.top < 80 || box.bottom > window.innerHeight - (this.phone ? 260 : 40)) {
-                field.scrollIntoView({ block: 'center', behavior: this.reduced ? 'auto' : 'smooth' });
+        /**
+         * The bottom of what's pinned over the top of the form: Craft's
+         * header, a CKEditor toolbar stuck under it and, for words in an
+         * editor, that editor's own toolbar.
+         */
+        chromeBottom(inline = null) {
+            let bottom = 0;
+            const pinned = [...document.querySelectorAll('#global-header, #header, .ck-sticky-panel__content_sticky')];
+            const toolbar = inline?.closest('.ck-editor')?.querySelector('.ck-sticky-panel__content, .ck-editor__top');
+
+            if (toolbar) pinned.push(toolbar);
+
+            pinned.forEach((element) => {
+                const box = element.getBoundingClientRect();
+
+                if (box.height && box.height < window.innerHeight / 3 && box.bottom > bottom) bottom = box.bottom;
+            });
+
+            return bottom;
+        },
+
+        /**
+         * Bring the step into view: the gap's words in the middle of the
+         * editor's scrolling pane when they are inline, else the field.
+         */
+        scrollTo(field) {
+            const inline = this.inlineTarget(field);
+            const target = inline ?? field;
+            const box = target.getBoundingClientRect();
+            const top = this.chromeBottom(inline) + (inline ? 60 : 24);
+
+            if (box.top < top || box.bottom > window.innerHeight - (this.phone ? 260 : 40)) {
+                target.scrollIntoView({ block: 'center', behavior: this.reduced ? 'auto' : 'smooth' });
             }
+
+            if (inline) this.flash(field);
+        },
+
+        /**
+         * A tint over the gap's words that fades, so the eye finds them.
+         * It stays still under reduced motion, then goes.
+         */
+        flash(field) {
+            this.$flash?.remove();
+            this.flashTarget = field;
+            this.$flash = $('<div class="gw-finish-flash" aria-hidden="true"></div>').appendTo(this.$root);
+            this.placeFlash();
+            clearTimeout(this.flashTimer);
+            this.flashTimer = setTimeout(() => {
+                this.$flash?.remove();
+                this.$flash = null;
+                this.flashTarget = null;
+            }, 1800);
+        },
+
+        placeFlash() {
+            if (!this.$flash || !this.flashTarget) return;
+
+            const marks = this.flashTarget.isConnected ? [...this.flashTarget.querySelectorAll(this.inlineSelector ?? '.gw-gap-mark--current')] : [];
+            const rects = marks.flatMap((mark) => [...mark.getClientRects()]);
+
+            this.$flash.empty();
+            rects.forEach((rect) => {
+                $('<span class="gw-finish-flash__line"></span>').css({ left: rect.left - 3, top: rect.top - 2, width: rect.width + 6, height: rect.height + 4 }).appendTo(this.$flash);
+            });
         },
 
         /* ------------------------------------------------------------------
@@ -1627,7 +1796,7 @@
                     if (!item.is('$textProxy')) continue;
 
                     const href = item.getAttribute('linkHref') ?? '';
-                    const match = gap.kind === 'link' ? href.includes('#gw-link:') && (gap.hint ? href.endsWith(`#gw-link:${gap.hint}`) : true) : this.sameTarget(href, gap.hint);
+                    const match = gap.kind === 'link' ? Ghostwriter.FinishHelpers.isLinkFor(href, gap.hint) : this.sameTarget(href, gap.hint);
 
                     if (match) {
                         const last = found[found.length - 1];

@@ -252,15 +252,61 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.gw-finish-guide__fixes .gw-mark {
-    margin-inline-end: 5px;
+.gw-finish-guide__fixes > .btn {
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* A fix's label stays on one line and inside the guide: the name in it
+   (an entry's title) gives way with an ellipsis, the words around it and
+   "uses Ghostwriter" don't. */
+
+.btn.gw-fix,
+.btn.gw-fix > .label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.btn.gw-fix > .label {
+    overflow: hidden;
+}
+
+.gw-fix__text {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.gw-fix__keep {
+    flex: none;
+    white-space: pre;
+}
+
+.gw-fix__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gw-fix .gw-mark,
+.gw-fix .gw-finish-fix__cost {
+    flex: none;
+    margin: 0;
 }
 
 .gw-finish-fix__cost {
     opacity: 0.75;
     font-size: 11px;
+    font-weight: 400;
 }
 
 .gw-finish-guide__foot {
@@ -460,6 +506,54 @@
     transform: none;
 }
 
+/* Its words on whichever side fits in the window (placeFlyer). */
+
+.gw-finish-flyer[data-say="right"] .gw-finish-flyer__say {
+    left: 46px;
+    right: auto;
+}
+
+.gw-finish-flyer[data-say="left"] .gw-finish-flyer__say {
+    left: auto;
+    right: 46px;
+}
+
+.gw-finish-flyer[data-say^="below"] .gw-finish-flyer__say {
+    top: 46px;
+}
+
+.gw-finish-flyer[data-say="below-left"] .gw-finish-flyer__say {
+    left: auto;
+    right: 0;
+}
+
+.gw-finish-flyer[data-say="below-right"] .gw-finish-flyer__say {
+    left: 0;
+    right: auto;
+}
+
+/* The step's words, tinted for a moment as the mark arrives. */
+
+.gw-finish-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+.gw-finish-flash__line {
+    position: fixed;
+    border-radius: 4px;
+    background: rgba(91, 76, 240, 0.2);
+    box-shadow: 0 0 0 2px rgba(91, 76, 240, 0.55);
+    animation: gw-flash 1.8s ease-out forwards;
+}
+
+@keyframes gw-flash {
+    0%, 45% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
 /* Minimise and restore */
 
 .gw-finish-guide--sucking {
@@ -521,6 +615,7 @@
 
     .gw-finish-flyer__bob,
     .gw-finish-flyer__trail,
+    .gw-finish-flash__line,
     .gw-finish-dock__mark,
     .gw-finish-dock:hover .gw-finish-dock__mark svg,
     .gw-finish-guide--sucking,
@@ -548,6 +643,12 @@
 /* Windows high contrast: system colours, and the outline says it all */
 
 @media (forced-colors: active) {
+    .gw-finish-flash__line {
+        background: none;
+        box-shadow: none;
+        outline: 2px solid Highlight;
+    }
+
     .gw-gap-host,
     .gw-gap-host--skipped {
         outline: 2px solid Mark;

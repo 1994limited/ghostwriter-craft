@@ -340,7 +340,8 @@ class Gaps extends Component
 
         $data['speech'] = self::translate(new Message('gaps.speech.' . $gap->kind->value));
         $data['blocks'] = $gap->blocks();
-        $data['fixes'] = array_map(fn(Fix $fix) => ['label' => self::translate($fix->label)] + $fix->toArray(), $gap->fixes);
+        // The name in a label ("Link to {title}"), so the guide can cut just that short.
+        $data['fixes'] = array_map(fn(Fix $fix) => ['label' => self::translate($fix->label), 'name' => isset($fix->label->params['title']) ? (string) $fix->label->params['title'] : null] + $fix->toArray(), $gap->fixes);
         $data['location'] = self::location($gap, $elementId);
 
         if (is_string($gap->meta['stockId'] ?? null)) {

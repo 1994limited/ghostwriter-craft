@@ -268,3 +268,46 @@ test('the menu beside Edit with Ghostwriter: one count, amber while anything is 
     assert.deepEqual(plain(H.menuBadge(0, 7)), { total: 7, tone: 'suggest', label: '7 suggestions' }, 'Only suggestions: grey, never amber.');
     assert.deepEqual(plain(H.menuBadge(0, 0)), { total: 0, tone: 'suggest', label: '' }, 'Nothing: no count.');
 });
+
+test('a fix label cuts only the name in it short', () => {
+    const name = 'Winter structure: plants that earn their keep in January';
+    const parts = H.labelParts(`Link to ${name}`, name);
+
+    assert.equal(parts.lead, 'Link to ');
+    assert.equal(parts.tail, '');
+    assert.equal(parts.name.length, 40);
+    assert.ok(parts.name.endsWith('…'));
+    assert.deepEqual({ ...H.labelParts('Link to Short', 'Short') }, { lead: 'Link to ', name: 'Short', tail: '' });
+    assert.deepEqual({ ...H.labelParts(`${name} verlinken`, name, 80) }, { lead: '', name, tail: ' verlinken' }, 'A translation with the name first keeps its words after it.');
+    assert.deepEqual({ ...H.labelParts('Choose an entry', null) }, { lead: '', name: 'Choose an entry', tail: '' });
+});
+
+test('a link to choose matches its hint, encoded or not', () => {
+    assert.equal(H.isLinkFor('#gw-link:Winter%20structure', 'Winter structure'), true);
+    assert.equal(H.isLinkFor('#gw-link:Winter structure', 'Winter structure'), true);
+    assert.equal(H.isLinkFor('#gw-link:services-page', 'services-page'), true);
+    assert.equal(H.isLinkFor('#gw-link:services-page', 'about'), false);
+    assert.equal(H.isLinkFor('https://example.com/', 'about'), false);
+    assert.equal(H.isLinkFor('#gw-link:%E0%A4%A', '%E0%A4%A'), true, 'A malformed escape is compared as it is.');
+});
+
+test('the mark sits above the words, below them under the chrome, and waits when they are hidden', () => {
+    const view = { top: 57, width: 1280, height: 800 };
+    const line = (top) => ({ left: 600, right: 720, top, bottom: top + 22 });
+
+    assert.deepEqual({ ...H.inlineSpot(line(400), view) }, { x: 578, y: 354 });
+    assert.deepEqual({ ...H.inlineSpot(line(80), view) }, { x: 578, y: 106 }, 'No room under the header: below the line.');
+    assert.equal(H.inlineSpot(line(30), view), null, 'Under the header.');
+    assert.equal(H.inlineSpot(line(820), view), null, 'Below the window.');
+    assert.equal(H.inlineSpot({ left: 2, right: 40, top: 400, bottom: 422 }, view).x, 4, 'Kept inside the window.');
+    assert.equal(H.inlineSpot(line(400), { ...view, mirror: true }).x, 698);
+});
+
+test('the mark\'s words go where they fit', () => {
+    assert.equal(H.saySide(500, 80, 1280), 'right');
+    assert.equal(H.saySide(1200, 80, 1280), 'left', 'Near the right edge: on its left.');
+    assert.equal(H.saySide(100, 80, 1280, { mirror: true }), 'left');
+    assert.equal(H.saySide(20, 80, 1280, { mirror: true }), 'right');
+    assert.equal(H.saySide(150, 300, 375), 'below-right');
+    assert.equal(H.saySide(250, 300, 375), 'below-left');
+});

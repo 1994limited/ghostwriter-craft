@@ -618,6 +618,9 @@
      * -------------------------------------------------------------------- */
 
     Ghostwriter.Suggest = Ghostwriter.Finish.extend({
+        // The current suggestion's words, as CKEditor's marker draws them: where the mark points.
+        inlineSelector: '.gw-suggest-mark--current',
+
         init(config) {
             this.config = config;
             this.strings = {};
@@ -1289,7 +1292,7 @@
         },
 
         button(label, onClick, { primary = false, model = false, disabled = false } = {}) {
-            const $button = $(`<button type="button" class="btn small${primary ? ' submit' : ''}">${primary ? '<span class="gw-mark" aria-hidden="true"></span>' : ''}${esc(label)}${model ? ` <span class="gw-finish-fix__cost">${esc(t('uses Ghostwriter'))}</span>` : ''}</button>`);
+            const $button = this.fixButton(label, { primary, model });
 
             $button.prop('disabled', disabled || this.busy === true).on('click', onClick);
 
