@@ -539,6 +539,11 @@
     right: auto;
 }
 
+/* Every side would sit on the page's words: the mark alone. Still measured, so not display: none. */
+.gw-finish-flyer[data-say="none"] .gw-finish-flyer__say {
+    visibility: hidden;
+}
+
 /* The step's words, tinted for a moment as the mark arrives. */
 
 .gw-finish-flash {

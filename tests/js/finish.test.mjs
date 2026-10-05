@@ -359,12 +359,36 @@ test('the mark’s words go where they cover none of the page’s text', () => {
     assert.equal(H.saySide(1330, 60, 1400, { covers: (side) => covered.has(side), y: 700 }), 'above-left');
     assert.equal(H.saySide(500, 60, 1400, { covers: () => false, y: 700 }), 'right', 'Nothing in the way: the reading side.');
     assert.equal(H.saySide(500, 60, 1400, { covers: (side) => side === 'right', y: 700 }), 'left');
-    assert.equal(H.saySide(1330, 60, 1400, { covers: () => true, y: 700 }), 'left', 'Text everywhere: the side that fits.');
+    assert.equal(H.saySide(1330, 60, 1400, { covers: () => true, y: 700 }), 'none', 'Text everywhere (the mark in an editor): no words, the mark alone.');
     assert.equal(H.saySide(1330, 60, 1400, { covers: (side) => side !== 'below-left', y: 10 }), 'below-left', 'No room above.');
 
     const rect = H.sayRect('above-left', 1330, 700, 60, 20);
     assert.deepEqual({ ...rect }, { left: 1314, top: 676, right: 1374, bottom: 696 });
     assert.deepEqual({ ...H.sayRect('left', 1330, 700, 60, 20) }, { left: 1268, top: 702, right: 1328, bottom: 722 });
+});
+
+test('every line of an editor’s words counts; hidden words, the mark’s own and empty fields don’t', () => {
+    const line = (left, top, right, bottom) => ({ left, top, right, bottom });
+    const node = (text, boxes, { hidden = false, skip = false } = {}) => ({ nodeType: 3, textContent: text, boxes, parentElement: { closest: () => (skip ? {} : null), checkVisibility: () => !hidden } });
+    const field = (value) => ({ value, placeholder: '', closest: () => null, checkVisibility: () => true, getBoundingClientRect: () => line(100, 600, 400, 630) });
+    const nodes = [
+        node('A long paragraph in CKEditor', [line(300, 400, 900, 420), line(300, 422, 900, 442), line(300, 444, 640, 464)]),
+        node('Hidden', [line(100, 100, 200, 120)], { hidden: true }),
+        node('Over here', [line(100, 100, 200, 120)], { skip: true }),
+        node('Off screen', [line(100, 1000, 200, 1020)]),
+    ];
+    const doc = {
+        body: {},
+        createTreeWalker: () => ({ i: 0, nextNode() { return nodes[this.i++] ?? null; } }),
+        createRange: () => ({ node: null, selectNodeContents(n) { this.node = n; }, getClientRects() { return this.node.boxes; } }),
+        querySelectorAll: () => [field('Spring open days'), field('')],
+    };
+    const boxes = H.textBoxes({ skip: '.gw-finish-flyer', doc, win: { innerWidth: 1400, innerHeight: 900 } });
+
+    assert.equal(boxes.length, 4, 'Three lines and the field with words in it.');
+    assert.equal(H.meetsText({ left: 600, top: 446, right: 680, bottom: 466 }, boxes), true, 'On the third line, between where nine sample points would look.');
+    assert.equal(H.meetsText({ left: 650, top: 470, right: 730, bottom: 490 }, boxes), false);
+    assert.equal(H.meetsText({ left: 120, top: 100, right: 180, bottom: 120 }, boxes), false);
 });
 
 test('a link to a page is known however it is written (links Ghostwriter added)', () => {
