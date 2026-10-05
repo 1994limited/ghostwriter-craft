@@ -11,11 +11,15 @@ It also notices links to entries that have been deleted, template text such as `
 
 Finding them never calls a model. It works on any entry in a section Ghostwriter writes for, whoever wrote it.
 
-![The guide on a page-builder entry: the count beside Save, the current field outlined in purple with its tag, the fact to add highlighted in CKEditor, the Ghostwriter mark beside it saying "Fill this in", and the guide in the corner asking what it should say, and a stock preview still to license below](images/finish-this-page.png)
+![The guide on a journal entry: the amber count of 3 on the menu beside Edit with Ghostwriter, the empty Hero image outlined in amber with its tag "1 · Empty!", the Body field outlined in purple with "3 · Needs a link", the fact to add highlighted in CKEditor, the Ghostwriter mark just above "Talk to us" saying "Needs a link", and the guide in the corner on step 3 of 3 with Link to Contact, Choose an entry and Remove the link](images/finish-this-page.png)
 
 ## The guide
 
-On an entry with something that stops publishing, or an empty image the page needs, a count sits on the menu beside **Edit with Ghostwriter**, in amber: "8". The menu lists **Finish this page** with the same count (and **Review suggestions** with its own, where there are any). Each field with a gap is outlined, with a numbered tag beside its name ("3 · Needs a link"; "4–7 · 4 to do" for a field with several); inside CKEditor the words themselves are marked. A plain text box (a Plain Text field, or a cell of a Table field) can't mark part of its text, so one holding a gap gets a row of small chips under it, one per gap: "Add: years trading", "Check: 3", "Choose a link: contact page". The field keeps its outline and tag. The chips follow your typing, and they're never part of the value. Choose **Finish this page** in the menu, or click a tag, to open the guide in the corner. It takes you through each one, the things to finish first ("2 of 8") and then any suggestions ("Suggestion 1 of 1"), which never stop the page going live:
+On an entry with something that stops publishing, or an empty image the page needs, a count sits on the menu beside **Edit with Ghostwriter**, in amber: "8". The menu lists **Finish this page** with the same count (and **Review suggestions** with its own, where there are any). Each field with a gap is outlined, with a numbered tag beside its name ("3 · Needs a link"; "4–7 · 4 to do" for a field with several); inside CKEditor the words themselves are marked. A plain text box (a Plain Text field, or a cell of a Table field) can't mark part of its text, so one holding a gap gets a row of small chips under it, one per gap: "Add: years trading", "Check: 3", "Choose a link: contact page". The field keeps its outline and tag. The chips follow your typing, and they're never part of the value.
+
+![A Table field's cells holding a count to check and a fact to add, with a chip under each: Check: 3 and Add: years trading](images/gap-chips-table-desktop.png)
+
+Choose **Finish this page** in the menu, or click a tag, to open the guide in the corner. It takes you through each one, the things to finish first ("2 of 8") and then any suggestions ("Suggestion 1 of 1"), which never stop the page going live:
 
 - **The step:** what's missing, and where, in plain words. "I left a gap in the Text block: starting price. Only you know this. What should it say?"
 - **The fixes**, the most likely first:
@@ -30,6 +34,9 @@ On an entry with something that stops publishing, or an empty image the page nee
   | A stock photo preview | **License**, through the stock photos' own License & replace dialog, which shows what it costs; **Request licence** without the permission; **Choose another** |
   | A field pages like this usually fill | **Write it for me** (a line from the page's own text) for writing fields, or **I'll write it** |
   | Template text, "TBC" | **Remove it**, **I'll write it**, or **It's fine** for a suggestion |
+  | A link Ghostwriter added | A suggestion for each [link it added to a first draft](writing.md#links-to-your-other-pages): "Check the link Ghostwriter added. “tell us about your garden” goes to Contact (/contact). Keep it, or remove the link and keep the words." **Keep it**, or **Remove the link** (the words stay; in CKEditor it's undoable) |
+
+  ![A new entry after Use this draft: the Text block's field tagged "3 · Needs a link", the Ghostwriter mark above "tell us about your garden" saying "Needs a link", and the guide on step 3 of 3 with Link to Contact first, then Choose an entry and Remove the link](images/finish-link-suggested.png)
 
   **Write it for me** and **Write around it** each make one small request to your AI provider, and say so on the button ("uses Ghostwriter"). Nothing else in the guide calls a model.
 - **Back**, **Skip for now** and **Next**. Skipped gaps stay highlighted and still count; the guide remembers them for this entry for the rest of the browser session.
@@ -38,7 +45,7 @@ Every fix goes into the form, as if you had typed it, and counts only once the f
 
 The guide looks again each time Craft saves your draft, and only what it finds then is still a step. A field turns green ("Fixed ✓") once it had gaps and has none left; when a fix leaves something else in the same field (a placeholder swapped for a stock preview, which still needs a licence), that's a new step and the field stays open.
 
-The Ghostwriter mark flies to each field, just past its tag, with a short label ("Fill this in", "Needs a link", "Swap me", "License me"). Minimise the guide with **—** (or **Esc** inside it) and it folds into the mark in the corner, with the count; click it to bring the guide back. Each person's choice, open or minimised, is remembered on every entry. After **Use this draft**, the guide opens by itself (**Open the guide after a draft is added**).
+The Ghostwriter mark flies to each step with a short label ("Fill this in", "Needs a link", "Swap me", "License me"). For words in CKEditor (a fact to add, a count, a link to choose or a broken link, template text, placeholder words) it lands just above the words themselves, or below them when Craft's header or the editor's toolbar leaves no room; the words are scrolled to the middle of the editor and tinted for a moment. Anything else, or words it can't find, gets the mark just past the field's tag. The label goes on whichever side of the mark covers no text and stays inside the window, so it never hides what you're reading. Where every side would cover text, the label is hidden and the mark points on its own. Minimise the guide with **—** (or **Esc** inside it) and it folds into the mark in the corner, with the count; click it to bring the guide back. Each person's choice, open or minimised, is remembered on every entry. After **Use this draft**, the guide opens by itself (**Open the guide after a draft is added**).
 
 A block in a page builder that's collapsed is expanded when its step comes up, and the right tab is opened. In a Matrix field shown as cards, the card carries the highlight, and **Open block** opens it in Craft's slideout, where its fields are highlighted too.
 
@@ -63,7 +70,7 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | A fact to add | `[[ask: …]]` in any text | Yes |
 | A fact for a number or date field | The draft asked for it, and the field is still empty | Yes, if the field is required |
 | A count to check | `[[check: 3 counties \| from: …]]` in any text | Yes |
-| A link to choose | A link to `#gw-link:…`, or a Link or Hyper field holding `https://example.com/#gw-link:…` | Yes |
+| A link to choose | A link to `#gw-link:…` (also as CKEditor keeps it, `#gw-link:Winter%20structure`), or a Link or Hyper field holding `https://example.com/#gw-link:…` | Yes |
 | A link to a deleted entry | Its `{entry:…}` reference points at nothing | Yes |
 | An image placeholder | The striped `ghostwriter-image-placeholder.png` in an image field, or inline in CKEditor | Yes |
 | A stock photo preview | The stock ledger says it isn't licensed. See [Stock photos](stock-photos.md#publishing) | Yes |
@@ -71,6 +78,7 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | An empty image the page needs | Required; the page's hero (the block the template prints the H1 from, or a hero image when the section has too few live entries to go by); or filled on at least 70% of the section's 20 newest live entries of the type. Not on a new entry until a draft is put in or it has some text | No: it's counted and brings the guide out; Craft enforces required |
 | A required field left empty | Craft's own **Required** | Craft stops it, so it isn't listed |
 | A field pages like this usually fill | Filled on at least half the section's live entries | No, a suggestion |
+| A link Ghostwriter added | A link a first draft got to one of your pages, still in the entry | No, a suggestion |
 | Placeholder words | `TBC`, `TBD`, `TBA`, `TODO`, `XXX`, `[insert …]`, `[add …]`, `[check …]`, `lorem ipsum` | No, a suggestion |
 
 In sections Ghostwriter doesn't write for, only stock photo previews are looked for.

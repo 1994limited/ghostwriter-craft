@@ -42,6 +42,17 @@ Writing a draft or a guide can take a minute or more, which is longer than a web
 - **With a queue worker.** If your site sets `runQueueAutomatically` to `false` and runs a worker (`php craft queue/listen`, Supervisor, or your host's daemon), the jobs run there instead. Make sure the worker is running, or nothing will happen.
 - **The job time limit is set for you.** Each job is allowed the [time limit](configuration.md#the-time-limit) × 3 + 60 seconds: 960 seconds with the default 300. That's because a busy provider is tried up to three times (see [Busy providers and retries](api-keys.md#busy-providers-and-retries)). A worker with its own, shorter limit stops jobs early.
 
+## Daily jobs
+
+[Content to revisit](suggest-edits.md#content-to-revisit) and the list of pages a draft can [link to](writing.md#links-to-your-other-pages) are kept current by a daily pass, and the optional check of links to other sites runs weekly. Craft has no scheduler, so add them to cron:
+
+```
+0 3 * * * php /path/to/craft ghostwriter/revisit/refresh
+0 4 * * 0 php /path/to/craft ghostwriter/revisit/check-links
+```
+
+Neither calls a model. Without cron, Craft's garbage collection queues the daily pass once it's over a day old. The link check does nothing until an admin turns it on.
+
 ## Updating
 
 ```bash
@@ -60,6 +71,6 @@ php craft plugin/uninstall ghostwriter
 composer remove 1994/ghostwriter-craft
 ```
 
-Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan and conversations. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, the striped placeholder) stay in your volumes.
+Uninstalling drops Ghostwriter's tables, with its guides, kinds, plan, conversations, reviews and Content to revisit. The stock image ledger is written to `storage/ghostwriter-stock-ledger-<date>.json` first. Prompt overrides in `config/ghostwriter/prompts/` stay until you delete them. Assets it saved (photos, made images, the striped placeholder) stay in your volumes.
 
 Next: [Get started](getting-started.md).

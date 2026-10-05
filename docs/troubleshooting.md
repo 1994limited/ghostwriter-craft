@@ -45,10 +45,21 @@ The notification after **Use this draft** lists what's left for you:
 
 - blocks the draft used that this section doesn't allow (left out)
 - choices, related entries and images still to choose by hand
-- links still to set by hand, pointing to `https://example.com` for now
-- image fields with a striped placeholder
+- links still to set by hand, marked "(link still to choose)"
 
-See [How Ghostwriter reads your fields](fields.md).
+Facts to add, links to choose and image fields with a striped placeholder are steps in [Finish this page](finish-this-page.md), which opens by itself after **Use this draft**. See also [How Ghostwriter reads your fields](fields.md).
+
+## Use this draft is greyed out
+
+While the draft pane says "Draft ready. Checking headings and links…", Ghostwriter is looking for [links to your other pages](writing.md#links-to-your-other-pages). It's usually done in under a minute, and the button comes back by itself. If it stays, check the queue as in [Nothing happens after asking](#nothing-happens-after-asking).
+
+## A link Ghostwriter added goes to the wrong page
+
+Hover over it in the Text tab and click **Remove link**: the words stay, and it won't come back. After **Use this draft**, Finish this page asks about each link it added, with **Keep it** and **Remove the link**.
+
+## Content to revisit is empty, or out of date
+
+The list is filled by a daily pass, which needs no model. Craft has no scheduler of its own, so add the commands to cron (see [Keeping it current](suggest-edits.md#keeping-it-current)). Without cron, opening the list, or Craft's garbage collection, queues the pass once it's over a day old, and the page says when it last ran. Only live entries in the sections Ghostwriter writes for are listed, and only in sections you can view.
 
 ## No Ghostwriter button on an image field
 

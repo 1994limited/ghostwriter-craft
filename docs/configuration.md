@@ -8,6 +8,11 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 
 ![The Ghostwriter settings page, with the Sections settings at the top](images/settings.png)
 
+Two kinds of note can sit at the top of the page, for whoever looks after the templates:
+
+- **Page template**: a section's template prints no H1, a logo as the H1, or more than one. Ghostwriter still starts a draft's headings at H2, but the fix belongs in the template. See [Headings](writing.md#headings).
+- **Link index**: a section has more pages than Ghostwriter keeps as link targets ("Products has 48,000 entries; Ghostwriter links to the 5,000 most recently updated."). See [Links to your other pages](writing.md#links-to-your-other-pages).
+
 **Sections**
 
 | Setting | What it does |
@@ -52,6 +57,16 @@ This page covers Ghostwriter's settings, setting them in `config/ghostwriter.php
 | --- | --- |
 | **When a page with things to finish is published** | **Block** (the default) or **Warn**: a fact to add, a link to choose, an image placeholder, template text or a stock photo preview. See [Finish this page](finish-this-page.md#publishing). |
 | **Open the guide after a draft is added** | On. Off, the guide stays as each person last left it. |
+
+**Suggest edits and Content to revisit**
+
+| Setting | What it does |
+| --- | --- |
+| **Check claims** | On. Counts and prices about you ("a team of 6", "from £450") on pages a year old or more are asked about as Facts to check. |
+| **Check links to other sites once a week** | Off. On, Content to revisit asks each site your pages link to whether the page is still there. |
+| **Dated sections where age counts in full** | None. Channels where a page's age and the years it mentions count in full. |
+
+The section also says when Content to revisit last ran, with the cron line that keeps it daily. See [Suggest edits and Content to revisit](suggest-edits.md#settings).
 
 **Troubleshooting**
 
@@ -143,6 +158,10 @@ Everything Ghostwriter writes is kept in the database, in its own tables. So it 
 | Conversations and drafts | `ghostwriter_sessions` |
 | Working state: suggestions, jobs in hand, photo requests | `ghostwriter_state` |
 | Images made or uploaded, waiting to be used (cleared after a day) | `ghostwriter_files` |
+| Suggest edits' reviews and their decisions | `ghostwriter_edit_reviews` |
+| Content to revisit: each page's row, and the links each page holds | `ghostwriter_revisit`, `ghostwriter_revisit_links` |
+| Each page's title, address, summary and paragraph fingerprints, for the review and for links to your other pages | `ghostwriter_entry_index`, `ghostwriter_index_stems` |
+| The stock image ledger | `ghostwriter_stock_images`, `ghostwriter_stock_usages` |
 
 The only files Ghostwriter reads from your project are [prompt overrides](#overriding-prompts), in `config/ghostwriter/prompts/`. They're code, so commit them.
 
@@ -160,13 +179,18 @@ The shared prompts use `[[...]]` placeholders for the words that differ between 
 
 | Prompt | Used for |
 | --- | --- |
-| `writer.md` | Writing and revising drafts |
-| `brief-writer.md` | Filling in a brief from a working title and notes |
+| `writer.md`, `writer-extras.md` | Writing and revising drafts, and the extras prepared with a first draft |
+| `brief-writer.md`, `brief-filler.md` | Filling in a brief from a working title and notes |
+| `layout-planner.md` | The other layouts of a first draft |
+| `seo-editor.md`, `seo-verifier.md` | Choosing links to your other pages, and checking each one |
+| `reviser.md` | Applying comments on the page |
+| `gap-filler.md` | **Write it for me** and **Write around it** in Finish this page |
+| `reviewer.md`, `verifier.md`, `reworder.md` | Suggest edits: the review, the double-check, and **Write another** |
 | `voice-analyst.md`, `voice-editor.md` | Writing and changing the voice guide |
 | `type-analyst.md`, `kind-finder.md` | Learning and suggesting kinds |
 | `planner.md` | The content plan |
 | `imagery-analyst.md` | The image style guide |
-| `photo-researcher.md`, `photo-picker.md` | Searching for and picking photos |
+| `photo-query.md`, `photo-researcher.md`, `photo-picker.md` | Searching for and picking photos |
 | `image.md` | Making images |
 
 Keep the reply formats the prompts ask for (the tagged blocks and YAML), or Ghostwriter won't be able to read the answers.

@@ -14,7 +14,23 @@ The same panel opens, with the entry as the draft. It starts from the entry as y
 
 It revises the draft and shows it on the right. There you can also [change any writing where it's shown](writing.md#the-draft), or click **Edit YAML**.
 
-![Edit with Ghostwriter on the About page, with a change asked for, the revised draft beside it, Use these changes and Start again from the entry](images/editing.png)
+![Edit with Ghostwriter on a journal entry: I have the entry as it stands. Tell me what to change., the entry in the Preview tab, Use these changes, and Start again from the entry under the message box](images/editing.png)
+
+The draft has the same tabs as a new entry's: **Preview** (the entry with the changes, rendered by its template and not saved), **Blocks** and **Text**. You can [comment on the page](writing.md#comments) as well as ask in the conversation.
+
+## The Ghostwriter menu
+
+**Edit with Ghostwriter** is joined to a menu, like Craft's own Save button:
+
+- **Finish this page (3)**: the things left to finish on the page, which opens [the guide](finish-this-page.md#the-guide). Shown only while there are some.
+- **Review suggestions (7)**: the open suggestions from the last [review](suggest-edits.md), which opens them. Shown only while there are some.
+- **Suggest edits**: "Reads the page against your voice guide and checks each suggestion twice. Uses Ghostwriter." It asks before it runs, with what it costs. See [Suggest edits](suggest-edits.md#suggest-edits).
+
+The menu's button carries one count, before its chevron: what's left to finish plus the suggestions to review. It's amber while anything is left to finish, grey with only suggestions, and gone at nothing. Screen readers hear both ("10 items: 3 to finish, 7 suggestions"). Below 1024 pixels wide, the button shows the Ghostwriter mark alone.
+
+![Edit with Ghostwriter joined to its menu button with an amber count of 3, and the menu open: Finish this page with 3, and Suggest edits with its line on what it does](images/header-menu.png)
+
+On a new entry the button is **Write with Ghostwriter**, and the menu shows once there's something to finish.
 
 ## Use these changes
 
