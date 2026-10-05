@@ -27,10 +27,10 @@ class SeoFieldsTest extends TestCase
 {
     use SeoFieldsContract;
 
-    private const EXCERPT = 'Northfold is taking on its first apprentice in January. Two years on site and in the studio, no degree needed, and applications close on 30 November.';
+    public const EXCERPT = 'Northfold is taking on its first apprentice in January. Two years on site and in the studio, no degree needed, and applications close on 30 November.';
 
     /** The section and global bundles, as their rows hold them (the settings that matter here). */
-    private const BUNDLES = [
+    public const BUNDLES = [
         'journal' => [
             'metaGlobalVars' => ['seoTitle' => '{{ seomatic.helper.extractTextFromField(entry.title) }}', 'seoDescription' => '{{ seomatic.helper.extractTextFromField(entry.excerpt) }}', 'siteNamePosition' => '', 'robots' => 'all', 'inherited' => [], 'overrides' => []],
             'metaSiteVars' => [],
@@ -49,9 +49,15 @@ class SeoFieldsTest extends TestCase
     ];
 
     /** The field's settings: its general tab. */
-    private const ENABLED = ['seoTitle', 'seoDescription', 'seoKeywords', 'seoImage', 'seoImageDescription', 'robots', 'canonicalUrl'];
+    public const ENABLED = ['seoTitle', 'seoDescription', 'seoKeywords', 'seoImage', 'seoImageDescription', 'robots', 'canonicalUrl'];
 
     protected function seoFields(): SeoFields
+    {
+        return self::northfold();
+    }
+
+    /** CraftSeoFields over the Northfold bundles, with the field's general tab enabled. */
+    public static function northfold(): CraftSeoFields
     {
         return new CraftSeoFields(new class(self::BUNDLES, self::ENABLED) extends SeomaticBundles {
             /**
@@ -91,6 +97,11 @@ class SeoFieldsTest extends TestCase
 
     private function schema(): Schema
     {
+        return self::articleSchema();
+    }
+
+    public static function articleSchema(): Schema
+    {
         // The Journal's article type, as SchemaReader reads it.
         return Schema::fromSpecs([
             ['handle' => 'title', 'type' => 'title', 'kind' => 'text', 'display' => 'Title'],
@@ -107,7 +118,7 @@ class SeoFieldsTest extends TestCase
      * @param array<string, mixed> $settings
      * @return array<string, mixed>
      */
-    private static function field(array $vars = [], array $settings = []): array
+    public static function field(array $vars = [], array $settings = []): array
     {
         return [
             'bundleVersion' => '1.0.62',
@@ -171,7 +182,7 @@ class SeoFieldsTest extends TestCase
         $this->assertSame(SeoSource::Field, $description->source, 'Not an empty value of the page\'s own.');
         $this->assertSame('Excerpt', $description->inheritsFrom);
         $this->assertSame(self::EXCERPT, $description->text);
-        $this->assertFalse($description->writable, 'With the switch off, SEOmatic would blank a value written in place.');
+        $this->assertTrue($description->writable, 'The field offers it: Ghostwriter writes it with the override switch on (CraftSeoWriter).');
         $this->assertSame('Our first apprentice', $title->text);
     }
 
@@ -182,6 +193,17 @@ class SeoFieldsTest extends TestCase
 
         $this->assertSame(SeoSource::Field, $description->source);
         $this->assertSame(self::EXCERPT, $description->text);
+    }
+
+    public function test_the_switch_as_the_form_posts_it_is_read_as_seomatic_reads_it(): void
+    {
+        $on = $this->find($this->articlePost(self::field(['seoDescription' => 'Typed text', 'override-seoDescription' => '1'])));
+        $off = $this->find($this->articlePost(self::field(['seoDescription' => 'Typed text', 'overrides' => ['seoDescription' => true], 'override-seoDescription' => ''])));
+
+        $this->assertSame(SeoSource::Custom, $on->source);
+        $this->assertSame('Typed text', $on->text);
+        $this->assertSame(SeoSource::Field, $off->source, 'Posted with the switch off, SEOmatic blanks it: the section\'s.');
+        $this->assertSame(self::EXCERPT, $off->text);
     }
 
     public function test_a_setting_the_field_doesnt_offer_is_inherited(): void
@@ -215,6 +237,7 @@ class SeoFieldsTest extends TestCase
         $found = $fields->in($this->schema(), $this->articlePost(self::field(['seoDescription' => 'Old text', 'overrides' => ['seoDescription' => true]])));
 
         $this->assertSame(self::EXCERPT, $found[1]->text, 'SEOmatic blanks a value its field doesn\'t offer.');
+        $this->assertFalse($found[1]->writable, 'The page can\'t have its own.');
     }
 
     public function test_an_empty_excerpt_is_inherited_and_empty(): void

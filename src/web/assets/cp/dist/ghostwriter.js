@@ -1180,6 +1180,8 @@
             const filled = data.stage === 'proposed' && this.session?.stage === 'filling';
             // The SEO pass has finished on the first draft: its notice is read out.
             const checked = data.id === this.session?.id && this.session?.seo?.checking && !data.seo?.checking;
+            // Try again in the Search section is back: a failure is read out.
+            const searched = data.id === this.session?.id && this.session?.seo?.search?.busy && !data.seo?.search?.busy;
 
             // Another piece: its own preview. The same one: render the new
             // draft once the changes stop, or at once for the first draft.
@@ -1192,6 +1194,7 @@
                 this.closeLink(false);
                 this.closeBox(false);
                 this.focusedComment = null;
+                this.searchOwn = false;
                 this.pending = this.storedPending(data.id);
                 this.pane = data.draft ? 'draft' : 'conversation';
                 this.draftFresh = false;
@@ -1236,6 +1239,7 @@
             this.revealPicked(this.$container.find('.gw-brief-card'));
 
             if (checked) this.announce(data.seo?.notice ? `${t('Checked.')} ${data.seo.notice}` : t('Checked.'));
+            if (searched && data.seo?.search?.failed) this.announce(data.seo.search.failed);
 
             // The brief is filled in: say so, and bring the card into view
             // with the focus on it, unless the person is typing elsewhere.
@@ -1406,6 +1410,8 @@
         // ---- Actions ------------------------------------------------------
 
         onInput(event) {
+            if (event.target.matches?.('[data-gw-search-edit]')) return this.searchCount(event.target);
+
             const $el = $(event.target);
             const model = $el.data('model');
 
@@ -1470,6 +1476,22 @@
 
                 return this.switchView(tabs[(next + tabs.length) % tabs.length].dataset.view, true);
             }
+            // A Search field: Enter finishes it, Escape puts it back.
+            if (event.target.matches?.('[data-gw-search-edit]')) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.target.blur();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.target.innerText = $(event.target).data('was') ?? '';
+                    this.searchCount(event.target);
+                    event.target.blur();
+                }
+
+                return;
+            }
+
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
             // Writing edited in place (the draft's, or an extra's): Escape
@@ -1592,6 +1614,7 @@
                 case 'apply': return this.apply();
                 case 'start-over': return this.startOver();
                 case 'delete-extra': return this.deleteExtra($target.data('item'), $target.data('label'));
+                case 'search': return this.searchAction($target.attr('data-gw-search-action'), $target);
                 case 'comment-toggle': return this.setCommenting(!this.commenting);
                 case 'comments-close': return this.setCommenting(false);
                 case 'comments-apply': return this.applyComments();
@@ -1790,6 +1813,14 @@
         // on the way out if it changed. A read view showing chips is not being
         // edited until it is clicked (startEditing()).
         onFocusIn(event) {
+            const search = event.target.closest?.('[data-gw-search-edit]');
+
+            if (search) {
+                $(search).data('was', search.innerText);
+
+                return;
+            }
+
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
             // Its read view, with chips: nothing is being edited yet.
@@ -1799,6 +1830,8 @@
         },
 
         async onFocusOut(event) {
+            if (event.target.matches?.('[data-gw-search-edit]')) return this.saveSearch(event.target);
+
             const $field = $(event.target).closest('[data-edit-path], [data-edit-extra]');
 
             if (!$field.length || this.isPainted($field[0]) || event.target !== $field[0]) return;
@@ -1931,7 +1964,197 @@
             walk(nodes, '');
 
             return (out.length ? `<article class="gw-text-view">${out.join('')}</article>` : `<p class="light">${esc(t('There is no writing in this draft yet.'))}</p>`)
-                + this.extrasView(this.session?.extras ?? []);
+                + this.extrasView(this.session?.extras ?? [])
+                + this.searchView(this.session?.seo?.search ?? null);
+        },
+
+        // The Search section (SEO layer §9.5, decision 21): how the page may
+        // show in search results, below the extras. The SEO title, the meta
+        // description and the address, each click-to-edit where Ghostwriter
+        // may set it, with a count against the field's limit that turns
+        // amber outside the range, and Try again. Nothing here goes into
+        // the entry until "Use this draft".
+        searchView(search) {
+            if (!search || (!search.title && !search.description && !search.address)) return '';
+
+            const off = this.working() || this.editing || this.checking();
+            const count = (row, length) => {
+                const out = row.min !== undefined && (length > row.max || (length < row.min && !(row.role === 'title' && !row.own)));
+
+                return `<span class="gw-search__count" data-gw-search-count data-gw-search-out="${out ? 'true' : 'false'}" data-min="${esc(row.min ?? '')}" data-max="${esc(row.max ?? '')}" data-limit="${esc(row.limit ?? '')}" title="${esc(row.range ?? '')}">${esc(`${length} / ${row.limit}`)}</span>`;
+            };
+            const note = (row) => (row.note ? `<span class="gw-search__note" data-gw-search-note>${esc(row.note)}</span>` : '');
+            const button = (action, label, extra = '') => `<button type="button" class="btn small gw-search__action" data-action="search" data-gw-search-action="${action}" ${extra} ${off ? 'disabled' : ''}>${esc(label)}</button>`;
+            const edit = (role, text, label, placeholder = '') => `<div class="gw-editable gw-pre gw-search__text" ${off ? '' : 'contenteditable="plaintext-only" spellcheck="true"'} role="textbox" aria-label="${esc(label)}" data-gw-search-text data-gw-search-edit="${role}" data-placeholder="${esc(placeholder)}">${esc(text)}</div>`;
+            const shown = (text) => `<div class="gw-search__text gw-search__text--inherited" data-gw-search-text>${esc(text)}</div>`;
+            const row = (role, label, by, body) => `<div class="gw-search__row" data-gw-search-row="${role}">
+                    <div class="gw-search__key">${esc(label)}${by ? `<small>${esc(by)}</small>` : ''}</div>
+                    <div class="gw-search__body">${body}</div>
+                </div>`;
+            const rows = [];
+            const title = search.title;
+            const description = search.description;
+            const address = search.address;
+
+            if (title) {
+                const label = t('seo.search.title');
+
+                // Its own title (Ghostwriter's or the editor's), or "Give it its own" chosen: click-to-edit.
+                if (title.own || this.searchOwn) {
+                    const text = title.own ? title.text : title.pageTitle;
+                    const suggest = title.own && title.action === 'suggest' && !title.use;
+
+                    rows.push(row('title', label, title.label, `${suggest && title.current ? shown(title.current) : ''}
+                        ${edit('title', text, label)}
+                        <div class="gw-search__meta">${count(title, Array.from(text).length)}${note(title)}
+                            ${suggest ? button('use-this', t('seo.search.use-this'), 'data-role="title"') : ''}
+                            ${button('use-page-title', t('seo.search.use-page-title'))}
+                        </div>`));
+                } else {
+                    rows.push(row('title', label, title.label, `${shown(title.usesTitle)}
+                        <div class="gw-search__meta">${count(title, title.length)}${note(title)}
+                            ${title.editable ? button('give-own', t('seo.search.give-own')) : ''}
+                        </div>`));
+                }
+            }
+
+            if (description) {
+                const label = t('seo.search.description');
+                const suggest = description.text && description.action === 'suggest' && !description.use;
+                let body;
+
+                if (description.text) {
+                    // Ghostwriter's (or the editor's) text; where the entry's own stays, its text first, greyed.
+                    body = `${suggest && description.current ? shown(description.current) : ''}
+                        ${edit('description', description.text, label)}
+                        <div class="gw-search__meta">${count(description, Array.from(description.text).length)}${note(description)}
+                            ${suggest ? button('use-this', t('seo.search.use-this'), 'data-role="description"') : ''}
+                        </div>`;
+                } else if (description.action === 'leave' && description.current) {
+                    // Inherited text that fits, or a template's: shown, left as the site set it up.
+                    body = `${shown(description.current)}
+                        <div class="gw-search__meta">${count(description, description.length)}${note(description)}</div>`;
+                } else {
+                    body = `${description.editable ? edit('description', '', label) : shown('')}
+                        <div class="gw-search__meta">${count(description, 0)}${note(description)}</div>`;
+                }
+
+                rows.push(row('description', label, description.label, body));
+            }
+
+            if (address) {
+                const label = t('seo.search.address');
+                const slug = address.editable
+                    ? `<span class="gw-editable gw-search__slug" ${off ? '' : 'contenteditable="plaintext-only" spellcheck="false"'} role="textbox" aria-label="${esc(label)}" data-gw-search-text data-gw-search-edit="slug">${esc(address.slug)}</span>`
+                    : `<span class="gw-search__slug gw-search__text--inherited" data-gw-search-text>${esc(address.slug)}</span>`;
+
+                rows.push(row('address', label, '', `<div class="gw-search__address">${address.base ? `<span class="gw-search__base">${esc(address.base)}</span>` : ''}${slug}</div>
+                    <div class="gw-search__meta">${note(address)}</div>`));
+            }
+
+            const busy = Boolean(search.busy);
+            const again = search.fields
+                ? `<div class="gw-search__foot">
+                    <button type="button" class="btn small gw-search__action ${busy ? 'loading' : ''}" data-action="search" data-gw-search-action="try-again" aria-describedby="gw-search-again-note" ${off || busy ? 'disabled' : ''}>${esc(busy ? t('seo.search.writing') : t('seo.search.try-again'))}</button>
+                    <span class="light" id="gw-search-again-note">${esc(busy ? t('seo.search.writing') : t('seo.search.try-again-note'))}</span>
+                </div>
+                ${search.failed && !busy ? `<p class="gw-search__failed error" role="alert">${esc(search.failed)}</p>` : ''}`
+                : '';
+
+            return `<section class="gw-search" data-gw-search aria-labelledby="gw-search-heading">
+                <h3 id="gw-search-heading">${esc(t('seo.search.heading'))}</h3>
+                <p class="light">${esc(t('seo.search.intro'))}</p>
+                ${rows.join('')}
+                ${again}
+            </section>`;
+        },
+
+        // A button in the Search section.
+        async searchAction(action, $button) {
+            if (this.working() || this.editing) return;
+
+            const id = this.session.id;
+
+            if (action === 'give-own') {
+                // The page title, to make its own: saved when it is changed.
+                this.searchOwn = true;
+                this.renderDraft();
+                this.$container.find('[data-gw-search-edit="title"]').trigger('focus');
+
+                return;
+            }
+
+            try {
+                let data;
+
+                if (action === 'use-page-title') {
+                    this.searchOwn = false;
+                    data = await Ghostwriter.request('POST', 'sessions/edit-search', { id, role: 'title', text: '' });
+                } else if (action === 'use-this') {
+                    data = await Ghostwriter.request('POST', 'sessions/use-search', { id, role: $button.attr('data-role') ?? 'description', use: 1 });
+                } else if (action === 'try-again') {
+                    data = await Ghostwriter.request('POST', 'sessions/try-search-again', { id });
+                    this.announce(t('seo.search.writing'));
+                } else {
+                    return;
+                }
+
+                this.receive(data);
+
+                // The focus stays in the section: on the row changed, or its heading while Try again works.
+                const role = action === 'use-this' ? ($button.attr('data-role') ?? 'description') : action === 'use-page-title' ? 'title' : null;
+                const $focus = role ? this.$container.find(`[data-gw-search-row="${role}"] [data-gw-search-action], [data-gw-search-row="${role}"] [data-gw-search-text][contenteditable]`).first() : $();
+
+                ($focus.length ? $focus : this.$container.find('#gw-search-heading').attr('tabindex', '-1')).trigger('focus');
+            } catch (error) {
+                if (error?.response?.status === 409) this.openSession(id);
+            }
+        },
+
+        // The count beside a Search field, as it is typed.
+        searchCount(element) {
+            const $count = $(element).closest('[data-gw-search-row]').find('[data-gw-search-count]');
+            const length = Array.from(element.innerText.replace(/\n/g, ' ').trim()).length;
+            const min = Number($count.attr('data-min'));
+            const max = Number($count.attr('data-max'));
+
+            if (!$count.length) return;
+
+            $count.text(`${length} / ${$count.attr('data-limit')}`);
+            $count.attr('data-gw-search-out', $count.attr('data-min') !== '' && (length < min || length > max) ? 'true' : 'false');
+        },
+
+        // A Search field left: saved if it changed (the editor's from now on).
+        async saveSearch(element) {
+            const role = element.getAttribute('data-gw-search-edit');
+            const text = element.innerText.replace(/\s+/g, ' ').trim();
+
+            if (text === ($(element).data('was') ?? '').replace(/\s+/g, ' ').trim()) {
+                if (role === 'title' && this.searchOwn && !this.session?.seo?.search?.title?.own) {
+                    // "Give it its own", left as the page title: it still uses the page title.
+                    this.searchOwn = false;
+                    setTimeout(() => this.renderDraft(), 0);
+                }
+
+                return;
+            }
+
+            $(element).addClass('is-saving');
+
+            try {
+                const data = await Ghostwriter.request('POST', 'sessions/edit-search', { id: this.session.id, role, text });
+
+                this.searchOwn = false;
+                this.session = data;
+
+                if (!this.$container.find('[data-edit-path]:focus, [data-edit-extra]:focus, [data-gw-search-edit]:focus').length) {
+                    const scroll = this.$container.find('.gw-draft__scroll').scrollTop();
+                    this.renderDraft();
+                    this.$container.find('.gw-draft__scroll').scrollTop(scroll);
+                }
+            } catch (error) {
+                $(element).removeClass('is-saving');
+            }
         },
 
         // The extras the writer prepared with the draft (§3): one card per

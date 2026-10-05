@@ -35,11 +35,15 @@ class Launcher
 
     /**
      * The keyed strings the panel uses for the SEO layer (core's seo.php):
-     * "Checking headings and links…", and the marks and popover on the
-     * links Ghostwriter added.
+     * "Checking headings and links…", the marks and popover on the links
+     * Ghostwriter added, and the Text tab's Search section.
      */
     public const SEO_STRINGS = [
         'seo.status.checking', 'seo.link.added', 'seo.link.added-long', 'seo.link.remove', 'seo.link.open', 'seo.link.removed',
+        // The Text tab's Search section.
+        'seo.search.heading', 'seo.search.intro', 'seo.search.title', 'seo.search.description', 'seo.search.address',
+        'seo.search.give-own', 'seo.search.use-page-title', 'seo.search.use-this', 'seo.search.try-again',
+        'seo.search.try-again-note', 'seo.search.writing', 'seo.search.failed',
     ];
 
     /** The menu's words, for the count read out (ghostwriter.js). */

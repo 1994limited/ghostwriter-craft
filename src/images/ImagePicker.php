@@ -21,6 +21,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoFinder;
 use NineteenNinetyFour\Ghostwriter\Core\Images\PhotoResults;
 use NineteenNinetyFour\Ghostwriter\Core\Images\ReferenceImage;
 use NineteenNinetyFour\Ghostwriter\Core\Images\StockSearch;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\FilenameRules;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\stock\StockLibraries;
@@ -220,11 +221,13 @@ class ImagePicker extends Component
     {
         $file = $this->stock()->fetch($source, $id);
         $photo = $file->photo;
+        $alt = $photo->alt($slot->title() ?: null);
 
         $asset = $this->keep($slot, $file->content, $file->extension, [
-            'filename' => $photo->filenameBase($slot->title() ?: null),
+            // Named from the alt text it is given (SEO layer §11), in the page's language.
+            'filename' => $photo->filenameBase($slot->title() ?: null, alt: $alt, language: self::language($slot)),
             'title' => $photo->assetTitle($slot->title() ?: null),
-            'alt' => $photo->alt($slot->title() ?: null),
+            'alt' => $alt,
             'credit' => $photo->credit,
             'credit_url' => $photo->creditUrl,
             'licence' => $photo->licence,
@@ -277,17 +280,30 @@ class ImagePicker extends Component
         $label = Craft::t('ghostwriter', '{library} {id} · preview, not licensed', ['library' => $plugin->stockLibraries->standInName($library->id()), 'id' => $photo->id]);
         $title = $slot->title() ?: null;
 
+        $alt = $photo->alt($title);
+
         $asset = $this->keep($slot, StandIn::jpeg($width ?: 1600, $height ?: 1000, $label), 'jpg', [
-            'filename' => $photo->filenameBase($title) . '-' . $library->id() . '-' . $photo->id,
+            // Named from its alt text, as the licensed file will be (SEO layer §11).
+            'filename' => $photo->filenameBase($title, alt: $alt, language: self::language($slot)) . '-' . $library->id() . '-' . $photo->id,
             'exact' => true,
             'title' => $photo->assetTitle($title),
-            'alt' => $photo->alt($title),
+            'alt' => $alt,
         ]);
 
         $plugin->domain->stock()->recordPreview($photo, self::ref($asset), $comp, $preview->keepUntil, $plugin->domain->person(), StockUsages::usageFor($slot->element, $slot->field), $capabilities->noModelInput);
         $plugin->stockUsages->forget();
 
         return $asset;
+    }
+
+    /** The language of the page the image is for ("en-GB"), for naming its file. */
+    public static function language(ImageSlot $slot): string
+    {
+        try {
+            return $slot->root->getSite()->language;
+        } catch (Throwable) {
+            return Craft::$app->language;
+        }
     }
 
     /**
@@ -345,7 +361,7 @@ class ImagePicker extends Component
             ?? throw new InvalidArgumentException('The upload folder for this field no longer exists.');
 
         $extension = $extension === 'jpeg' ? 'jpg' : $extension;
-        $name = ($meta['filename'] ?? '') ?: (StringHelper::toKebabCase($meta['title'] ?? '') ?: (StringHelper::toKebabCase($slot->title()) ?: 'image'));
+        $name = ($meta['filename'] ?? '') ?: (FilenameRules::first([$meta['alt'] ?? null, $meta['title'] ?? null, $slot->title()], self::language($slot)) ?: (StringHelper::toKebabCase($meta['title'] ?? '') ?: (StringHelper::toKebabCase($slot->title()) ?: 'image')));
 
         // A stock photo keeps the name its licensed file will have; Craft
         // adds a number if it is taken.

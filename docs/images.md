@@ -41,7 +41,7 @@ Paid libraries, and a demo library for trying them, are searched from the same t
 
 ### Names, alt text and credits
 
-A chosen photo's file name, title and alt text come from the library's own title and description of it, falling back to the search that found it. For example, `potter-mending-a-bowl-x7k2qa.jpg`, titled "Potter mending a bowl".
+A chosen photo's title and alt text come from the library's own title and description of it, falling back to the search that found it. Its file name comes from that alt text, in a few words without little words such as "a" and "the" or a library's "stock photo" and "royalty free": for example, `potter-mending-bowl-x7k2qa.jpg`, titled "Potter mending a bowl". It's named once, when it's put in, and keeps its name when it's licensed.
 
 The alt text goes in the asset's own **Alternative Text**, Craft's native alt field, so templates can use `asset.alt` as usual.
 

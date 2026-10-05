@@ -2374,6 +2374,9 @@
                 next = old.slice(0, range[0]) + words + old.slice(range[1]);
             }
 
+            // An SEOmatic value becomes the page's own: its override switch on, so SEOmatic keeps it.
+            if (step.seo?.seomatic) Ghostwriter.FinishHelpers?.seomaticOwn?.(this.locate(step), String(step.path ?? '').split('/').pop());
+
             this.setInput(input, next);
 
             return { kind: 'value', before: old };

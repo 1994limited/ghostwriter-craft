@@ -128,7 +128,7 @@ class RunSessionTurn extends Job
                         }
 
                         $session->draft = $copy->draft;
-                        $session->seo = $copy->seo;
+                        SeoState::of($copy)->withWritten(SeoState::of($session)->written)->saveTo($session);
 
                         return null;
                     });
@@ -150,7 +150,7 @@ class RunSessionTurn extends Job
             // edited meanwhile.
             if ($usage !== null && ($session->draft === $written || $session->draft === $copy->draft)) {
                 $session->draft = $copy->draft;
-                $session->seo = $copy->seo;
+                SeoState::of($copy)->withWritten(SeoState::of($session)->written)->saveTo($session);
                 $session->units = $copy->units;
                 $session->extras = $copy->extras;
                 $session->plans = $copy->plans;
@@ -161,7 +161,17 @@ class RunSessionTurn extends Job
                 ] + $session->usage;
             } elseif ($copy->seo !== []) {
                 // Not its links, but the pass has been: it isn't run again.
-                $session->seo = (new SeoState(removed: SeoState::of($session)->removed, checked: SeoState::of($copy)->checked))->toArray();
+                // The search title, description and address it wrote are
+                // kept (unless the piece has its own by now), and what
+                // Ghostwriter wrote into the entry before is never lost.
+                $now = SeoState::of($session);
+                $theirs = SeoState::of($copy);
+                $session->seo = (new SeoState(
+                    removed: $now->removed,
+                    checked: $theirs->checked,
+                    meta: $now->meta->isEmpty() ? $theirs->meta : $now->meta,
+                    written: $now->written->merge($theirs->written),
+                ))->toArray();
             }
 
             if ($session->status === Session::WORKING) {

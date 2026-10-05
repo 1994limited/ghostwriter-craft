@@ -14,6 +14,9 @@ use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
 use NineteenNinetyFour\Ghostwriter\Core\Images\Placeholders;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\BuiltEntry;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SearchApplied;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SearchFields;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntryMerger;
 use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
@@ -21,6 +24,9 @@ use nineteenninetyfour\ghostwriter\layouts\EntryReader;
 use nineteenninetyfour\ghostwriter\layouts\Layouts;
 use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
+use nineteenninetyfour\ghostwriter\seo\CraftSeoWriter;
+use nineteenninetyfour\ghostwriter\seo\MetaContexts;
+use nineteenninetyfour\ghostwriter\suggest\CraftSeoFields;
 
 /**
  * What a session's draft puts into an entry, worked out with no side
@@ -55,6 +61,7 @@ class DraftValues
      *     housePlaces: array<int, mixed>,
      *     placed: array<int, string>,
      *     editing: bool,
+     *     search: ?SearchApplied,
      * }
      */
     public function for(Session $session, ContentType $type, Entry $entry, bool $readOnly = false, ?string $plan = null): array
@@ -141,9 +148,20 @@ class DraftValues
             $placed = $placeholders->filled();
         }
 
+        // The draft's search title and description into the entry's SEO
+        // fields, where Ghostwriter may write them (SEO layer §9.3, §9.4):
+        // never over a person's text. Saved with the rest into the Craft
+        // draft, so nothing is live until the editor saves.
+        $search = $this->search($session, $entry, $schema, $model, $data);
+
+        if ($search !== null) {
+            $data = $search['data'];
+        }
+
         return [
             'title' => $draft->title(),
             'data' => $data,
+            'search' => $search['applied'] ?? null,
             'schema' => $schema,
             'model' => $model,
             'existing' => $existing,
@@ -153,6 +171,46 @@ class DraftValues
             'placed' => $placed,
             'editing' => $editing,
         ];
+    }
+
+    /**
+     * The session's search title and description written into the SEO
+     * fields (core's SearchFields, with CraftSeoWriter for SEOmatic's and
+     * plain fields' shapes). The fields are read as the entry has them with
+     * the draft in, so a description inherited from the excerpt reads the
+     * draft's excerpt. Only the SEO fields written change in the data.
+     * Null when the session has neither text.
+     *
+     * @param array<int, array<string, mixed>> $schema
+     * @param array<string, mixed> $data
+     * @return array{data: array<string, mixed>, applied: SearchApplied}|null
+     */
+    private function search(Session $session, Entry $entry, array $schema, Schema $model, array $data): ?array
+    {
+        $state = SeoState::of($session);
+
+        if ($state->meta->title === '' && $state->meta->description === '') {
+            return null;
+        }
+
+        $current = MetaContexts::entryData($entry, $schema);
+        $values = array_replace($current->values, $data);
+        $applied = (new SearchFields(new CraftSeoFields(), new CraftSeoWriter()))->apply(
+            $values,
+            $model,
+            $current->withValues($values),
+            $state,
+            MetaContexts::isNew($entry),
+            MetaContexts::provenance($session),
+        );
+
+        foreach ($applied->values as $handle => $value) {
+            if (!array_key_exists($handle, $values) || $values[$handle] !== $value) {
+                $data[$handle] = $value;
+            }
+        }
+
+        return ['data' => $data, 'applied' => $applied];
     }
 
     /**

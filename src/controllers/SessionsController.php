@@ -18,7 +18,10 @@ use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\Extras;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\LinkTarget;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Markers;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\SeoField;
 use NineteenNinetyFour\Ghostwriter\Core\Review\Comments;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoPass;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Brief;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use NineteenNinetyFour\Ghostwriter\Core\Text\EntrySimplifier;
@@ -29,6 +32,7 @@ use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\ApplyComments;
 use nineteenninetyfour\ghostwriter\jobs\FillBrief;
 use nineteenninetyfour\ghostwriter\jobs\RefreshLayouts;
+use nineteenninetyfour\ghostwriter\jobs\RetrySearch;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\layouts\DraftLayouts;
 use nineteenninetyfour\ghostwriter\Plugin;
@@ -767,6 +771,99 @@ class SessionsController extends Controller
     }
 
     /**
+     * An edit in the Text tab's Search section (SEO layer §9.5): the SEO
+     * title (empty: "Use the page title"), the description, or the
+     * address (empty: made from the title again). The editor's from then
+     * on: a later turn never rewrites it. Nothing goes into the entry until
+     * "Use this draft". No model; under the session's lock like a hand edit.
+     */
+    public function actionEditSearch(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $role = (string) $this->request->getRequiredBodyParam('role');
+        $text = trim(str_replace(["\r", "\n"], ' ', (string) $this->request->getBodyParam('text', '')));
+
+        if (!in_array($role, [SeoField::TITLE, SeoField::DESCRIPTION, 'slug'], true)) {
+            return $this->refuse(Craft::t('ghostwriter', 'That isn’t part of the Search section.'));
+        }
+
+        if (mb_strlen($text) > 500) {
+            return $this->refuse(Craft::t('ghostwriter', 'That’s too long for search.'));
+        }
+
+        return $this->extraEdit($session, fn(Session $session, DraftLayouts $layouts) => $layouts->editSearch($session, $role, $text));
+    }
+
+    /**
+     * "Use this" beside an SEO value of the entry's own that stays (the
+     * Search section's "Your SEO description stays. Suggested instead"):
+     * the draft's text goes in on "Use this draft" after all. `use: 0`
+     * takes it back. No model.
+     */
+    public function actionUseSearch(): Response
+    {
+        $this->requirePostRequest();
+
+        $session = $this->session();
+        $role = (string) $this->request->getRequiredBodyParam('role');
+        $use = !in_array($this->request->getBodyParam('use', '1'), ['0', 'false', false, 0], true);
+
+        if (!in_array($role, [SeoField::TITLE, SeoField::DESCRIPTION], true)) {
+            return $this->refuse(Craft::t('ghostwriter', 'That isn’t part of the Search section.'));
+        }
+
+        return $this->extraEdit($session, fn(Session $session) => (new SeoPass())->useMeta($session, $role, $use));
+    }
+
+    /**
+     * "Try again" in the Search section: another title and description
+     * (one `seo-editor` call), run in the queue like Refresh layouts, and
+     * one at a time. The panel shows "Writing another…" meanwhile, and
+     * says so if the call failed.
+     */
+    public function actionTrySearchAgain(): Response
+    {
+        $this->requirePostRequest();
+
+        $plugin = Plugin::getInstance();
+        $session = $this->session();
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        if ($session->draft === null) {
+            return $this->refuse(Craft::t('ghostwriter', 'There is no draft yet.'));
+        }
+
+        $domain = $plugin->domain;
+        $viewer = $domain->viewer();
+        $claimed = false;
+
+        $session = $domain->sessions()->change($session->id, function(Session $session) use ($domain, $viewer, &$claimed) {
+            $claimed = $session->claim($viewer->id, $domain->options());
+
+            return $claimed ? null : false;
+        });
+
+        if ($session === null) {
+            throw new NotFoundHttpException('No such piece of writing.');
+        }
+
+        if (!$claimed) {
+            return $this->busy(new Busy('Ghostwriter is still working on this piece.', $session->waitingOn($viewer)), Craft::t('ghostwriter', 'Ghostwriter is still working on this piece.'));
+        }
+
+        DraftLayouts::searchFailed($session->id, false);
+        DraftLayouts::searching($session->id);
+        RetrySearch::start(['sessionId' => $session->id]);
+
+        return $this->asJson((new Presenter())->detail($session));
+    }
+
+    /**
      * Put the draft into the entry's Craft draft. The panel then reloads the
      * form to show it, and the person checks it and saves as usual.
      */
@@ -797,6 +894,9 @@ class SessionsController extends Controller
             $session->recordId = (int) $result['draft']->getCanonicalId();
             $session->siteId = (int) $result['draft']->siteId;
             $session->gaps = $result['gaps']->toArray();
+            // The SEO text Ghostwriter wrote into the entry, so a later
+            // piece knows it for its own and never takes it for a person's.
+            SeoState::of($session)->withWritten($result['written'])->saveTo($session);
         });
 
         // A provisional draft ("edited, not saved") opens with the entry

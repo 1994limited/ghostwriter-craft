@@ -41,6 +41,53 @@
      * tested on its own (tests/js).
      */
     Ghostwriter.FinishHelpers = {
+        /** SEOmatic's box for one value (`seoDescription`) in its SEO Settings field. */
+        seomaticInput(field, key) {
+            return field?.querySelector(`textarea[name$="[metaGlobalVars][${key}]"], input[type="text"][name$="[metaGlobalVars][${key}]"]`) ?? null;
+        },
+
+        /**
+         * SEOmatic's value for `key` made the page's own, as a person would:
+         * the field's override switch on, and its source "Custom text".
+         * Left off, SEOmatic blanks a value typed in and keeps the section's
+         * (SEO layer §9.3). Returns whether the switch was there.
+         */
+        seomaticOwn(field, key) {
+            const toggle = field?.querySelector(`input[name$="[metaGlobalVars][override-${key}]"]`);
+            const source = field?.querySelector(`select[name$="[metaBundleSettings][${key}Source]"]`);
+            const fire = (element) => {
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+
+                if (typeof $ === 'function' && $.fn) $(element).trigger('change');
+            };
+
+            if (toggle && !['1', 'true', 'on'].includes(String(toggle.value))) {
+                const lightswitch = toggle.closest?.('.lightswitch') ?? null;
+                const garnish = lightswitch && typeof $ === 'function' && $.fn ? $(lightswitch).data('lightswitch') : null;
+
+                if (garnish?.turnOn) {
+                    garnish.turnOn();
+                } else {
+                    toggle.value = '1';
+                    lightswitch?.classList.add('on');
+                    lightswitch?.setAttribute('aria-checked', 'true');
+                    fire(lightswitch ?? toggle);
+                }
+
+                const wrapper = toggle.closest?.('.inheritable-field');
+
+                wrapper?.classList.remove('inherited-settings');
+                wrapper?.classList.add('defined-settings');
+            }
+
+            if (source && source.value !== 'fromCustom' && [...(source.options ?? [])].some((option) => option.value === 'fromCustom')) {
+                source.value = 'fromCustom';
+                fire(source);
+            }
+
+            return Boolean(toggle);
+        },
+
         /**
          * The menu's one count beside Edit with Ghostwriter: what is left to
          * finish plus the suggestions, amber ("finish") while anything is
@@ -2172,6 +2219,9 @@
                 case 'write-for-me':
                 case 'write-around':
                     return this.write(gap, field, fix.action);
+                // "Use this": the draft's search description, into the SEO field.
+                case 'use-text':
+                    return this.useText(gap, field, fix.value);
                 case 'remove':
                     if (await this.replaceMarker(gap, '')) this.fixed(gap);
 
@@ -2199,9 +2249,37 @@
             }
         },
 
+        /**
+         * "Use this" for an SEO value (`seo-missing`): the text into the
+         * field's own box, as if typed: SEOmatic's description with its
+         * override switch on and its source "Custom text" (SEO layer §9.3),
+         * or a plain field's text. Nothing is saved.
+         */
+        useText(gap, field, text) {
+            const key = gap.location?.seomatic;
+            const input = key ? Ghostwriter.FinishHelpers.seomaticInput(field, key) : this.inputIn(field);
+
+            if (!input || typeof text !== 'string' || text === '') return this.focus(gap, field);
+
+            if (key) Ghostwriter.FinishHelpers.seomaticOwn(field, key);
+
+            this.setInput(input, text);
+            this.fixed(gap);
+        },
+
         /** Focus the field, and select the gap in it so typing replaces it. */
         focus(gap, field) {
             if (!field) return;
+
+            // An SEOmatic value: its box, or, while the section's is used, the switch to give the page its own.
+            if (gap.location?.seomatic) {
+                const input = Ghostwriter.FinishHelpers.seomaticInput(field, gap.location.seomatic);
+                const toggle = field.querySelector(`input[name$="[metaGlobalVars][override-${gap.location.seomatic}]"]`)?.closest('.lightswitch');
+
+                (input && input.offsetParent !== null ? input : (toggle ?? input))?.focus();
+
+                return;
+            }
 
             const editor = this.ckeditorIn(field);
 

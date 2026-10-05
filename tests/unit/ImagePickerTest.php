@@ -198,7 +198,7 @@ class ImagePickerTest extends TestCase
         $this->assertSame('Potter mending a bowl', $asset->title);
         $this->assertSame('Potter mending a bowl', $asset->alt);
         $this->assertSame($this->volume->id, $asset->volumeId);
-        $this->assertStringStartsWith('potter-mending-a-bowl-', $asset->filename);
+        $this->assertStringStartsWith('potter-mending-bowl-', $asset->filename, 'Named from its alt text, without stop words (SEO layer §11).');
     }
 
     public function testWithNoImagesToMatchPhotographsAreStillJudgedAgainstThePage(): void
