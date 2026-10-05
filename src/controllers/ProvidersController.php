@@ -165,7 +165,7 @@ class ProvidersController extends Controller
 
     private static function settingsUrl(): string
     {
-        return UrlHelper::cpUrl('settings/plugins/ghostwriter') . '#settings-ai-provider';
+        return UrlHelper::cpUrl('ghostwriter/connections');
     }
 
     private function connection(string $id): ConnectsProvider

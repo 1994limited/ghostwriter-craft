@@ -11,7 +11,7 @@ This page covers the Overview, Ghostwriter's own home in the control panel, and 
 ### At the top
 
 - **Get started**, while it's shown: "Get started · N of M done", the next step, **Continue** (which opens Get started on that step) and, for admins, **Hide**. Once every required step is done, a smaller **You’re set up** card stays, with **Open Get started**, until Get started is hidden. See [Get started](getting-started.md#finishing-and-hiding-get-started).
-- If the writing provider's key isn't set, a one-line warning, **No API key yet.**, says which variable to add to `.env`.
+- If the writing provider's key isn't set, a one-line warning, **No API key yet.**, says to set it up in Connections (or which variable to add to `.env`), with a link.
 - **Settings**, for admins, opens the [plugin settings](configuration.md#settings).
 
 ### The tiles

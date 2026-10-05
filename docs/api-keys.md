@@ -1,6 +1,6 @@
 # API keys
 
-This page covers the keys Ghostwriter needs, where to get each one, how to send calls through a gateway, and what happens when a provider is busy. Ghostwriter writes with one provider, on your own account. It can also make images with a second provider, and search free photo libraries. Every key goes in your `.env` file, and Ghostwriter reads it there each time it needs it. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us.
+This page covers the keys Ghostwriter needs, where to get each one, how to send calls through a gateway, and what happens when a provider is busy. Ghostwriter writes with one provider, on your own account. It can also make images with a second provider, and search free photo libraries. Set each key up under **Ghostwriter → Connections** (see [Connections](connections.md)): open the service's page, make a key, paste it, **Check & save**. Or put it in your `.env` file, which always wins. Your keys stay on your site. Ghostwriter sends them only to the service they belong to, never to us.
 
 | Variable | Service | What for | Free? |
 | --- | --- | --- | --- |
@@ -45,15 +45,15 @@ With no **Image provider** chosen, Ghostwriter uses OpenAI if its key is set, th
 
 [OpenRouter](https://openrouter.ai) sells access to many companies' models through one account, paid for with prepaid credit. It suits you if you'd rather not create a key at Anthropic, OpenAI or Google.
 
-**Connect with OpenRouter** (an admin, in **Settings → Plugins → Ghostwriter → AI provider**):
+**Connect with OpenRouter** (an admin, on OpenRouter's card in **Ghostwriter → Connections**):
 
 1. Click **Connect with OpenRouter**. You go to openrouter.ai to sign in or sign up, and choose a spending limit for the key.
-2. You come back to the settings with "Connected to OpenRouter (sk-or-v1-a…789)". The key is kept in Ghostwriter's own table, encrypted with your site's security key. Nothing needs copying.
-3. Set **Provider** to **OpenRouter**, and save.
+2. You come back to Connections, where the card says "Connected · key ending ••a789". The key is kept in Ghostwriter's own table, encrypted with your site's security key. Nothing needs copying. (Or paste a key you made on openrouter.ai with **Set up**.)
+3. In **Settings → Plugins → Ghostwriter**, set **Provider** to **OpenRouter**, and save.
 
-**Check connection** shows the credit left on the key. **Disconnect** forgets the key on this site; to revoke it, delete it at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys). Nothing needs registering at OpenRouter, but the control panel must be on `https://` (or `http://localhost`).
+**Disconnect** forgets the key on this site; to revoke it, delete it at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys). Nothing needs registering at OpenRouter, but the control panel must be on `https://` (or `http://localhost`).
 
-Or put a key in `.env` as `OPENROUTER_API_KEY`. **A key in `.env` always wins**: while it's set, the settings say "Using OPENROUTER_API_KEY from .env" and there's no Connect or Disconnect.
+Or put a key in `.env` as `OPENROUTER_API_KEY`. **A key in `.env` always wins**: while it's set, the card says "Set in .env" and there's no Connect or Disconnect.
 
 OpenRouter names models `company/model`. Ghostwriter uses one model for writing (the brief, drafts, guides, the plan) and a lighter one for quick jobs (finding and choosing photos, quick fixes in Finish this page). Choose each under **OpenRouter model for writing** and **OpenRouter model for quick jobs**; **Model**, when set, is used for everything. When OpenRouter makes images, an **Image model** must use OpenRouter's spelling (`openai/…`, `google/…`).
 
@@ -68,7 +68,7 @@ Every request, images included, passes through OpenRouter on its way to the mode
 2. Open **Settings → Billing** and add credit. The API is pay as you go, with no free tier, and keys don't work until there is credit on the account.
 3. Open **Settings → API keys** ([direct link](https://platform.claude.com/settings/keys)) and click **Create key**. Name it after the site, for example `northfold-production`.
 4. Copy the key straight away; it is only shown once.
-5. Add it to `.env`:
+5. Paste it in **Ghostwriter → Connections**, or add it to `.env`:
 
    ```dotenv
    ANTHROPIC_API_KEY=sk-ant-...
@@ -81,7 +81,7 @@ You can set a monthly spend limit on the Billing page, and use workspaces to kee
 1. Go to the [OpenAI platform](https://platform.openai.com) and create an account.
 2. Under **Settings → Billing**, add a payment method or prepaid credit. The API is pay as you go.
 3. Open **API keys** ([direct link](https://platform.openai.com/api-keys)) and click **Create new secret key**. Copy it; it is only shown once.
-4. Add it to `.env`:
+4. Paste it in **Ghostwriter → Connections**, or add it to `.env`:
 
    ```dotenv
    OPENAI_API_KEY=sk-...
@@ -95,7 +95,7 @@ OpenAI may ask you to verify your organisation before its image models can be us
 
 1. Go to [Google AI Studio](https://aistudio.google.com/apikey) and sign in with a Google account.
 2. Click **Create API key**. If asked, choose or create a Google Cloud project for it.
-3. Copy the key and add it to `.env`:
+3. Copy the key and paste it in Connections, or add it to `.env`:
 
    ```dotenv
    GEMINI_API_KEY=...
@@ -143,7 +143,7 @@ On by default. Openverse is searched for **public-domain and CC0** work only, so
 
 1. Create an account at [unsplash.com](https://unsplash.com/join).
 2. Go to [Your apps](https://unsplash.com/oauth/applications), click **New Application**, accept the API terms, and give it a name and description.
-3. Copy the **Access Key** (not the Secret key) and add it to `.env`:
+3. Copy the **Access Key** (not the Secret key) and paste it in Connections, or add it to `.env`:
 
    ```dotenv
    UNSPLASH_ACCESS_KEY=...
@@ -157,7 +157,7 @@ Unsplash's API guidelines ask apps to credit the photographer and Unsplash. Ghos
 
 1. Create an account at [pexels.com](https://www.pexels.com/join/).
 2. Go to [Pexels API](https://www.pexels.com/api/) and click **Your API Key**, then fill in the short form. The key is shown straight away.
-3. Add it to `.env`:
+3. Paste it in **Ghostwriter → Connections**, or add it to `.env`:
 
    ```dotenv
    PEXELS_API_KEY=...
@@ -169,7 +169,7 @@ Free, with 200 requests an hour and 20,000 a month. Pexels asks you to credit th
 
 1. Create an account at [pixabay.com](https://pixabay.com/accounts/register/).
 2. While logged in, open the [Pixabay API documentation](https://pixabay.com/api/docs/). Your key is shown in the **Parameters** section, next to `key`.
-3. Add it to `.env`:
+3. Paste it in **Ghostwriter → Connections**, or add it to `.env`:
 
    ```dotenv
    PIXABAY_API_KEY=...

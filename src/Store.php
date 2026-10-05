@@ -31,6 +31,9 @@ class Store extends Component
 
     public const STATE = '{{%ghostwriter_state}}';
 
+    /** Settings → Connections: keys and account tokens, encrypted (DbCredentialStore). */
+    public const CREDENTIALS = '{{%ghostwriter_credentials}}';
+
     public const FILES = '{{%ghostwriter_files}}';
 
     public const SESSIONS = '{{%ghostwriter_sessions}}';

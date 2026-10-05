@@ -93,8 +93,8 @@ class ScreensTest extends TestCase
         $this->plugin->providers->keys['anthropic'] = null;
         $this->signIn();
 
-        $this->assertStringContainsString('Add ANTHROPIC_API_KEY to your .env file', $this->render('ghostwriter/dashboard/index'));
-        $this->assertStringContainsString('Add ANTHROPIC_API_KEY to your .env file', $this->render('ghostwriter/voice/show'));
+        $this->assertStringContainsString('(or set ANTHROPIC_API_KEY in .env)', $this->render('ghostwriter/dashboard/index'));
+        $this->assertStringContainsString('ghostwriter/connections', $this->render('ghostwriter/voice/show'));
     }
 
     public function testTheSettingsSayWhichKeysAreSetAndNeverWhatTheyAre(): void
@@ -103,7 +103,9 @@ class ScreensTest extends TestCase
 
         $html = (fn() => $this->settingsHtml())->call($this->plugin);
 
-        $this->assertStringContainsString('OPENAI_API_KEY', $html);
+        $this->assertStringContainsString('OpenAI</th>', $html);
+        $this->assertStringContainsString('Set in config', $html, 'A key the tests set is not in .env.');
+        $this->assertStringContainsString('ghostwriter/connections', $html);
         $this->assertStringNotContainsString('sk-very-secret', $html);
         $this->assertStringContainsString('Write for these sections', $html);
         $this->assertStringContainsString('Articles', $html);

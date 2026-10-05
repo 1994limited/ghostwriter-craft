@@ -3,6 +3,18 @@
 ## Unreleased
 
 ### Added
+- **Settings → Connections** (core main, Connections): **Ghostwriter → Connections** has a card for every service Ghostwriter uses, in Writing (Anthropic, OpenAI, Gemini, OpenRouter), Images (Unsplash, Pexels, Pixabay, Openverse) and Stock photos (Shutterstock). **Set up** opens the service's key page in a new tab, shows two or three plain steps and a paste box; **Check & save** checks the key with one cheap live call before keeping it. Each card says **Connected · key ending ••a1b2**, **Not set up**, **Set in .env** or **Key stopped working** (found when a service refuses a key in use). **Replace key** and **Disconnect** (with a confirm). Connect with OpenRouter and Shutterstock's Connect account sit inside their cards. The page says which environment you're on. Admins only. In English, German, French, Dutch and Spanish, from core.
+- Keys are kept in the new **`ghostwriter_credentials`** table, each encrypted with Craft's security component and the security key; never in project config. See `docs/connections.md`.
+- Every key is read through core's `Connections` resolver, so a key set up on the page works with nothing in `.env`. **A key in `.env` always wins.** Shutterstock's key and secret come through it too.
+
+### Changed
+- The migration `m261007_000000_connections` (schema 1.5.0) makes the table and moves Connect with OpenRouter's key and paid libraries' account tokens out of the state table into it.
+- The settings' API keys table is now **Connections**: where each service stands, and a link to set them up. The OpenRouter row's Connect, Check connection and Disconnect, and Shutterstock's Connect account, moved to the Connections page; "add X to .env" now reads "Set up in Connections (or set X in .env)" there, in Get started and in the no-key alert. Get started's **Connect a model** step links to Connections.
+
+### Upgrading
+- Run `php craft up` (or `php craft migrate/all`) for the new table.
+
+### Added
 - **SEO layer row 6** (core main): Finish this page suggests **Shorten a heading** (a heading over 70 characters; **Write it for me** queues one `gap-filler` call, task `shorten-heading`, and replaces only the heading's words in CKEditor) and **Link to your other pages** (300 words or more and no link to the site; Add a link · Skip). The gap context passes the site's hosts. Suggest edits gains SEO candidates (an empty or short description, a long heading, no links: the review is shown pages to link to and proposes them). Content to revisit gains **No SEO description**, **No internal links** and **Heading levels**, together at most 25.
 - **German, French, Dutch and Spanish** for the SEO strings: `bin/sync-core-strings` also writes `src/translations/{de,fr,nl,es}/ghostwriter.php` (core's translations over the English, so no key shows as itself); a test checks them.
 

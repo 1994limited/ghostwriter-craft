@@ -4,7 +4,7 @@ This page covers the problems people most often meet with Ghostwriter, and what 
 
 ## "No API key yet"
 
-The chosen provider's key isn't in the environment. Add it to `.env` (see [API keys](api-keys.md)) and reload the page. On a server, check the variable is set where your host keeps environment variables, then redeploy or restart PHP if your host needs it.
+The chosen provider has no key. Set it up in **Ghostwriter → Connections**, or add it to `.env` (see [API keys](api-keys.md)) and reload the page. On a server, check the variable is set where your host keeps environment variables, then redeploy or restart PHP if your host needs it.
 
 **Settings → Plugins → Ghostwriter** lists which keys Ghostwriter can see, as **Set** or **Not set**.
 

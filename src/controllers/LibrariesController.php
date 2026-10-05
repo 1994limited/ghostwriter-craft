@@ -124,7 +124,7 @@ class LibrariesController extends Controller
 
     private static function settingsUrl(): string
     {
-        return UrlHelper::cpUrl('settings/plugins/ghostwriter') . '#stock-photos';
+        return UrlHelper::cpUrl('ghostwriter/connections');
     }
 
     private function library(string $id): ConnectsAccount

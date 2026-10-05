@@ -6,7 +6,7 @@ Ghostwriter learns how your site writes, then drafts new entries and edits exist
 
 1. [Installation](installation.md): install the plugin, add your key, the queue, updating and uninstalling.
 2. [Get started](getting-started.md): the seven steps from a fresh install to the first draft.
-3. [API keys](api-keys.md): getting a key for each service, including the free options; gateways; retries.
+3. [API keys](api-keys.md): getting a key for each service, including the free options; gateways; retries. [Connections](connections.md): setting every key up in the control panel, and where they are kept.
 4. [Permissions](permissions.md): who can use and manage Ghostwriter, shared conversations, deleting a piece.
 5. [Configuration](configuration.md): settings, `config/ghostwriter.php`, where things are kept, prompts, logging.
 

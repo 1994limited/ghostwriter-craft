@@ -17,6 +17,7 @@ class Install extends Migration
         self::createStockTables($this);
         self::createSuggestTables($this);
         self::createLinkIndex($this);
+        self::createCredentials($this);
         (new FileImport($this))->run();
 
         return true;
@@ -33,7 +34,7 @@ class Install extends Migration
             LedgerExport::beforeUninstall($this->db);
         }
 
-        foreach ([Store::INDEX_STEMS, Store::REVISIT_LINKS, Store::REVISIT, Store::ENTRY_INDEX, Store::EDIT_REVIEWS, Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
+        foreach ([Store::CREDENTIALS, Store::INDEX_STEMS, Store::REVISIT_LINKS, Store::REVISIT, Store::ENTRY_INDEX, Store::EDIT_REVIEWS, Store::STOCK_USAGES, Store::STOCK_IMAGES, Store::SESSIONS, Store::FILES, Store::STATE, Store::DOCUMENTS] as $table) {
             $this->dropTableIfExists($table);
         }
 
@@ -277,6 +278,27 @@ class Install extends Migration
             ]);
             $migration->createIndex(null, Store::INDEX_STEMS, ['site', 'stem']);
             $migration->createIndex(null, Store::INDEX_STEMS, ['entryKey']);
+        }
+    }
+
+    /**
+     * Settings → Connections: each service's key set up there, a note
+     * when one stopped working, and paid libraries' account tokens, by
+     * name, each value encrypted with the security key. Never project
+     * config.
+     */
+    public static function createCredentials(Migration $migration): void
+    {
+        if (!$migration->db->tableExists(Store::CREDENTIALS)) {
+            $migration->createTable(Store::CREDENTIALS, [
+                'id' => $migration->primaryKey(),
+                'name' => $migration->string(191)->notNull(),
+                'value' => $migration->text()->notNull(),
+                'dateCreated' => $migration->dateTime()->notNull(),
+                'dateUpdated' => $migration->dateTime()->notNull(),
+                'uid' => $migration->uid(),
+            ]);
+            $migration->createIndex(null, Store::CREDENTIALS, ['name'], true);
         }
     }
 }

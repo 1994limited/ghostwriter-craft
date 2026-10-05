@@ -201,7 +201,7 @@ class StockLedgerTest extends TestCase
 
     public function testTheLedgerTablesAreInstalled(): void
     {
-        $this->assertSame('1.4.0', $this->plugin->schemaVersion);
+        $this->assertSame('1.5.0', $this->plugin->schemaVersion);
         $this->assertTrue(Craft::$app->getDb()->tableExists(Store::STOCK_IMAGES));
         $this->assertTrue(Craft::$app->getDb()->tableExists(Store::STOCK_USAGES));
     }

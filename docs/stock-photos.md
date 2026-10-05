@@ -27,9 +27,9 @@ You always license from **your own account**, with your own key and secret. Ghos
 
 ### Shutterstock
 
-1. Create an app at **shutterstock.com/account/developers/apps** and put its consumer key and secret in `.env` as `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`.
-2. In the app's **Callback URL** field, add the host name and path the settings show, such as `cms.example.com/admin/ghostwriter/libraries/shutterstock/callback`. Shutterstock takes host names and paths here, not whole URLs.
-3. In **Settings → Plugins → Ghostwriter → Stock photos**, click **Connect account** and sign in to Shutterstock. You come back to the settings with "Shutterstock is connected." **Disconnect** forgets the connection (Shutterstock has no way to revoke it from here; delete the app to do that). Licences already bought stay in the ledger.
+1. Create an app at **shutterstock.com/account/developers/apps** and paste its consumer key and secret on Shutterstock's card in **Ghostwriter → Connections** (or put them in `.env` as `SHUTTERSTOCK_API_KEY` and `SHUTTERSTOCK_API_SECRET`).
+2. In the app's **Callback URL** field, add the host name and path, such as `cms.example.com/admin/ghostwriter/libraries/shutterstock/callback`. Shutterstock takes host names and paths here, not whole URLs.
+3. On Shutterstock's card in **Ghostwriter → Connections**, click **Connect account** and sign in to Shutterstock. You come back to Connections with "Shutterstock is connected." **Disconnect** forgets the connection (Shutterstock has no way to revoke it from here; delete the app to do that). Licences already bought stay in the ledger.
 
 Only admins can connect or disconnect. The connection belongs to the site, not to whoever clicked: the licences are your company's. Its tokens are kept encrypted with your site's security key, last an hour and are renewed as needed. If the connection is lost (a changed password, a deleted app), licensing says so; connect again.
 

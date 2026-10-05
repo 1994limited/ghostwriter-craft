@@ -1,6 +1,7 @@
 {#
-    Plugin settings. API keys are never entered here: they are read from the
-    environment, and this screen only says which are set.
+    Plugin settings. API keys are never entered here: they are set up in
+    Ghostwriter → Connections (or .env, which wins), and this screen only
+    says where each stands.
 #}
 {% import '_includes/forms' as forms %}
 
@@ -19,6 +20,13 @@
 {% set openrouterChoices = openrouterChoices ?? {} %}
 {% set canManage = canManage ?? false %}
 {% set stock = stock ?? {free: [], paid: [], sources: [{label: 'Free libraries'|t('ghostwriter'), value: 'free'}]} %}
+{% set connections = connections ?? {} %}
+{% set connectionsUrl = connectionsUrl ?? cpUrl('ghostwriter/connections') %}
+{% set connectionStrings = connectionStrings ?? {'elsewhere.link': 'Set up in Connections', 'elsewhere.keys': 'Keys are set up in Connections, or in your .env file, which wins.'} %}
+
+{% macro connectionStatus(status) -%}
+    {%- if status -%}<span class="status {{ status.ok ? 'green' : 'light' }}" aria-hidden="true"></span>{{ status.label }}{%- endif -%}
+{%- endmacro %}
 
 {% set sectionOptions = sections|map(section => {label: section.name|t('site'), value: section.handle}) %}
 
@@ -114,32 +122,12 @@
     disabled: 'model' in overrides,
 }) }}
 
-{# Connect with OpenRouter, per core's docs/connecting-accounts.md. #}
+{# The provider's key, and Connect with OpenRouter, are on its card in Connections. #}
 <div class="field gw-openrouter" id="openrouter">
-    <div class="heading"><label id="gw-openrouter-label">OpenRouter</label></div>
-    <div class="input" role="group" aria-labelledby="gw-openrouter-label">
-        {% if openrouter.source == 'env' %}
-            <p><span class="status green" aria-hidden="true"></span>{{ 'Using OPENROUTER_API_KEY from .env'|t('ghostwriter') }}</p>
-        {% elseif openrouter.source == 'connected' %}
-            <p><span class="status green" aria-hidden="true"></span>{{ 'Connected to OpenRouter ({key})'|t('ghostwriter', {key: openrouter.masked}) }}</p>
-        {% else %}
-            <p><span class="status" aria-hidden="true"></span>{{ 'Not connected'|t('ghostwriter') }}</p>
-            <p class="light">{{ 'Sign in to OpenRouter to use Claude, GPT or Gemini with one account, paid for with OpenRouter credit.'|t('ghostwriter') }}</p>
-        {% endif %}
-        <div class="flex">
-            {% if openrouter.source is null %}
-                {% if canManage %}<a class="btn submit" href="{{ openrouter.connectUrl }}">{{ 'Connect with OpenRouter'|t('ghostwriter') }}</a>{% endif %}
-            {% else %}
-                <button type="button" class="btn gw-openrouter-check">{{ 'Check connection'|t('ghostwriter') }}</button>
-                {% if openrouter.source == 'connected' and canManage %}
-                    <button type="button" class="btn gw-openrouter-disconnect">{{ 'Disconnect'|t('ghostwriter') }}</button>
-                {% endif %}
-            {% endif %}
-        </div>
-        <div class="gw-openrouter-result light smalltext" aria-live="polite"></div>
-        {% if openrouter.source == 'connected' %}
-            <p class="light smalltext">{{ 'Disconnect only forgets the key here. To revoke it, delete the key at openrouter.ai/settings/keys.'|t('ghostwriter') }}</p>
-        {% endif %}
+    <div class="heading"><label id="gw-provider-key-label">{{ 'Key'|t('ghostwriter') }}</label></div>
+    <div class="input" role="group" aria-labelledby="gw-provider-key-label">
+        <p>{{ _self.connectionStatus(connections[settings.provider] ?? null) }}</p>
+        <p><a class="btn" href="{{ connectionsUrl }}">{{ connectionStrings['elsewhere.link'] }}</a></p>
         {% if settings.provider == 'openrouter' or settings.imageProvider == 'openrouter' %}
             <p class="notice with-icon">{{ 'Requests, including images, pass through OpenRouter on their way to the model’s company.'|t('ghostwriter') }}</p>
         {% endif %}
@@ -288,7 +276,7 @@
 <hr>
 
 <h2 id="stock-photos">{{ 'Stock photos'|t('ghostwriter') }}</h2>
-<p class="light">{{ 'Photos from libraries, found with the Ghostwriter button on an image field. Keys are read from your .env file each time they are needed and are never stored or shown.'|t('ghostwriter') }}</p>
+<p class="light">{{ 'Photos from libraries, found with the Ghostwriter button on an image field.'|t('ghostwriter') }} {{ connectionStrings['elsewhere.keys'] }} <a href="{{ connectionsUrl }}">{{ connectionStrings['elsewhere.link'] }}</a></p>
 
 <h3>{{ 'Free libraries'|t('ghostwriter') }}</h3>
 <table class="data fullwidth gw-stock-libraries">
@@ -296,16 +284,7 @@
         {% for library in stock.free %}
             <tr>
                 <th scope="row">{{ library.label }}</th>
-                <td>
-                    {% for name, set in library.keys %}
-                        <code>{{ name }}</code>
-                        {% if set %}
-                            <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
-                        {% else %}
-                            <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
-                        {% endif %}
-                    {% endfor %}
-                </td>
+                <td>{{ _self.connectionStatus(library.status) }}</td>
             </tr>
         {% endfor %}
     </tbody>
@@ -340,22 +319,19 @@
                     {% if library.note %}<div class="light smalltext" style="font-weight: normal">{{ library.note }}</div>{% endif %}
                 </th>
                 <td>
-                    {% for name, set in library.keys %}
-                        <div><code>{{ name }}</code>
-                        {% if set %}
-                            <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
-                        {% else %}
-                            <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
-                        {% endif %}</div>
-                    {% else %}
+                    {% if library.status ?? null %}
+                        {{ _self.connectionStatus(library.status) }}
+                    {% elseif library.keys is empty %}
                         <span class="light">{{ 'No key needed'|t('ghostwriter') }}</span>
-                    {% endfor %}
+                    {% else %}
+                        {% for name, set in library.keys %}<div><code>{{ name }}</code> {{ set ? 'Set'|t('ghostwriter') : 'Not set'|t('ghostwriter') }}</div>{% endfor %}
+                    {% endif %}
                 </td>
                 <td>
                     {% if library.coming %}
                         <span class="light">{{ 'Ghostwriter can’t search or license here yet. Your keys are ready for when it can.'|t('ghostwriter') }}</span>
                     {% elseif library.unset ?? false %}
-                        <span class="light">{{ 'Add {keys} to your .env file.'|t('ghostwriter', {keys: library.keys|keys|join(' and ')}) }}</span>
+                        <a href="{{ connectionsUrl }}">{{ connectionStrings['elsewhere.link'] }}</a>
                     {% else %}
                         <button type="button" class="btn small gw-stock-check" data-library="{{ library.id }}">{{ 'Check connection'|t('ghostwriter') }}</button>
                         <div class="gw-stock-check-result light smalltext" aria-live="polite"></div>
@@ -364,15 +340,10 @@
                         <div class="smalltext"><span class="status orange" aria-hidden="true"></span>{{ 'Sandbox: licensing charges nothing.'|t('ghostwriter') }}</div>
                     {% endif %}
                     {% if library.connects ?? false %}
-                        {# Connect account (OAuth), per core's docs/connecting-accounts.md. #}
-                        <div class="gw-stock-connect">
-                            {% if library.connected %}
-                                <span class="status green" aria-hidden="true"></span>{{ 'Account connected'|t('ghostwriter') }}
-                                <button type="button" class="btn small gw-stock-disconnect" data-library="{{ library.id }}">{{ 'Disconnect'|t('ghostwriter') }}</button>
-                            {% else %}
-                                <a class="btn small submit" href="{{ cpUrl('ghostwriter/libraries/' ~ library.id ~ '/connect') }}">{{ 'Connect account'|t('ghostwriter') }}</a>
-                                <div class="light smalltext">{{ 'Licensing needs your account connected. First add this to your app’s Callback URL:'|t('ghostwriter') }} <code>{{ library.callback }}</code></div>
-                            {% endif %}
+                        {# Connect account is on the library's card in Connections. #}
+                        <div class="gw-stock-connect light smalltext">
+                            <span class="status {{ library.connected ? 'green' : 'light' }}" aria-hidden="true"></span>{{ library.connected ? 'Account connected'|t('ghostwriter') : 'Account not connected'|t('ghostwriter') }}
+                            · <a href="{{ connectionsUrl }}">{{ connectionStrings['elsewhere.link'] }}</a>
                         </div>
                     {% endif %}
                 </td>
@@ -422,56 +393,7 @@
 
 {% js %}
 (function () {
-    // Connect with OpenRouter: Check connection and Disconnect.
-    const openrouter = document.querySelector('.gw-openrouter');
-
-    openrouter?.querySelector('.gw-openrouter-check')?.addEventListener('click', async function (event) {
-        const button = event.currentTarget;
-        const result = openrouter.querySelector('.gw-openrouter-result');
-        button.classList.add('loading');
-        result.textContent = '';
-
-        try {
-            const response = await Craft.sendActionRequest('POST', 'ghostwriter/providers/check', { params: { id: 'openrouter' } });
-            result.textContent = response.data.message;
-            result.classList.toggle('error', Boolean(response.data.exhausted));
-        } catch (error) {
-            result.textContent = error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.');
-            result.classList.add('error');
-        } finally {
-            button.classList.remove('loading');
-        }
-    });
-
-    openrouter?.querySelector('.gw-openrouter-disconnect')?.addEventListener('click', async function (event) {
-        const button = event.currentTarget;
-        button.classList.add('loading');
-
-        try {
-            const response = await Craft.sendActionRequest('POST', 'ghostwriter/providers/disconnect', { params: { id: 'openrouter' } });
-            Craft.cp.displayNotice(response.data.message);
-            window.location.reload();
-        } catch (error) {
-            Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
-            button.classList.remove('loading');
-        }
-    });
-
-    document.querySelectorAll('.gw-stock-disconnect').forEach(function (button) {
-        button.addEventListener('click', async function () {
-            button.classList.add('loading');
-
-            try {
-                const response = await Craft.sendActionRequest('POST', 'ghostwriter/libraries/disconnect', { params: { id: button.dataset.library } });
-                Craft.cp.displayNotice(response.data.message);
-                window.location.reload();
-            } catch (error) {
-                Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
-                button.classList.remove('loading');
-            }
-        });
-    });
-
+    // Connecting and disconnecting are on the Connections page.
     document.querySelectorAll('.gw-stock-check').forEach(function (button) {
         button.addEventListener('click', async function () {
             const result = button.parentNode.querySelector('.gw-stock-check-result');
@@ -511,22 +433,17 @@
 
 <hr>
 
-<h2>{{ 'API keys'|t('ghostwriter') }}</h2>
-<p class="light">{{ 'Keys are read from your .env file each time they are needed and are never stored by Ghostwriter.'|t('ghostwriter') }}</p>
+<h2 id="connections">{{ 'Connections'|t('ghostwriter') }}</h2>
+<p class="light">{{ connectionStrings['elsewhere.keys'] }}</p>
 
 <table class="data fullwidth">
     <tbody>
-        {% for name, set in keys %}
+        {% for id, status in connections %}
             <tr>
-                <th scope="row"><code>{{ name }}</code></th>
-                <td>
-                    {% if set %}
-                        <span class="status green" aria-hidden="true"></span>{{ 'Set'|t('ghostwriter') }}
-                    {% else %}
-                        <span class="status" aria-hidden="true"></span><span class="light">{{ 'Not set'|t('ghostwriter') }}</span>
-                    {% endif %}
-                </td>
+                <th scope="row">{{ status.name }}</th>
+                <td>{{ _self.connectionStatus(status) }}</td>
             </tr>
         {% endfor %}
     </tbody>
 </table>
+<p><a class="btn" href="{{ connectionsUrl }}">{{ connectionStrings['elsewhere.link'] }}</a></p>

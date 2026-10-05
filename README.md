@@ -40,7 +40,7 @@ composer require 1994/ghostwriter-craft
 php craft plugin/install ghostwriter
 ```
 
-Then add your key to `.env`:
+Then set up your key under **Ghostwriter → Connections** in the control panel (paste it, **Check & save**), or add it to `.env`, which always wins:
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...

@@ -9,7 +9,6 @@ use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\OpenRouterConnection;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers\OpenRouter;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeOpenRouter;
 use nineteenninetyfour\ghostwriter\controllers\ProvidersController;
-use nineteenninetyfour\ghostwriter\domain\DbProviderKeys;
 use nineteenninetyfour\ghostwriter\Store;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
 
@@ -64,12 +63,12 @@ class OpenRouterTest extends TestCase
         $this->redirectFrom('ghostwriter/providers/callback', ['code' => $query['code'], 'state' => $query['state']]);
 
         $this->assertTrue($this->connection->connected());
-        $this->assertSame('connected', $this->plugin->providers->source('openrouter'));
+        $this->assertSame('stored', $this->plugin->providers->source('openrouter'));
         $this->assertSame('Connected to OpenRouter (sk-or-v1-f…000).', $this->flash('notice'));
         $this->assertNull(Craft::$app->getSession()->get('ghostwriter.connect.openrouter'));
 
         // Kept encrypted: no key in the database as it is.
-        $stored = (string) (new Query())->select('value')->from(Store::STATE)->where(['name' => DbProviderKeys::name('openrouter')])->scalar();
+        $stored = (string) (new Query())->select('value')->from(Store::CREDENTIALS)->where(['name' => 'openrouter'])->scalar();
         $this->assertNotSame('', $stored);
         $this->assertStringNotContainsString(FakeOpenRouter::KEY, $stored);
         $this->assertSame(FakeOpenRouter::KEY, $this->plugin->providerKeys->get('openrouter'));
@@ -144,9 +143,9 @@ class OpenRouterTest extends TestCase
         $this->assertSame(422, $this->action('ghostwriter/providers/disconnect', [], 'POST', params: ['id' => 'openrouter'])['status']);
         $this->assertNotNull($this->plugin->providerKeys->get('openrouter'));
 
-        $html = $this->settingsHtml();
-        $this->assertStringContainsString('Using OPENROUTER_API_KEY from .env', $html);
-        $this->assertStringNotContainsString('Connect with OpenRouter</a>', $html);
+        $card = \nineteenninetyfour\ghostwriter\connections\ConnectionsPage::card($this->plugin->providers->credentials()->services()->get('openrouter'));
+        $this->assertSame('env', $card['status']['state']);
+        $this->assertNull($card['oauth_links'], 'No Connect while the environment\'s key wins.');
     }
 
     public function testOnlyAdminsMayConnectDisconnectOrCheck(): void
@@ -225,22 +224,26 @@ class OpenRouterTest extends TestCase
         $this->assertNull($settings->modelWarning());
     }
 
-    public function testTheSettingsRowOffersConnectThenShowsTheMaskedKeyAndThePrivacyNote(): void
+    public function testTheCardOffersConnectThenShowsTheMaskedKeyAndTheSettingsTheirPrivacyNote(): void
     {
         $this->signIn(admin: true);
+        $service = $this->plugin->providers->credentials()->services()->get('openrouter');
 
-        $html = $this->settingsHtml();
-        $this->assertStringContainsString('Connect with OpenRouter', $html);
-        $this->assertStringContainsString('Not connected', $html);
-        $this->assertStringNotContainsString('pass through OpenRouter', $html);
+        $card = \nineteenninetyfour\ghostwriter\connections\ConnectionsPage::card($service);
+        $this->assertSame('not_set', $card['status']['state']);
+        $this->assertStringEndsWith('ghostwriter/providers/openrouter/connect', $card['oauth_links']['connect_url']);
+        $this->assertStringNotContainsString('pass through OpenRouter', $this->settingsHtml());
 
         $this->plugin->providerKeys->put('openrouter', FakeOpenRouter::KEY);
         $this->plugin->getSettings()->provider = 'openrouter';
 
+        $card = \nineteenninetyfour\ghostwriter\connections\ConnectionsPage::card($service);
+        $this->assertSame('Connected · key ending ••' . substr(FakeOpenRouter::KEY, -4), $card['status']['label']);
+        $this->assertSame('Connected by signing in to OpenRouter.', $card['help']);
+
         $html = $this->settingsHtml();
-        $this->assertStringContainsString('Connected to OpenRouter (sk-or-v1-f…000)', $html);
         $this->assertStringNotContainsString(FakeOpenRouter::KEY, $html);
-        $this->assertStringContainsString('Disconnect', $html);
+        $this->assertStringContainsString('ghostwriter/connections', $html);
         $this->assertStringContainsString('Requests, including images, pass through OpenRouter on their way to the model’s company.', $html);
         $this->assertStringContainsString('Default (anthropic/claude-sonnet-5.5)', $html);
     }

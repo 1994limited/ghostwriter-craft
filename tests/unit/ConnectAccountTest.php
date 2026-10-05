@@ -69,7 +69,7 @@ class ConnectAccountTest extends TestCase
         $this->assertSame('OAuth demo is connected.', $this->flash('notice'));
 
         // Kept encrypted: no token in the database as it is.
-        $stored = (string) (new Query())->select('value')->from(Store::STATE)->where(['name' => 'library-tokens:oauthdemo'])->scalar();
+        $stored = (string) (new Query())->select('value')->from(Store::CREDENTIALS)->where(['name' => 'tokens:oauthdemo'])->scalar();
         $this->assertNotSame('', $stored);
         $this->assertStringNotContainsString($this->plugin->libraryTokens->get('oauthdemo')?->accessToken ?? 'x', $stored);
 
