@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- **SEO layer row 6** (core main): Finish this page suggests **Shorten a heading** (a heading over 70 characters; **Write it for me** queues one `gap-filler` call, task `shorten-heading`, and replaces only the heading's words in CKEditor) and **Link to your other pages** (300 words or more and no link to the site; Add a link · Skip). The gap context passes the site's hosts. Suggest edits gains SEO candidates (an empty or short description, a long heading, no links: the review is shown pages to link to and proposes them). Content to revisit gains **No SEO description**, **No internal links** and **Heading levels**, together at most 25.
+- **German, French, Dutch and Spanish** for the SEO strings: `bin/sync-core-strings` also writes `src/translations/{de,fr,nl,es}/ghostwriter.php` (core's translations over the English, so no key shows as itself); a test checks them.
+
+### Changed
+- **Addresses keep the whole phrase**: "What to do in the garden in March" is `what-to-do-in-the-garden-in-march`; only a title over about 60 characters loses its little words.
+- **A description inherited from an empty field is written**, as if empty, rather than only suggested.
+
 ### Changed
 - **An SEOmatic value the field offers is writable even with its override switch off.** Ghostwriter now writes SEOmatic values with the switch on (and Suggest edits' **Accept** turns it on in the form), so `CraftSeoFields` reports a value writable wherever the field offers the setting, inherited or not, never a template or a switched-off one. It also reads the switch as the form posts it (`override-seoDescription`).
 - **The writer's own links** (core main, 1994limited/ghostwriter-core#92, decisions 22–24):

@@ -11,6 +11,10 @@
  * parameters in place of Laravel's `:name`. Run it after updating core; a
  * test fails while the two differ.
  *
+ * It also writes src/translations/{de,fr,nl,es}/ghostwriter.php: core's
+ * translations of its SEO strings (decision 18), over the English for every
+ * other key, so a key never shows as itself.
+ *
  *     php bin/sync-core-strings
  */
 
@@ -47,3 +51,29 @@ $lines[] = '];';
 file_put_contents($target, implode("\n", $lines) . "\n");
 
 echo count($strings) . " strings written to src/translations/en/ghostwriter.php\n";
+
+foreach (Message::TRANSLATED as $language) {
+    $translated = $strings;
+    $count = 0;
+
+    foreach (['gaps', 'suggest', 'revisit', 'seo'] as $namespace) {
+        foreach (Message::translations($namespace, $language) as $key => $text) {
+            if (isset($translated["{$namespace}.{$key}"])) {
+                $translated["{$namespace}.{$key}"] = $craft($text);
+                $count++;
+            }
+        }
+    }
+
+    $out = ["<?php", "", "/*", " * Ghostwriter's strings in {$language}: core's translations of its SEO", " * strings, the English for the rest, written by bin/sync-core-strings.", " * Don't edit by hand.", " */", "", "return ["];
+
+    foreach ($translated as $key => $text) {
+        $out[] = '    ' . var_export($key, true) . ' => ' . var_export($text, true) . ',';
+    }
+
+    $out[] = '];';
+    @mkdir(dirname(__DIR__) . "/src/translations/{$language}", 0755, true);
+    file_put_contents(dirname(__DIR__) . "/src/translations/{$language}/ghostwriter.php", implode("\n", $out) . "\n");
+
+    echo "{$count} translated strings written to src/translations/{$language}/ghostwriter.php\n";
+}
