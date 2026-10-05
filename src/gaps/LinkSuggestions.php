@@ -23,9 +23,10 @@ use Throwable;
  * What it found is kept in Ghostwriter's state under a key for the page
  * view, for the person who asked: the guide sends the key with each check,
  * and Gaps hands the proposals to the gap finder, which makes each link
- * still to make a "Link it" step. Nothing is written into the entry here:
- * Link it links the words in CKEditor (nested entries too), and Craft
- * saves the draft as it would for any typing.
+ * still to make a "Link it" step. The entries nested in CKEditor fields
+ * are read too (WithNestedEntries), so a link can go in a nested entry's
+ * own rich text. Nothing is written into the entry here: Link it links the
+ * words in CKEditor, and Craft saves the draft as it would for any typing.
  */
 class LinkSuggestions
 {
@@ -122,7 +123,8 @@ class LinkSuggestions
         );
         $pass = new SeoPass(logger: $plugin->studio->logger ?? new CraftLogger(), studio: $plugin->studio->core());
 
-        return $pass->suggestLinksFor($plugin->gaps->context($entry), $links, (string) $entry->title);
+        // The entries nested in CKEditor fields too: their own rich text can take a link.
+        return $pass->suggestLinksFor(WithNestedEntries::expand($plugin->gaps->context($entry)), $links, (string) $entry->title);
     }
 
     /**

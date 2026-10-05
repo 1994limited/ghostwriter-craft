@@ -10,6 +10,8 @@ use craft\fields\Link;
 use NineteenNinetyFour\Ghostwriter\Core\Arrange\Extras\ExtraSources;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\BlockRef;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Detectors\FewLinks;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Detectors\ProposedLinks;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Detectors\UnlicensedStock;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\FieldPath;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Fix;
@@ -137,7 +139,12 @@ class Gaps extends Component
         }
 
         return new GapFinder(array_map(
-            fn($detector) => $detector instanceof UnlicensedStock ? new NamedLibraries($detector) : $detector,
+            fn($detector) => match (true) {
+                $detector instanceof UnlicensedStock => new NamedLibraries($detector),
+                // Suggest links' proposals may be in an entry nested in CKEditor.
+                $detector instanceof ProposedLinks, $detector instanceof FewLinks => new WithNestedEntries($detector),
+                default => $detector,
+            },
             GapFinder::standard()->detectors(),
         ));
     }
