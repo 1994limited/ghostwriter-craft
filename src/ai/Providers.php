@@ -5,7 +5,6 @@ namespace nineteenninetyfour\ghostwriter\ai;
 use GuzzleHttp\HandlerStack;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Http\Sleeper;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\ImageProvider;
-use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\ConnectedCredentials;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\ConnectsProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Credentials\OpenRouterConnection;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\Credentials;
@@ -13,6 +12,13 @@ use NineteenNinetyFour\Ghostwriter\Core\Ai\Ports\ProviderKeys;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Providers as Registry;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\Testing\FakeProvider;
 use NineteenNinetyFour\Ghostwriter\Core\Ai\TextProvider;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\ChecksKeys;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\Connections;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\KeyCheck;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\KeyWatch;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\Services;
+use NineteenNinetyFour\Ghostwriter\Core\Connections\Testing\FakeKeyCheck;
+use nineteenninetyfour\ghostwriter\testing\FakeScenarios;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\base\Component;
 
@@ -49,7 +55,12 @@ class Providers extends Component
 
     private ?Registry $registry = null;
 
-    private ?Credentials $credentials = null;
+    private ?Connections $credentials = null;
+
+    private ?KeyWatch $watched = null;
+
+    /** "Check & save" on the Connections page; core's KeyCheck unless set (tests use FakeKeyCheck). */
+    public ?ChecksKeys $check = null;
 
     private ?Credentials $environment = null;
 
@@ -63,7 +74,7 @@ class Providers extends Component
     {
         return $this->registry ??= new Registry(
             $this->credentials(),
-            $this->httpClients(),
+            $this->watchedClients(),
             new SettingsProviderSettings(),
             new CraftLogger(),
         );
@@ -144,6 +155,30 @@ class Providers extends Component
     }
 
     /**
+     * Craft's HTTP clients, watched, so a key a service stops accepting
+     * shows as "Key stopped working" on its card in Connections.
+     */
+    public function watchedClients(): KeyWatch
+    {
+        return $this->watched ??= new KeyWatch($this->httpClients(), $this->credentials());
+    }
+
+    /**
+     * "Check & save": one cheap call to the service, or, while an
+     * end-to-end scenario plays on a local site, nobody.
+     */
+    public function check(): ChecksKeys
+    {
+        if ($this->check !== null) {
+            return $this->check;
+        }
+
+        $settings = Plugin::getInstance()->getSettings();
+
+        return FakeScenarios::playing() ? new FakeKeyCheck() : new KeyCheck($this->httpClients(), new SettingsProviderSettings(), shutterstockSandbox: $settings->usesShutterstockSandbox());
+    }
+
+    /**
      * Craft's HTTP clients, for model calls and the photo libraries alike.
      */
     public function httpClients(): CraftHttpClients
@@ -152,31 +187,24 @@ class Providers extends Component
     }
 
     /**
-     * The keys to write with: the environment's first (.env always wins),
-     * then a key connected with "Connect with OpenRouter".
+     * The keys for every service: the environment's first (.env always
+     * wins), then what was set up in Settings → Connections (core's
+     * Connections over DbCredentialStore).
      */
-    public function credentials(): Credentials
+    public function credentials(): Connections
     {
-        return $this->credentials ??= new ConnectedCredentials($this->environment(), new class($this) implements ProviderKeys {
-            public function __construct(private readonly Providers $providers)
-            {
-            }
+        return $this->credentials ??= new Connections($this->environment(), Plugin::getInstance()->credentials);
+    }
 
-            public function get(string $provider): ?string
-            {
-                return $this->providers->providerKeys()->get($provider);
-            }
-
-            public function put(string $provider, #[\SensitiveParameter] string $key): void
-            {
-                $this->providers->providerKeys()->put($provider, $key);
-            }
-
-            public function forget(string $provider): void
-            {
-                $this->providers->providerKeys()->forget($provider);
-            }
-        });
+    /**
+     * The resolver, with the test services while an end-to-end scenario
+     * is playing on a local site.
+     */
+    public function connections(): Connections
+    {
+        return FakeScenarios::playing()
+            ? new Connections($this->environment(), Plugin::getInstance()->credentials, Services::all()->withTestServices())
+            : $this->credentials();
     }
 
     /**
@@ -193,13 +221,11 @@ class Providers extends Component
     }
 
     /**
-     * Where a key in use for a provider comes from: 'env', 'connected', or null.
+     * Where a key in use for a provider comes from: 'env', 'stored', or null.
      */
     public function source(string $provider): ?string
     {
-        $credentials = $this->credentials();
-
-        return $credentials instanceof ConnectedCredentials ? $credentials->source($provider) : ($this->key($provider) !== null ? 'env' : null);
+        return $this->credentials()->source($provider);
     }
 
     /**
@@ -217,7 +243,7 @@ class Providers extends Component
         return new OpenRouterConnection(
             $this->environment(),
             $this->providerKeys(),
-            $this->httpClients(),
+            $this->watchedClients(),
             keyLabel: 'Ghostwriter (' . $host . ')',
             timeout: min(60, $settings->timeout),
             baseUrl: $settings->baseUrl('openrouter'),

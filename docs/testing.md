@@ -25,3 +25,7 @@ GHOSTWRITER_FAKE_SCENARIOS=/Users/you/Dev/ghostwriter-e2e/scenarios
 ```
 
 Restart `queue/listen` after changing it. Never set it on a staging or production site. The code is in `src/testing/FakeScenarios.php`.
+
+## Connections in the end-to-end tests
+
+While a scenario plays, **Check & save** on the Connections page calls nobody (core's `FakeKeyCheck`: any key works, except one with "wrong" in it, which is refused, or "offline", which can't be reached), and the page shows two test cards: **Test service** and **Test service (.env)**. The second reads `GHOSTWRITER_E2E_ENV_KEY`, which the test sites' `.env` sets to a dummy value, so the "Set in .env" card can be tested without a real key.

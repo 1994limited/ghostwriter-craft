@@ -36,7 +36,7 @@ class OnboardingTest extends TestCase
 
         $this->assertSame(['key', 'sections', 'voice', 'kinds', 'imagery', 'plan', 'write'], array_keys($steps));
         $this->assertFalse($steps['key']['done']);
-        $this->assertSame('Add ANTHROPIC_API_KEY to .env, then reload this page.', $steps['key']['detail']);
+        $this->assertSame('Set up Claude (Anthropic) in Connections (or set ANTHROPIC_API_KEY in .env), then reload this page.', $steps['key']['detail']);
         $this->assertTrue($steps['sections']['done']);
         $this->assertSame('Writing for every section: Press.', $steps['sections']['detail']);
         $this->assertSame(['type' => 'post', 'label' => 'Write the voice guide', 'route' => 'voice/scan', 'data' => [], 'needsKey' => true], $steps['voice']['action']);

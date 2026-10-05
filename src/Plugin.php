@@ -84,6 +84,7 @@ use yii\base\Event;
  * @property-read StockCleanup $stockCleanup
  * @property-read DbLibraryTokens $libraryTokens
  * @property-read DbProviderKeys $providerKeys
+ * @property-read \nineteenninetyfour\ghostwriter\domain\DbCredentialStore $credentials
  * @property-read TypeRepository $types
  * @property-read ImagePicker $imagePicker
  * @property-read Onboarding $onboarding
@@ -105,7 +106,7 @@ class Plugin extends BasePlugin
     /** Licensing stock images spends money: a permission of its own, given to nobody by default (admins have it). */
     public const LICENSE_PERMISSION = 'ghostwriter:license';
 
-    public string $schemaVersion = '1.4.0';
+    public string $schemaVersion = '1.5.0';
 
     public bool $hasCpSettings = true;
 
@@ -145,6 +146,8 @@ class Plugin extends BasePlugin
                 'libraryTokens' => DbLibraryTokens::class,
                 // A model provider's key from "Connect with OpenRouter", encrypted.
                 'providerKeys' => DbProviderKeys::class,
+                // Settings → Connections: keys and account tokens, encrypted with the security key.
+                'credentials' => \nineteenninetyfour\ghostwriter\domain\DbCredentialStore::class,
                 'types' => TypeRepository::class,
                 'imagePicker' => ImagePicker::class,
                 'onboarding' => Onboarding::class,
@@ -198,6 +201,8 @@ class Plugin extends BasePlugin
             $event->rules['ghostwriter/teach/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/types/teach';
             $event->rules['ghostwriter/write/<section:[a-zA-Z0-9_-]+>'] = 'ghostwriter/sections/new';
             $event->rules['ghostwriter/stock'] = 'ghostwriter/stock/index';
+            // Settings → Connections: every service's key, set up in place.
+            $event->rules['ghostwriter/connections'] = 'ghostwriter/connections/index';
             // Content to revisit: the site's pages worth a look, found without AI.
             $event->rules['ghostwriter/revisit'] = 'ghostwriter/revisit/show';
             // "Connect account" for libraries that license with a person's own sign-in.
@@ -404,6 +409,9 @@ class Plugin extends BasePlugin
                     'stock' => !$this->stockUsages->ledgerIsEmpty() || $this->stockLibraries->paid() !== []
                         ? ['label' => Craft::t('ghostwriter', 'Stock images'), 'url' => 'ghostwriter/stock']
                         : null,
+                    'connections' => self::canManage($user->getIdentity())
+                        ? ['label' => \NineteenNinetyFour\Ghostwriter\Core\Connections\Strings::for(Craft::$app->language)->get('nav'), 'url' => 'ghostwriter/connections']
+                        : null,
                     'settings' => $user->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges
                         ? ['label' => Craft::t('ghostwriter', 'Settings'), 'url' => 'settings/plugins/ghostwriter']
                         : null,
@@ -460,6 +468,9 @@ class Plugin extends BasePlugin
             'settings' => $this->getSettings(),
             'sections' => Craft::$app->getEntries()->getAllSections(),
             'keys' => $this->providers->keyStatus(),
+            'connections' => $this->connectionSummary(),
+            'connectionsUrl' => \craft\helpers\UrlHelper::cpUrl('ghostwriter/connections'),
+            'connectionStrings' => \NineteenNinetyFour\Ghostwriter\Core\Connections\Strings::for(Craft::$app->language)->all(),
             'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('ghostwriter')),
             'modelDefaults' => \NineteenNinetyFour\Ghostwriter\Core\Ai\Models::TEXT_DEFAULTS,
             'providerNames' => Settings::providerNames(),
@@ -480,6 +491,27 @@ class Plugin extends BasePlugin
     }
 
     /**
+     * Each service and where it stands in Settings → Connections, for the
+     * settings screen: its name, the card's one line, and whether it's
+     * working. Never a key.
+     *
+     * @return array<string, array{name: string, label: string, ok: bool}>
+     */
+    private function connectionSummary(): array
+    {
+        $connections = $this->providers->credentials();
+        $strings = \NineteenNinetyFour\Ghostwriter\Core\Connections\Strings::for(Craft::$app->language);
+        $summary = [];
+
+        foreach ($connections->services()->list() as $id => $service) {
+            $status = $connections->status($id);
+            $summary[$id] = ['name' => $service->name, 'label' => $status->label($strings), 'ok' => $status->usable() && !$status->broken];
+        }
+
+        return $summary;
+    }
+
+    /**
      * What the settings' Stock photos section lists: each free library and
      * whether its key is set, each paid library with its keys' status (from
      * .env; never stored or shown), and the "Search in" choices.
@@ -494,7 +526,7 @@ class Plugin extends BasePlugin
         $free = [];
 
         foreach (['unsplash', 'pexels', 'pixabay'] as $id) {
-            $free[] = ['id' => $id, 'label' => $libraries->label($id), 'keys' => StockLibraries::keyStatus([$credentials[$id]])];
+            $free[] = ['id' => $id, 'label' => $libraries->label($id), 'keys' => StockLibraries::keyStatus([$credentials[$id]]), 'status' => $this->connectionSummary()[$id] ?? null];
         }
 
         $paid = [];
@@ -505,6 +537,7 @@ class Plugin extends BasePlugin
                 'id' => $id,
                 'label' => $library->label(),
                 'keys' => StockLibraries::keyStatus(StockLibraries::LISTED[$id]['env'] ?? []),
+                'status' => $this->connectionSummary()[$id] ?? null,
                 'connects' => $connects && $library->capabilities()->needsOAuth,
                 'connected' => $connects && $library->connected(),
                 'callback' => $connects ? \nineteenninetyfour\ghostwriter\controllers\LibrariesController::callbackHostAndPath($id) : null,

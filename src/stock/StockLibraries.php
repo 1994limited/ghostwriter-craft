@@ -97,8 +97,10 @@ class StockLibraries extends Component
                 $event->libraries[] = $this->demo();
             }
 
-            // Shutterstock, once either of its keys is in .env.
-            if (array_filter(self::keyStatus(self::LISTED['shutterstock']['env']))) {
+            // Shutterstock, once either of its keys is set (in .env or Connections).
+            $credentials = Plugin::getInstance()->providers->credentials();
+
+            if ($credentials->key('shutterstock') !== null || $credentials->key('shutterstock_secret') !== null) {
                 $event->libraries[] = $this->shutterstock();
             }
 
@@ -216,10 +218,12 @@ class StockLibraries extends Component
     {
         $plugin = Plugin::getInstance();
 
+        $credentials = $plugin->providers->credentials();
+
         return $this->shutterstock ??= new Shutterstock(
-            $plugin->providers->httpClients(),
-            trim((string) App::env('SHUTTERSTOCK_API_KEY')),
-            trim((string) App::env('SHUTTERSTOCK_API_SECRET')),
+            $plugin->providers->watchedClients(),
+            (string) $credentials->key('shutterstock'),
+            (string) $credentials->key('shutterstock_secret'),
             $plugin->libraryTokens,
             sandbox: $plugin->getSettings()->usesShutterstockSandbox(),
             editorial: true,

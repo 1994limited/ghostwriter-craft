@@ -42,19 +42,20 @@ class Onboarding extends Component
         $imageryState = $plugin->domain->guideState(Guide::IMAGERY);
 
         $settingsLink = $canSettle ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Open the settings'), 'url' => UrlHelper::cpUrl('settings/plugins/ghostwriter')] : null;
+        $connectionsLink = Plugin::canManage(Craft::$app->getUser()->getIdentity()) ? ['type' => 'link', 'label' => Craft::t('ghostwriter', 'Set up in Connections'), 'url' => UrlHelper::cpUrl('ghostwriter/connections')] : null;
 
         return [
             [
                 'key' => 'key',
                 'title' => Craft::t('ghostwriter', 'Connect a model'),
-                'text' => Craft::t('ghostwriter', 'Ghostwriter writes with Claude, ChatGPT or Gemini, on your own account. Add the API key to your .env file; it is read from there and never stored.'),
+                'text' => Craft::t('ghostwriter', 'Ghostwriter writes with Claude, ChatGPT or Gemini, on your own account. Set up its key in Connections: open the provider’s page, make a key, paste it in. It is kept encrypted and only ever sent to that provider. A key in your .env file still works, and wins.'),
                 'done' => $configured,
                 'working' => false,
                 'optional' => false,
                 'detail' => $configured
                     ? Craft::t('ghostwriter', 'Writing with {provider}.', ['provider' => $this->providerName($plugin->studio->provider())])
-                    : Craft::t('ghostwriter', 'Add {key} to .env, then reload this page.', ['key' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? 'the API key']),
-                'action' => $settingsLink,
+                    : Craft::t('ghostwriter', 'Set up {provider} in Connections (or set {key} in .env), then reload this page.', ['provider' => $this->providerName($plugin->studio->provider()), 'key' => $plugin->providers::KEYS[$plugin->studio->provider()] ?? 'the API key']),
+                'action' => $connectionsLink ?? $settingsLink,
             ],
             [
                 'key' => 'sections',

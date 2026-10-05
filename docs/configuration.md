@@ -30,7 +30,7 @@ Two kinds of note can sit at the top of the page, for whoever looks after the te
 | --- | --- |
 | **Provider** | Claude (Anthropic), ChatGPT (OpenAI), Gemini (Google) or OpenRouter, for writing. |
 | **Model** | Leave blank for the provider's default, shown as the placeholder. A model name that doesn't look like the chosen provider's (a `gpt-…` model with Claude, say) gets a warning; it is still saved. |
-| **OpenRouter** | **Connect with OpenRouter** (admins), **Check connection** and **Disconnect**. Says "Using OPENROUTER_API_KEY from .env" when that is set; it always wins. See [OpenRouter](api-keys.md#openrouter). |
+| **Key** | Where the provider's key stands, and **Set up in Connections**. Connect with OpenRouter is on OpenRouter's card there. See [Connections](connections.md). |
 | **OpenRouter model for writing**, **OpenRouter model for quick jobs** | With OpenRouter, the model for each tier of work. **Default** uses Claude Opus for writing and Claude Sonnet for quick jobs. |
 | **Claude (Anthropic) base URL**, **ChatGPT (OpenAI) base URL**, **Gemini (Google) base URL**, **OpenRouter base URL** | Under **Gateways and proxies**: a gateway to call instead of the provider. Leave blank for the provider itself. See [Gateways and proxies](api-keys.md#gateways-and-proxies). |
 

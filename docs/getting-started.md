@@ -10,7 +10,7 @@ To link to a step, add `#step-` and its number: for example `/admin/ghostwriter/
 
 ## 1. Connect a model
 
-Done once the writing provider's key is in `.env`. The step names the provider Ghostwriter writes with ("Connected. Ghostwriter writes with Claude (Anthropic)."). If the key is missing, it says which variable to add; add it and click **Check again**. If another provider's key is set already, it suggests choosing that provider in the settings.
+Done once the writing provider's key is set up in **Connections** (the step's button opens it) or in `.env`. The step names the provider Ghostwriter writes with ("Connected. Ghostwriter writes with Claude (Anthropic)."). If the key is missing, it says so; set it up and click **Check again**. If another provider's key is set already, it suggests choosing that provider in the settings.
 
 ![Get started on step 1, Connect a model, done and naming the provider, with the seven steps listed down the left](images/get-started-connect.png)
 

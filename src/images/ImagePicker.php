@@ -56,7 +56,7 @@ class ImagePicker extends Component
         $providers = Plugin::getInstance()->providers;
 
         return $this->stock ??= new StockSearch(
-            $providers->httpClients(),
+            $providers->watchedClients(),
             $providers->credentials(),
             openverse: fn() => (bool) Plugin::getInstance()->getSettings()->openverse,
             logger: new CraftLogger(),

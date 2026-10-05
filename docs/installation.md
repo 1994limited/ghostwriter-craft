@@ -28,7 +28,7 @@ Once it's required, you can also install it from **Settings → Plugins**.
 
 ## Add your API key
 
-Add the key for your writing provider to `.env`, for example `ANTHROPIC_API_KEY=sk-ant-...`. See [API keys](api-keys.md) for every key Ghostwriter can use.
+Set up the key for your writing provider under **Ghostwriter → Connections** (an admin): open the provider's page, make a key, paste it, **Check & save**. Or add it to `.env`, for example `ANTHROPIC_API_KEY=sk-ant-...`, which always wins. See [API keys](api-keys.md) for every key Ghostwriter can use, and [Connections](connections.md).
 
 ## Who can use it
 

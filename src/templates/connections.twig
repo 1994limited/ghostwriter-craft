@@ -1,0 +1,240 @@
+{#
+    Settings → Connections: a card for every service Ghostwriter uses, in
+    Writing, Images and Stock photos. Each says where it stands (connected
+    with the key's last four characters, not set up, set in .env, or a key
+    that stopped working) and sets up in place: open the service's page,
+    follow the steps, paste, Check & save. Words come from core
+    (Connections\Strings), in the person's language. Cards are drawn by the
+    script below from the same data the status action returns.
+#}
+{% extends '_layouts/cp' %}
+
+{% set title = strings['title'] %}
+{% set selectedSubnavItem = 'connections' %}
+{% set crumbs = [{label: 'Overview'|t('ghostwriter'), url: cpUrl('ghostwriter')}] %}
+
+{% block content %}
+    <div class="gw-connections" data-ghostwriter-connections>
+        <p>{{ strings['intro'] }}</p>
+        <p class="light">{{ strings['privacy'] }}</p>
+
+        <div class="readable gw-connections__env" role="note" data-ghostwriter-environment>
+            <strong>{{ strings['environment']|replace({':environment': environment}) }}</strong>
+            {{ strings['environment.note'] }}
+        </div>
+
+        <div id="gw-connections-groups"></div>
+    </div>
+
+    <style>
+        .gw-connections__env { margin: 16px 0 24px; padding: 12px 16px; border: 1px solid var(--hairline-color, #e3e5e8); border-radius: var(--large-border-radius, 8px); background: var(--gray-050, #f3f7fc); }
+        .gw-connections__group { margin-bottom: 32px; }
+        .gw-connections__group h2 { margin-bottom: 4px; }
+        .gw-connections__cards { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: var(--large-border-radius, 8px); }
+        .gw-connection { padding: 16px; }
+        .gw-connection + .gw-connection { border-top: 1px solid var(--hairline-color, #e3e5e8); }
+        .gw-connection__head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
+        .gw-connection__title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .gw-connection__title h3 { margin: 0; }
+        .gw-connection__actions, .gw-connection__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .gw-connection__row { margin-top: 12px; }
+        .gw-connection__panel { margin-top: 16px; padding: 16px; border: 1px solid var(--hairline-color, #e3e5e8); border-radius: var(--large-border-radius, 8px); }
+        .gw-connection__panel ol { margin: 12px 0; padding-left: 20px; list-style: decimal; }
+        .gw-connection__panel .field { margin: 12px 0; }
+        .gw-connection p { margin: 4px 0 0; }
+    </style>
+
+    {% js %}
+        (function () {
+            var data = {{ {groups: groups, strings: strings}|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+            var root = document.getElementById('gw-connections-groups');
+            var open = null;
+
+            function t(key, params) {
+                var text = data.strings[key] || key;
+                Object.keys(params || {}).sort(function (a, b) { return b.length - a.length; }).forEach(function (name) {
+                    text = text.split(':' + name).join(params[name]);
+                });
+                return text;
+            }
+
+            function esc(value) {
+                var div = document.createElement('div');
+                div.textContent = value == null ? '' : String(value);
+                return div.innerHTML;
+            }
+
+            function dot(card) {
+                return {connected: 'green', env: 'blue', broken: 'red', no_key: 'green'}[card.status.state] || 'light';
+            }
+
+            function kept(card) {
+                return card.status.state === 'connected' || card.status.state === 'broken';
+            }
+
+            function canSetUp(card) {
+                return card.needs_key && card.status.state !== 'env';
+            }
+
+            function cardHtml(card) {
+                var html = '<article class="gw-connection" data-ghostwriter-connection="' + esc(card.id) + '" data-state="' + esc(card.status.state) + '" aria-labelledby="gw-card-' + esc(card.id) + '">';
+                html += '<div class="gw-connection__head"><div>';
+                html += '<div class="gw-connection__title"><h3 id="gw-card-' + esc(card.id) + '">' + esc(card.name) + '</h3>';
+                html += '<span data-ghostwriter-connection-status><span class="status ' + dot(card) + '" aria-hidden="true"></span>' + esc(card.status.label) + '</span>';
+                if (card.makes_images) html += '<span class="light smalltext">· ' + esc(t('makes-images')) + '</span>';
+                html += '</div><p class="light">' + esc(card.about) + '</p>';
+                if (card.help) html += '<p class="' + (card.status.broken ? 'error' : 'light') + '" data-ghostwriter-connection-help>' + esc(card.help) + '</p>';
+                html += '</div>';
+
+                if (canSetUp(card) && open !== card.id) {
+                    html += '<div class="gw-connection__actions">';
+                    if (!kept(card)) {
+                        html += '<button type="button" class="btn submit small" data-action="setup" data-ghostwriter-connection-setup aria-label="' + esc(t('action.setup') + ': ' + card.name) + '">' + esc(t('action.setup')) + '</button>';
+                    } else {
+                        html += '<button type="button" class="btn small" data-action="setup" data-ghostwriter-connection-setup aria-label="' + esc(t('action.replace') + ': ' + card.name) + '">' + esc(t('action.replace')) + '</button>';
+                        html += '<button type="button" class="btn small" data-action="disconnect" data-ghostwriter-connection-disconnect aria-label="' + esc(t('action.disconnect') + ': ' + card.name) + '">' + esc(t('action.disconnect')) + '</button>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+
+                if (card.oauth === 'key' && card.oauth_links && !kept(card) && open !== card.id) {
+                    html += '<div class="gw-connection__row light"><span>' + esc(t('oauth.key', {service: card.name})) + '</span> <a class="btn small" href="' + esc(card.oauth_links.connect_url) + '">' + esc(t('oauth.key.button', {service: card.name})) + '</a></div>';
+                }
+
+                if (card.oauth === 'account' && card.oauth_links) {
+                    html += '<div class="gw-connection__row" data-ghostwriter-connection-account>';
+                    if (card.oauth_links.needs_key) {
+                        html += '<span class="light">' + esc(t('oauth.account.needs-key')) + '</span>';
+                    } else {
+                        html += '<span class="light">' + esc(t('oauth.account', {service: card.name})) + '</span>';
+                        html += '<span><span class="status ' + (card.oauth_links.connected ? 'green' : 'light') + '" aria-hidden="true"></span>' + esc(card.oauth_links.connected ? t('oauth.account.connected') : t('oauth.account.not-connected')) + '</span>';
+                        html += card.oauth_links.connected
+                            ? '<button type="button" class="btn small" data-action="disconnect-account">' + esc(t('oauth.account.disconnect')) + '</button>'
+                            : '<a class="btn small" href="' + esc(card.oauth_links.connect_url) + '">' + esc(t('oauth.account.connect')) + '</a>';
+                        if (!card.oauth_links.connected && card.oauth_links.callback) {
+                            html += '<span class="light smalltext" style="flex-basis:100%">' + esc(t('oauth.account.callback', {service: card.name})) + ' <code>' + esc(card.oauth_links.callback) + '</code></span>';
+                        }
+                    }
+                    html += '</div>';
+                }
+
+                if (open === card.id) {
+                    html += '<form class="gw-connection__panel" data-ghostwriter-connection-panel aria-label="' + esc(kept(card) ? t('panel.replace', {service: card.name}) : t('panel.title', {service: card.name})) + '">';
+                    html += '<div class="gw-connection__row" style="margin-top:0"><a class="btn" href="' + esc(card.key_url) + '" target="_blank" rel="noopener noreferrer" data-icon="external" data-ghostwriter-connection-open>' + esc(t('action.open', {service: card.name})) + '</a><span class="light smalltext">' + esc(t('panel.opens')) + '</span></div>';
+                    html += '<ol>' + card.steps.map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>';
+                    card.fields.forEach(function (field) {
+                        var id = 'gw-connection-' + card.id + '-' + field.name;
+                        html += '<div class="field"><div class="heading"><label for="' + esc(id) + '">' + esc(field.label) + '</label></div>';
+                        html += '<div class="input"><input type="password" class="text fullwidth" id="' + esc(id) + '" name="' + esc(field.name) + '" autocomplete="off" spellcheck="false" placeholder="' + esc(t('panel.paste')) + '" aria-describedby="gw-connection-' + esc(card.id) + '-private" data-ghostwriter-connection-field="' + esc(field.name) + '"></div></div>';
+                    });
+                    html += '<p class="light smalltext" id="gw-connection-' + esc(card.id) + '-private">' + esc(t('panel.private')) + '</p>';
+                    html += '<p class="error" role="alert" data-ghostwriter-connection-error hidden></p>';
+                    html += '<div class="gw-connection__row"><button type="submit" class="btn submit" data-ghostwriter-connection-save>' + esc(t('action.check')) + '</button><button type="button" class="btn" data-action="cancel">' + esc(t('action.cancel')) + '</button></div>';
+                    html += '</form>';
+                }
+
+                return html + '</article>';
+            }
+
+            function render() {
+                root.innerHTML = data.groups.map(function (group) {
+                    return '<section class="gw-connections__group" aria-labelledby="gw-group-' + esc(group.id) + '"><h2 id="gw-group-' + esc(group.id) + '">' + esc(group.title) + '</h2><p class="light">' + esc(group.intro) + '</p><div class="gw-connections__cards">' + group.cards.map(cardHtml).join('') + '</div></section>';
+                }).join('');
+            }
+
+            function find(id) {
+                for (var g = 0; g < data.groups.length; g++) {
+                    for (var c = 0; c < data.groups[g].cards.length; c++) {
+                        if (data.groups[g].cards[c].id === id) return data.groups[g].cards[c];
+                    }
+                }
+                return null;
+            }
+
+            function replace(card) {
+                data.groups.forEach(function (group) {
+                    group.cards = group.cards.map(function (c) { return c.id === card.id ? card : c; });
+                });
+            }
+
+            function message(error) {
+                return (error.response && error.response.data && error.response.data.message) || error.message;
+            }
+
+            root.addEventListener('click', function (event) {
+                var button = event.target.closest('[data-action]');
+                if (!button) return;
+                var article = button.closest('[data-ghostwriter-connection]');
+                var card = find(article.getAttribute('data-ghostwriter-connection'));
+                var action = button.getAttribute('data-action');
+
+                if (action === 'setup') {
+                    open = card.id;
+                    render();
+                    var first = root.querySelector('[data-ghostwriter-connection="' + card.id + '"] input');
+                    if (first) first.focus();
+                } else if (action === 'cancel') {
+                    open = null;
+                    render();
+                    var again = root.querySelector('[data-ghostwriter-connection="' + card.id + '"] [data-ghostwriter-connection-setup]');
+                    if (again) again.focus();
+                } else if (action === 'disconnect') {
+                    if (!window.confirm(t('disconnect.title', {service: card.name}) + '\n\n' + t('disconnect.body', {service: card.name}))) return;
+                    button.classList.add('loading');
+                    Craft.sendActionRequest('POST', 'ghostwriter/connections/disconnect', {data: {service: card.id}})
+                        .then(function (response) { replace(response.data.card); render(); Craft.cp.displayNotice(response.data.message); })
+                        .catch(function (error) { button.classList.remove('loading'); Craft.cp.displayError(message(error)); });
+                } else if (action === 'disconnect-account') {
+                    button.classList.add('loading');
+                    Craft.sendActionRequest('POST', card.oauth_links.disconnect_action, {params: {id: card.id}, headers: {Accept: 'application/json'}})
+                        .then(function (response) {
+                            Craft.cp.displayNotice(response.data.message);
+                            return Craft.sendActionRequest('GET', 'ghostwriter/connections/status');
+                        })
+                        .then(function (response) { data.groups = response.data.groups; render(); })
+                        .catch(function (error) { button.classList.remove('loading'); Craft.cp.displayError(message(error)); });
+                }
+            });
+
+            root.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && open !== null && event.target.closest('[data-ghostwriter-connection-panel]')) {
+                    var cancel = root.querySelector('[data-ghostwriter-connection-panel] [data-action="cancel"]');
+                    if (cancel) cancel.click();
+                }
+            });
+
+            root.addEventListener('submit', function (event) {
+                var form = event.target.closest('[data-ghostwriter-connection-panel]');
+                if (!form) return;
+                event.preventDefault();
+                var card = find(form.closest('[data-ghostwriter-connection]').getAttribute('data-ghostwriter-connection'));
+                var fields = {};
+                form.querySelectorAll('input[name]').forEach(function (input) { fields[input.name] = input.value; });
+                var save = form.querySelector('[data-ghostwriter-connection-save]');
+                var error = form.querySelector('[data-ghostwriter-connection-error]');
+                save.classList.add('loading');
+                save.disabled = true;
+                save.textContent = t('action.checking');
+                error.hidden = true;
+
+                Craft.sendActionRequest('POST', 'ghostwriter/connections/save', {data: {service: card.id, fields: fields}})
+                    .then(function (response) {
+                        open = null;
+                        replace(response.data.card);
+                        render();
+                        Craft.cp.displayNotice(response.data.message);
+                    })
+                    .catch(function (failure) {
+                        save.classList.remove('loading');
+                        save.disabled = false;
+                        save.textContent = t('action.check');
+                        error.textContent = message(failure);
+                        error.hidden = false;
+                    });
+            });
+
+            render();
+        })();
+    {% endjs %}
+{% endblock %}

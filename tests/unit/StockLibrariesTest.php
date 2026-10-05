@@ -129,10 +129,8 @@ class StockLibrariesTest extends TestCase
         $this->assertStringContainsString('Stock photos', $html);
         $this->assertStringContainsString('Demo stock (no charge)', $html);
         $this->assertStringContainsString('Getty Images and iStock', $html);
-        $this->assertMatchesRegularExpression('#<code>SHUTTERSTOCK_API_KEY</code>\s*<span class="status green"#', $html);
-        $this->assertMatchesRegularExpression('#<code>SHUTTERSTOCK_API_SECRET</code>\s*<span class="status"#', $html);
+        $this->assertStringContainsString('ghostwriter/connections', $html, 'Keys and Connect account are set up in Connections.');
         $this->assertStringNotContainsString('sk-test-never-shown', $html);
-        $this->assertStringContainsString('Connect account', $html);
         $this->assertStringContainsString('name="stockLibraries[demo]"', $html);
         $this->assertStringContainsString('name="onUnfinishedPublish"', $html);
         $this->assertStringContainsString('name="stockIncludeEditorial"', $html);
