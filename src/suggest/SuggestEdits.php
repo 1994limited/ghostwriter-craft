@@ -471,7 +471,8 @@ class SuggestEdits extends Component
         return $images;
     }
 
-    private function kind(Entry $entry): \NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType
+    /** The kind the entry is written as: its section's type for its entry type, else a generic one. Finish's Suggest links reads it too. */
+    public function kind(Entry $entry): \NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType
     {
         $types = Plugin::getInstance()->types;
         $section = $entry->getSection();
@@ -485,7 +486,8 @@ class SuggestEdits extends Component
         return $types->generic($section);
     }
 
-    private function voice(): string
+    /** The voice guide, '' when none is written. */
+    public function voice(): string
     {
         try {
             return (string) Plugin::getInstance()->domain->guide(Guide::VOICE)->body;
