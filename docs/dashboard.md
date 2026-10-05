@@ -6,7 +6,7 @@ This page covers the Overview, Ghostwriter's own home in the control panel, and 
 
 **Ghostwriter → Overview.** Clicking **Ghostwriter** in the navigation opens it. It's called the Overview so it isn't mistaken for Craft's own Dashboard.
 
-![The Overview, with the Get started card and its next step, the tiles for the voice guide, image style, content plan, stock images, Content to revisit and In progress, and the sections with Kinds and Write](images/overview.png)
+![The Overview, with the Get started card and its next step, the tiles for the voice guide, image style, content plan, Content to revisit and In progress, and the sections with Kinds and Write](images/overview.png)
 
 ### At the top
 
