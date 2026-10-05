@@ -10,6 +10,10 @@ use InvalidArgumentException;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Kinds\ContentType;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\SessionGaps;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoMeta;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoProvenance;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
+use nineteenninetyfour\ghostwriter\seo\MetaContexts;
 use nineteenninetyfour\ghostwriter\Plugin;
 
 /**
@@ -32,7 +36,7 @@ class Applier
     }
 
     /**
-     * @return array{draft: Entry, notes: array<int, string>, gaps: SessionGaps}
+     * @return array{draft: Entry, notes: array<int, string>, gaps: SessionGaps, written: SeoProvenance, slug: ?string}
      */
     public function apply(Session $session, ContentType $type, Entry $target, User $user): array
     {
@@ -44,11 +48,20 @@ class Applier
         $values = $this->values->for($session, $type, $entry);
         $notes = $values['notes'];
 
+        // The address, on a new entry only (SEO layer §10): decided before
+        // the title changes, as a slug Craft made from the old title counts
+        // as not set.
+        $slug = $this->slug($session, $entry);
+
         if ($entry->getType()->hasTitleField) {
             $entry->title = $values['title'];
         }
 
         $entry->setFieldValues($this->fieldValues->forCraft($values['data'], $values['schema'], $values['existing']));
+
+        if ($slug !== null) {
+            $entry->slug = $slug;
+        }
 
         // A new entry starts unpublished, so it saves at once and an AI
         // draft is never published by accident. The Enabled switch shows
@@ -69,8 +82,39 @@ class Applier
         }
 
         // What the draft left for a person, so "Finish this page" can say
-        // why ("Only you know this"). The content stays the truth.
-        return ['draft' => $entry, 'notes' => $notes, 'gaps' => SessionGaps::fromDraft($values['built'], $values['housePlaces'], $values['placed'])];
+        // why ("Only you know this"). The content stays the truth. And the
+        // SEO text Ghostwriter wrote, so it is known as its own later.
+        return [
+            'draft' => $entry,
+            'notes' => $notes,
+            'gaps' => SessionGaps::fromDraft($values['built'], $values['housePlaces'], $values['placed']),
+            'written' => $values['search']?->written ?? new SeoProvenance(),
+            'slug' => $slug,
+        ];
+    }
+
+    /**
+     * The slug the draft gives the entry: the Search section's address
+     * (SeoState's, from the title unless an editor typed one), only where
+     * Ghostwriter may set it (MetaContexts::slugSettable(): a new entry
+     * whose slug is empty, temporary or Craft's from its title, in a
+     * section whose address uses the slug). Craft keeps it unique per site
+     * when it saves. Null: the slug is left as it is.
+     */
+    private function slug(Session $session, Entry $entry): ?string
+    {
+        if (!MetaContexts::slugSettable($entry)) {
+            return null;
+        }
+
+        $slug = SeoState::of($session)->meta->slug;
+
+        if ($slug === null) {
+            $context = (new MetaContexts())->for($session);
+            $slug = $context !== null ? (new SeoMeta())->slug($session, $context) : null;
+        }
+
+        return $slug !== null && trim($slug) !== '' ? $slug : null;
     }
 
     /**

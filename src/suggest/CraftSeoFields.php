@@ -30,8 +30,11 @@ use Throwable;
  *   (SeomaticBundles). A `fromField` source, or the Twig SEOmatic writes
  *   for one (`{{ seomatic.helper.extractTextFromField(entry.excerpt) }}`),
  *   is that field's text; other Twig is a template; `none` is switched
- *   off. Ghostwriter can write the value in place only while the field's
- *   override switch is on: SEOmatic blanks a value posted with it off.
+ *   off. Ghostwriter can give the page a value of its own wherever the
+ *   field offers the setting (writable): it writes the text with the
+ *   field's override switch on (CraftSeoWriter), as SEOmatic blanks a
+ *   value posted with it off. The switch as the form posts it
+ *   (`override-seoDescription`) is read as SEOmatic reads it.
  *   Robots (`metaGlobalVars.robots`) and the site name position resolve
  *   the same way, the site name is the global `metaSiteVars.siteName`,
  *   and the separator the plugin's `separatorChar`. The setting is read,
@@ -128,7 +131,9 @@ class CraftSeoFields implements SeoFields
             $path = FieldPath::of($field->handle)->with('metaGlobalVars')->with($key);
             $label = Craft::t('ghostwriter', $role === SeoField::TITLE ? 'SEO title' : 'SEO description');
             $limit = SeoField::LIMITS[$role];
-            $overrides = $own !== null && ($enabled === null || in_array($key, $enabled, true)) && !self::inherits($own, $key);
+            // Whether the entry's field offers the setting at all: only then can the page have its own.
+            $offered = $enabled === null || in_array($key, $enabled, true);
+            $overrides = $own !== null && $offered && !self::inherits($own, $key);
 
             // The entry's own value, while its override is on.
             if ($overrides && ($value = $this->value($own, $key, $sourceKey, $fieldKey, $schema, $entry)) !== null) {
@@ -139,14 +144,14 @@ class CraftSeoFields implements SeoFields
 
             foreach ([$section, $global] as $bundle) {
                 if ($bundle !== null && ($value = $this->value($bundle, $key, $sourceKey, $fieldKey, $schema, $entry)) !== null) {
-                    $found[] = $this->field($path, $role, $label, $limit, $value, false, $overrides);
+                    $found[] = $this->field($path, $role, $label, $limit, $value, false, $offered);
 
                     continue 2;
                 }
             }
 
             // Set nowhere: the page prints none.
-            $found[] = new SeoField($path, $role, $label, $limit, '', $overrides, source: SeoSource::Custom);
+            $found[] = new SeoField($path, $role, $label, $limit, '', $offered, source: SeoSource::Custom);
         }
 
         return $found;
@@ -155,7 +160,7 @@ class CraftSeoFields implements SeoFields
     /**
      * @param array{0: SeoSource, 1: ?string, 2: ?string} $value
      */
-    private function field(FieldPath $path, string $role, string $label, int $limit, array $value, bool $own, bool $switchOn): SeoField
+    private function field(FieldPath $path, string $role, string $label, int $limit, array $value, bool $own, bool $offered): SeoField
     {
         [$source, $text, $from] = $value;
 
@@ -163,8 +168,10 @@ class CraftSeoFields implements SeoFields
             $source = SeoSource::Default;
         }
 
-        // In place only a value of the entry's own, typed, with its switch on; a field's or a template's is SEOmatic's setting.
-        $writable = $switchOn && in_array($source, [SeoSource::Custom, SeoSource::Default], true);
+        // Text of the page's own can go in wherever the field offers the
+        // setting (its override switch turned on); never over a template
+        // (someone's Twig) or a switched-off one.
+        $writable = $offered && in_array($source, [SeoSource::Custom, SeoSource::Default, SeoSource::Field], true);
 
         return new SeoField($path, $role, $label, $limit, $text, $writable, $from, $source);
     }
@@ -242,15 +249,21 @@ class CraftSeoFields implements SeoFields
     }
 
     /**
-     * Whether a field bundle leaves a setting to the section: listed in
-     * `inherited` (the override switch off), or, with neither list naming
-     * it, empty (Helper::isInherited()).
+     * Whether a field bundle leaves a setting to the section: its
+     * override switch as the form posts it (`override-seoDescription`,
+     * which InheritableSettingsModel::__set() turns into the lists) off,
+     * or listed in `inherited`, or, with neither list naming it, empty
+     * (Helper::isInherited()).
      *
      * @param array<string, array<string, mixed>> $bundle
      */
     private static function inherits(array $bundle, string $key): bool
     {
         $vars = $bundle['metaGlobalVars'] ?? [];
+
+        if (array_key_exists("override-{$key}", $vars)) {
+            return !$vars["override-{$key}"];
+        }
         $inherited = is_array($vars['inherited'] ?? null) && array_key_exists($key, $vars['inherited']);
         $overridden = is_array($vars['overrides'] ?? null) && array_key_exists($key, $vars['overrides']);
 

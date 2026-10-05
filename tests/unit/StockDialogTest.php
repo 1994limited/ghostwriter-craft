@@ -128,7 +128,7 @@ class StockDialogTest extends TestCase
         // The asset is the stand-in: a JPEG at the photo's aspect ratio
         // (portrait), named, titled and described from the photo.
         $asset = Asset::find()->id($used['data']['assetId'])->one();
-        $this->assertSame('a-gardener-planting-a-hedge-demo-demo-05.jpg', $asset->filename);
+        $this->assertSame('gardener-planting-hedge-demo-demo-05.jpg', $asset->filename, 'Named from its alt text, keeping the library and ID.');
         $this->assertSame('A gardener planting a hedge', $asset->title);
         $this->assertSame('A gardener planting a hedge', $asset->alt);
         $this->assertSame([1200, 1600], [(int) $asset->width, (int) $asset->height]);

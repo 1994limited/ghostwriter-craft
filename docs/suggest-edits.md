@@ -66,8 +66,10 @@ The phrase checks read English, German, French, Dutch and Spanish, in each site'
 
 **SEO fields.** Ghostwriter reads each SEO title and description the way SEOmatic does, so it checks the text the page really prints:
 
-- **The page's own**, where its SEO Settings field overrides the value (the field offers the setting, its switch is on, and it isn't empty). Only this can be written from Suggest edits.
+- **The page's own**, where its SEO Settings field overrides the value (the field offers the setting, its switch is on, and it isn't empty).
 - **Otherwise the section's**, then the site's, from SEOmatic's own settings. A value taken from another field (**From Field**, or SEOmatic's `extractTextFromField()` on the excerpt) is that field's text, checked and shown as coming from it. A fixed default is checked as it is; a template Ghostwriter can't work out, or a value that's switched off, isn't.
+
+Wherever the field offers the setting, **Accept** gives the page its own value: it turns the field's **Override** switch on and sets the source to custom text, as you would, since SEOmatic ignores a value with its switch off. A template or a switched-off value is never written.
 
 An inherited value that fits is left alone: an entry whose description comes from its excerpt isn't told its description is empty. One that's empty or too long is still found, and says where it comes from, so you know where to change it. Plain Text fields called `seoTitle`, `metaTitle`, `seoDescription` or `metaDescription` are checked too, with their own character limit.
 

@@ -12,6 +12,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Progress;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Record;
 use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\MarkerResolver;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\Message;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoState;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\Asks;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
@@ -308,7 +309,7 @@ class Presenter
     }
 
     /**
-     * @return array{checking: bool, notice: ?string, links: list<array<string, mixed>>}
+     * @return array{checking: bool, notice: ?string, links: list<array<string, mixed>>, search: array<string, mixed>|null}
      */
     private function seo(Session $session): array
     {
@@ -320,6 +321,54 @@ class Presenter
             'notice' => $message === null ? null : Gaps::translate($message),
             // `open_url`: the page on the site, for "Open page".
             'links' => array_map(fn(array $link) => $link + ['open_url' => self::siteUrl($link['url'] ?? null, $session->siteId)], $state->links),
+            // The Text tab's Search section: the SEO title, description
+            // and address (SEO layer §9.5).
+            'search' => $this->search($session),
+        ];
+    }
+
+    /**
+     * The Search section as the panel draws it: core's rows (SearchSection)
+     * with their notes translated, the count's range as its tooltip says
+     * it, and whether Try again is under way or failed. Null when the page
+     * has neither SEO fields nor an address.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function search(Session $session): ?array
+    {
+        $search = (new DraftLayouts())->search($session);
+
+        if ($search === null) {
+            return null;
+        }
+
+        $row = function(?array $row): ?array {
+            if ($row === null) {
+                return null;
+            }
+
+            $note = is_array($row['note'] ?? null) ? Gaps::translate(new Message((string) $row['note']['key'], $row['note']['params'] ?? [])) : null;
+            $extra = ['note' => $note];
+
+            if (isset($row['min'], $row['max'])) {
+                $extra['range'] = Gaps::translate(new Message('seo.search.range', ['min' => $row['min'], 'max' => $row['max']]));
+            }
+
+            if (($row['role'] ?? null) === 'title') {
+                $extra['usesTitle'] = Gaps::translate(new Message('seo.search.uses-title', ['title' => (string) ($row['pageTitle'] ?? '')]));
+            }
+
+            return array_replace($row, $extra);
+        };
+
+        return [
+            'title' => $row($search['title']),
+            'description' => $row($search['description']),
+            'address' => $row($search['address']),
+            'fields' => $search['fields'],
+            'busy' => DraftLayouts::isSearching($session),
+            'failed' => DraftLayouts::hasSearchFailed($session) ? Gaps::translate(new Message('seo.search.failed')) : null,
         ];
     }
 

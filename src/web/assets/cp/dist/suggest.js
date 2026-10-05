@@ -2294,7 +2294,8 @@
             if (step.seo?.seomatic) {
                 const key = String(step.path ?? '').split('/').pop();
 
-                return field.querySelector(`[name$="[metaGlobalVars][${CSS.escape(key)}]"]`);
+                // Not the greyed copy of the section's value (`…-inherited`, disabled).
+                return [...field.querySelectorAll(`[name$="[metaGlobalVars][${CSS.escape(key)}]"]`)].find((element) => !element.disabled && !String(element.id).endsWith('-inherited')) ?? null;
             }
 
             return this.inputIn(field);
@@ -2373,6 +2374,9 @@
 
                 next = old.slice(0, range[0]) + words + old.slice(range[1]);
             }
+
+            // An SEOmatic value becomes the page's own: its override switch on, so SEOmatic keeps it.
+            if (step.seo?.seomatic) Ghostwriter.FinishHelpers?.seomaticOwn?.(this.locate(step), String(step.path ?? '').split('/').pop());
 
             this.setInput(input, next);
 

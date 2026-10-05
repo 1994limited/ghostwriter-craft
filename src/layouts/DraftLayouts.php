@@ -26,9 +26,13 @@ use NineteenNinetyFour\Ghostwriter\Core\Text\TaggedResponse;
 use nineteenninetyfour\ghostwriter\ai\CraftLogger;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\LinkContext;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SearchSection;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\SeoPass;
+use NineteenNinetyFour\Ghostwriter\Core\Ai\Exceptions\ProviderException;
 use nineteenninetyfour\ghostwriter\gaps\Gaps;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
+use nineteenninetyfour\ghostwriter\seo\MetaContexts;
 use nineteenninetyfour\ghostwriter\suggest\EntryChecks;
 use Throwable;
 
@@ -42,6 +46,10 @@ use Throwable;
  *   LinkGuard), and on the first draft the SEO pass's links to the site's
  *   other pages (two calls; the panel says "Checking headings and
  *   links…" meanwhile), then one call to the layout planner.
+ * - Every writer turn also gets what the SEO pass needs for the search
+ *   title, description and address (MetaContexts); the Text tab's Search
+ *   section is search(), its edits editSearch() and its Try again
+ *   retrySearch() (one call).
  * - After any other change to the draft, afterEdit(): no model.
  * - draftData(): the chosen layout's draft data, for "Use this draft",
  *   the Preview and the Blocks and Text views. The session's draft stays
@@ -125,44 +133,164 @@ class DraftLayouts
     }
 
     /**
-     * The context with what the SEO pass needs to link a draft to the
-     * site's other pages (SEO layer §7): the link index (every routable
-     * page, decision 9), CKEditor's links (`{entry:12@1:url||/address}`),
-     * and the entry's section, site and language. Given on every writer
-     * turn, so core's LinkGuard also keeps the writer from making up an
-     * address; only a first draft is linked. Without it (it can't be told
-     * where the page is going) the draft goes on with no links.
+     * The context with what the SEO pass needs (SEO layer §7, §9, §10):
+     *
+     * - to link a draft to the site's other pages: the link index (every
+     *   routable page, decision 9), CKEditor's links
+     *   (`{entry:12@1:url||/address}`), and the entry's section, site and
+     *   language. Given on every writer turn, so core's LinkGuard also
+     *   keeps the writer from making up an address; only a first draft is
+     *   linked. Without it (it can't be told where the page is going) the
+     *   draft goes on with no links.
+     * - to write its search title, description and address: MetaContexts'
+     *   (the entry's SEO fields, what Ghostwriter wrote before, the slug).
+     *   Without it, none are written.
      */
     public function withLinks(LayoutContext $site, Session $session, WriterContext $writer): LayoutContext
     {
+        $links = null;
+
         try {
             $plugin = Plugin::getInstance();
             $type = $plugin->types->find($session->kind)?->forSession($session);
 
-            if ($type === null) {
-                return $site;
+            if ($type !== null) {
+                $siteId = $session->siteId ?? Craft::$app->getSites()->getPrimarySite()->id;
+                $id = $session->source ?? $session->recordId;
+                $entry = is_numeric($id) ? Entry::find()->id((int) $id)->siteId($siteId)->drafts(null)->status(null)->one() : null;
+                $language = Craft::$app->getSites()->getSiteById($siteId, true)?->language ?? Craft::$app->language;
+
+                $links = new LinkContext(
+                    $plugin->linkIndex,
+                    Gaps::links(),
+                    $type->group,
+                    $siteId,
+                    $entry instanceof Entry && $entry->getSection() !== null ? EntryChecks::ref($entry) : null,
+                    $writer->kind,
+                    $writer->voice,
+                    $language,
+                );
             }
-
-            $siteId = $session->siteId ?? Craft::$app->getSites()->getPrimarySite()->id;
-            $id = $session->source ?? $session->recordId;
-            $entry = is_numeric($id) ? Entry::find()->id((int) $id)->siteId($siteId)->drafts(null)->status(null)->one() : null;
-            $language = Craft::$app->getSites()->getSiteById($siteId, true)?->language ?? Craft::$app->language;
-
-            return new LayoutContext($site->schema, $site->pattern, $site->entries, $site->defaults, $site->exampleIds, $site->profile, new LinkContext(
-                $plugin->linkIndex,
-                Gaps::links(),
-                $type->group,
-                $siteId,
-                $entry instanceof Entry && $entry->getSection() !== null ? EntryChecks::ref($entry) : null,
-                $writer->kind,
-                $writer->voice,
-                $language,
-            ));
         } catch (Throwable $exception) {
             Craft::warning("Ghostwriter couldn't get ready to link the draft to the site's other pages: {$exception->getMessage()}", 'ghostwriter');
+        }
 
+        $meta = (new MetaContexts())->for($session, $writer->kind, $writer->voice, $site->schema);
+
+        if ($links === null && $meta === null) {
             return $site;
         }
+
+        return new LayoutContext($site->schema, $site->pattern, $site->entries, $site->defaults, $site->exampleIds, $site->profile, $links, $meta);
+    }
+
+    /**
+     * The context for the Search section's own changes (an edit, Try
+     * again): the piece's schema with MetaContexts', no links. Null when
+     * the piece's section is gone.
+     */
+    public function searchContext(Session $session): ?LayoutContext
+    {
+        $site = $this->context($session);
+        $meta = $site === null ? null : (new MetaContexts())->for($session, schema: $site->schema);
+
+        return $site === null ? null : new LayoutContext($site->schema, $site->pattern, $site->entries, $site->defaults, $site->exampleIds, $site->profile, null, $meta);
+    }
+
+    /**
+     * The Text tab's Search section (SEO layer §9.5, decision 21), as core
+     * gives it (Seo\SearchSection): the SEO title, description and
+     * address rows, each null where the page has none. Null when there is
+     * no draft, or the page has neither SEO fields nor an address.
+     *
+     * @return array{title: array<string, mixed>|null, description: array<string, mixed>|null, address: array<string, mixed>|null, fields: bool}|null
+     */
+    public function search(Session $session): ?array
+    {
+        if ($session->draft === null || trim($session->draft) === '') {
+            return null;
+        }
+
+        try {
+            $meta = (new MetaContexts())->for($session, schema: $this->schema($session), taken: false);
+
+            if ($meta === null) {
+                return null;
+            }
+
+            $search = (new SearchSection())->of($session, $meta);
+
+            return $search['fields'] || $search['address'] !== null ? $search : null;
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't show the search title and description: {$exception->getMessage()}", 'ghostwriter');
+
+            return null;
+        }
+    }
+
+    /**
+     * An edit in the Search section: the SEO title (empty: use the page
+     * title again), the description, or the address (empty: made from the
+     * title again). The editor's from then on. No model.
+     *
+     * @throws InvalidArgumentException when the piece's section is gone.
+     */
+    public function editSearch(Session $session, string $role, string $text): void
+    {
+        $site = $this->searchContext($session) ?? throw new InvalidArgumentException('This piece’s section is no longer there.');
+
+        (new SeoPass(logger: Plugin::getInstance()->studio->logger ?? new CraftLogger()))->editMeta($session, $role, $text, $site);
+    }
+
+    /**
+     * "Try again" in the Search section: one `seo-editor` call for another
+     * title and description (core's SeoPass::retryMeta()). Its tokens are
+     * added to the session's usage.
+     *
+     * @throws ProviderException when the call fails, for the panel to say so.
+     */
+    public function retrySearch(Session $session): Usage
+    {
+        $plugin = Plugin::getInstance();
+        $site = $this->searchContext($session);
+
+        if ($site === null || $site->meta === null) {
+            return new Usage();
+        }
+
+        return (new SeoPass(logger: $plugin->studio->logger ?? new CraftLogger(), studio: $plugin->studio->core()))->retryMeta($session, $site);
+    }
+
+    // -- Try again in the Search section, under way or failed -------------
+
+    /** Marked from the click until the call is back. */
+    public static function searching(string $sessionId, bool $on = true): void
+    {
+        $cache = Craft::$app->getCache();
+        $on ? $cache->set(self::searchKey($sessionId, 'busy'), true, self::CHECKING_SECONDS) : $cache->delete(self::searchKey($sessionId, 'busy'));
+    }
+
+    /** Whether Try again is under way on this piece ("Writing another…"); only while the piece is working. */
+    public static function isSearching(Session $session): bool
+    {
+        return $session->isWorking() && (bool) Craft::$app->getCache()->get(self::searchKey($session->id, 'busy'));
+    }
+
+    /** Try again's call failed (or worked: false), for the Search section to say so once. */
+    public static function searchFailed(string $sessionId, bool $failed = true): void
+    {
+        $cache = Craft::$app->getCache();
+        $failed ? $cache->set(self::searchKey($sessionId, 'failed'), true, 3600) : $cache->delete(self::searchKey($sessionId, 'failed'));
+    }
+
+    public static function hasSearchFailed(Session $session): bool
+    {
+        return (bool) Craft::$app->getCache()->get(self::searchKey($session->id, 'failed'));
+    }
+
+    private static function searchKey(string $sessionId, string $what): string
+    {
+        return "ghostwriter:seo-search-{$what}:{$sessionId}";
     }
 
     /**
@@ -225,6 +353,9 @@ class DraftLayouts
             $site = $this->context($session);
 
             if ($site !== null) {
+                // With the search meta, so the address follows a title changed by hand.
+                $meta = (new MetaContexts())->for($session, schema: $site->schema);
+                $site = $meta === null ? $site : new LayoutContext($site->schema, $site->pattern, $site->entries, $site->defaults, $site->exampleIds, $site->profile, null, $meta);
                 $this->core()->afterEdit($session, $before, $site);
             }
         } catch (Throwable $exception) {

@@ -639,6 +639,36 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 .gw-extra__state--needs-review, .gw-extra__state--needs-answer { color: var(--yellow-800, #854d0e); background: var(--yellow-050, #fffbeb); border-color: var(--yellow-300, #fcd34d); }
 
 /*
+    The Text tab's Search section (SEO layer §9.5): the SEO title, the meta
+    description and the address, each click-to-edit where Ghostwriter may
+    set it, with a plain count that turns amber outside the range. The
+    label sits beside the value, and above it in a narrow panel.
+*/
+.gw-search { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--hairline-color, rgba(51, 64, 77, .15)); }
+.gw-search h3 { margin: 0; font-size: 14px; }
+.gw-search h3:focus { outline: none; }
+.gw-search > p { margin: 2px 0 12px; font-size: 12.5px; }
+.gw-search__row { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 10px 0; border-top: 1px dashed var(--hairline-color, rgba(51, 64, 77, .15)); }
+.gw-search__row:first-of-type { border-top: 0; }
+.gw-search__key { flex: 0 0 9rem; min-width: 0; padding-top: 2px; font-weight: 600; font-size: 13px; color: var(--text-color, #1f2937); }
+.gw-search__key small { display: block; font-weight: 400; font-size: 11.5px; color: var(--light-text-color, #606d7b); }
+.gw-search__body { flex: 1 1 16rem; min-width: 0; display: grid; gap: 4px; }
+.gw-search__text { min-height: 1.5em; overflow-wrap: anywhere; }
+.gw-search__text--inherited { color: var(--light-text-color, #606d7b); }
+.gw-search__text[contenteditable]:empty::before { content: attr(data-placeholder); color: var(--light-text-color, #606d7b); }
+.gw-search__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 11.5px; color: var(--light-text-color, #606d7b); }
+.gw-search__count { font-variant-numeric: tabular-nums; }
+.gw-search__count[data-gw-search-out="true"] { color: var(--gw-amber, #9a6400); font-weight: 600; }
+.gw-search__address { display: flex; flex-wrap: wrap; align-items: baseline; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+.gw-search__base { color: var(--light-text-color, #606d7b); }
+.gw-search__slug { min-width: 2ch; margin: 0; padding: 1px 4px; }
+.gw-search__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 11.5px; }
+.gw-search__failed { margin: 6px 0 0; font-size: 12.5px; }
+@media (forced-colors: active) {
+    .gw-search__count[data-gw-search-out="true"] { color: Mark; }
+}
+
+/*
     A gap resolved from its chip: the popover a chip opens in the Preview or
     the Text tab, anchored to the chip inside the draft, over the frame.
 */

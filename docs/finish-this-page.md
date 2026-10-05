@@ -35,6 +35,8 @@ Choose **Finish this page** in the menu, or click a tag, to open the guide in th
   | A field pages like this usually fill | **Write it for me** (a line from the page's own text) for writing fields, or **I'll write it** |
   | Template text, "TBC" | **Remove it**, **I'll write it**, or **It's fine** for a suggestion |
   | A link Ghostwriter added | A suggestion for each [link it added to a first draft](writing.md#links-to-your-other-pages): "Check the link Ghostwriter added. “tell us about your garden” goes to Contact (/contact). Keep it, or remove the link and keep the words." **Keep it**, or **Remove the link** (the words stay; in CKEditor it's undoable) |
+  | An SEO title or description too long | "SEO description is too long." **I'll write it** takes you to the field |
+  | Add a description for search | A suggestion when the SEO description is empty or too short: "The SEO description is empty, so search engines will pick their own. Here's the one from the draft: “…”" **Use this** puts the draft's [description](writing.md#search) into the field (in SEOmatic, with its Override switch on and its source custom text); **I'll write it** takes you to the field |
 
   ![A new entry after Use this draft: the Text block's field tagged "3 · Needs a link", the Ghostwriter mark above "tell us about your garden" saying "Needs a link", and the guide on step 3 of 3 with Link to Contact first, then Choose an entry and Remove the link](images/finish-link-suggested.png)
 
@@ -79,6 +81,8 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | A required field left empty | Craft's own **Required** | Craft stops it, so it isn't listed |
 | A field pages like this usually fill | Filled on at least half the section's live entries | No, a suggestion |
 | A link Ghostwriter added | A link a first draft got to one of your pages, still in the entry | No, a suggestion |
+| An SEO title or description too long | Over the field's limit (SEOmatic's usual 60 and 160, or a Plain Text field's character limit) | No, a suggestion |
+| Add a description for search | The SEO description (SEOmatic's, or a `seoDescription` or `metaDescription` Plain Text field) is empty or under about 120 characters, on a page someone has worked on. One that comes from another field that fits, a template, or a switched-off setting is left | No, a suggestion |
 | Placeholder words | `TBC`, `TBD`, `TBA`, `TODO`, `XXX`, `[insert …]`, `[add …]`, `[check …]`, `lorem ipsum` | No, a suggestion |
 
 In sections Ghostwriter doesn't write for, only stock photo previews are looked for.

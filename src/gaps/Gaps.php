@@ -13,6 +13,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Gaps\BlockRef;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Detectors\UnlicensedStock;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\FieldPath;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Fix;
+use NineteenNinetyFour\Ghostwriter\Core\Gaps\FixAction;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\Gap;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\GapContext;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\GapFinder;
@@ -35,6 +36,7 @@ use nineteenninetyfour\ghostwriter\layouts\SchemaReader;
 use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
 use nineteenninetyfour\ghostwriter\stock\StockView;
+use nineteenninetyfour\ghostwriter\suggest\CraftSeoFields;
 use Throwable;
 use yii\caching\TagDependency;
 
@@ -155,6 +157,9 @@ class Gaps extends Component
             stock: $plugin->stockUsages->ledgerIsEmpty() ? null : $plugin->domain->stock(),
             pattern: $rates ? $this->rates($entry, $schema) : null,
             session: $this->sessionGaps($entry),
+            // The SEO fields (SEOmatic's, plain ones), so "Add a description
+            // for search" is offered: a suggestion, never counted.
+            seo: new CraftSeoFields(),
             group: self::group($entry),
             profile: self::profile($entry),
             // What a count to check was counted from: the person's
@@ -285,7 +290,24 @@ class Gaps extends Component
      */
     public static function location(Gap $gap, int $elementId): array
     {
-        return self::locationOf($gap->path, $elementId);
+        $location = self::locationOf($gap->path, $elementId);
+
+        // An SEOmatic value is inside its field: the field is the place,
+        // and `seomatic` the value in it (`seoDescription`).
+        if (self::seomaticKey($gap->path) !== null) {
+            $location['handle'] = $gap->path->handle();
+            $location['seomatic'] = self::seomaticKey($gap->path);
+        }
+
+        return $location;
+    }
+
+    /** The SEOmatic value a path is at (`seoSettings.metaGlobalVars.seoDescription`: `seoDescription`); null for any other place. */
+    public static function seomaticKey(FieldPath $path): ?string
+    {
+        $segments = $path->segments;
+
+        return count($segments) === 3 && is_string($segments[0]) && $segments[1] === 'metaGlobalVars' && is_string($segments[2]) ? $segments[2] : null;
     }
 
     /**
@@ -354,7 +376,13 @@ class Gaps extends Component
         $data['speech'] = self::translate(new Message('gaps.speech.' . $gap->kind->value));
         $data['blocks'] = $gap->blocks();
         // The name in a label ("Link to {title}"), so the guide can cut just that short.
-        $data['fixes'] = array_map(fn(Fix $fix) => ['label' => self::translate($fix->label), 'name' => isset($fix->label->params['title']) ? (string) $fix->label->params['title'] : null] + $fix->toArray(), $gap->fixes);
+        // "Use a shorter one" has no writer here yet: an SEO value too long is the editor's to shorten.
+        $fixes = array_values(array_filter($gap->fixes, fn(Fix $fix) => $fix->action !== FixAction::Shorten));
+        $data['fixes'] = array_map(fn(Fix $fix) => ['label' => self::translate($fix->label), 'name' => isset($fix->label->params['title']) ? (string) $fix->label->params['title'] : null] + $fix->toArray(), $fixes);
+
+        if ($fixes !== [] && !array_filter($data['fixes'], fn(array $fix) => !empty($fix['primary']))) {
+            $data['fixes'][0]['primary'] = true;
+        }
         $data['location'] = self::location($gap, $elementId);
 
         if (is_string($gap->meta['stockId'] ?? null)) {

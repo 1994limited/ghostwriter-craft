@@ -409,3 +409,42 @@ test('the links to a page in plain text, with their words', () => {
     assert.deepEqual(Array.from(H.linksTo(text, 'https://northfold.test/contact#entry:12@1:url'), (m) => [m.words, m.match, m.index]), [['tell us', '[tell us]({entry:12@1:url||/contact})', 3]]);
     assert.deepEqual(Array.from(H.linksTo(text, '{entry:99@1:url}')), []);
 });
+
+test('an SEOmatic value made the page’s own: its override switch on and its source custom (seo-missing, Use this)', () => {
+    context.Event = class { constructor(type, options) { this.type = type; this.bubbles = options?.bubbles; } };
+    const fired = [];
+    const element = (props) => ({ ...props, dispatchEvent(event) { fired.push([props.name ?? props.className, event.type]); }, closest: () => null });
+    const classes = new Set(['inheritable-field', 'inherited-settings']);
+    const wrapper = { classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) } };
+    const lightswitch = { ...element({ className: 'lightswitch' }), classList: { add: (c) => classes.add(`switch:${c}`) }, setAttribute: (name, value) => classes.add(`${name}=${value}`) };
+    const toggle = { ...element({ name: 'fields[seoSettings][metaGlobalVars][override-seoDescription]', value: '' }), closest: (selector) => (selector === '.lightswitch' ? lightswitch : wrapper) };
+    const source = element({ name: 'fields[seoSettings][metaBundleSettings][seoDescriptionSource]', value: 'fromField', options: [{ value: 'fromField' }, { value: 'fromCustom' }] });
+    const box = element({ name: 'fields[seoSettings][metaGlobalVars][seoDescription]', value: '', id: 'fields-seoSettings-metaGlobalVars-seoDescription' });
+    // The greyed copy of the section's value SEOmatic shows while the switch is off: never written to.
+    const inherited = element({ name: 'fields[seoSettings][metaGlobalVars][seoDescription]', value: '{{ seomatic.helper.extractTextFromField(entry.excerpt) }}', id: 'fields-seoSettings-metaGlobalVars-seoDescription-inherited', disabled: true });
+    const field = {
+        querySelectorAll(selector) {
+            return selector.includes('[metaGlobalVars][seoDescription]') ? [inherited, box] : [];
+        },
+        querySelector(selector) {
+            if (selector.includes('override-seoDescription')) return toggle;
+            if (selector.includes('seoDescriptionSource')) return source;
+            if (selector.includes('[metaGlobalVars][seoDescription]')) return box;
+
+            return null;
+        },
+    };
+
+    assert.equal(H.seomaticInput(field, 'seoDescription'), box);
+    assert.equal(H.seomaticOwn(field, 'seoDescription'), true);
+    assert.equal(toggle.value, '1', 'Switched on: SEOmatic keeps the value.');
+    assert.equal(source.value, 'fromCustom');
+    assert.ok(classes.has('defined-settings') && !classes.has('inherited-settings'), 'The value shows, as SEOmatic shows it when switched on.');
+    assert.deepEqual(fired.map(([, type]) => type), ['change', 'change']);
+
+    // Already on, and custom: nothing changes.
+    fired.length = 0;
+    assert.equal(H.seomaticOwn(field, 'seoDescription'), true);
+    assert.deepEqual(fired, []);
+    assert.equal(H.seomaticOwn({ querySelector: () => null }, 'seoDescription'), false, 'A plain field has no switch.');
+});

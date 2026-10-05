@@ -184,7 +184,7 @@ The first draft comes laid out more than one way: the same words arranged differ
 
 Under the draft's toolbar, the layouts, the draft and the Preview scroll as one column: the page is shown whole, as tall as it is, so there's one scrollbar, not one for the panel and another for the page.
 
-There's no setting: this is how drafting works. A first draft is four model calls: the writer, two for [links to your other pages](#links-to-your-other-pages), and the layout planner. Later changes are one.
+There's no setting: this is how drafting works. A first draft is four model calls: the writer, two for [links to your other pages](#links-to-your-other-pages) and its [search title and description](#search), and the layout planner. Later changes are one, and one more when they rewrite enough of the page for the search title and description to follow.
 
 ### Extras
 
@@ -226,12 +226,32 @@ A first draft comes with a few links to your other pages, where they help the re
 
 After **Use this draft**, each link it added is a suggestion in [Finish this page](finish-this-page.md#the-guide), so someone checks where it goes. In the entry, a link is kept as Craft's own reference to the entry (`{entry:12@1:url}`), so it follows the page if its address changes.
 
+### Search
+
+The same call that looks for links also writes how the page may show in search results, and Ghostwriter makes its address. They're in the **Search** section at the foot of the **Text** tab, below the extras: "How this page may appear in search results. Nothing here is saved until you use the draft."
+
+- **Meta description.** One or two plain sentences, only from what the page says, about 120 to 155 characters for SEOmatic's usual 160 (a Plain Text field's own character limit counts instead). The count beside it ("149 / 160") turns amber outside that range; its tooltip says the range.
+- **SEO title.** Most pages keep using the page title, which is what SEOmatic does by default: the row says "Uses the page title: “…”" in grey, and why. Ghostwriter only writes one when the page title is too long once the site's name is added. **Give it its own** lets you write one; **Use the page title** goes back.
+- **Address.** On a new entry, the slug is made from the title: short, without little words such as "a" and "the", a year only in a channel (a journal, news), and apart from the section's other entries. On a published entry it's shown greyed: "Published pages keep their address".
+- **Click any of them to change it.** It's saved when you leave it (Enter finishes, Esc puts it back), and it's yours from then on: a later change to the draft won't rewrite it. Otherwise, if you ask for a change that rewrites the title or a quarter of the words, the title and description are written again (one call).
+- **Try again** asks for another title and description ("Asks for another title and description. Uses Ghostwriter."): one call, "Writing another…" meanwhile.
+
+The fields it fills are SEOmatic's **SEO Settings** field (its title and description) and Plain Text fields with the handles `seoTitle`, `metaTitle`, `seoDescription` or `metaDescription`. **It never writes over a person's text.** On **Use this draft**:
+
+- an empty description, or one Ghostwriter wrote before and nobody has changed, gets the draft's;
+- a description someone wrote stays. The Search section says "Your SEO description stays. Suggested instead: …", with **Use this** to put the draft's in after all;
+- one SEOmatic takes from another field (the section's Excerpt, say) is left when it fits, and suggested over when that field is empty or too long or short;
+- a Twig template, or a setting switched off, is left alone.
+
+In SEOmatic, the text goes in with the field's **Override** switch on and its source set to custom text, as you would set them by hand; with the switch off, SEOmatic would ignore it. The slug is set only on an entry that has never been published, whose slug is still empty or the one Craft made from its title, and only where the section's URI format uses `{slug}`; Craft keeps it unique when it saves.
+
 ## Use this draft
 
 **Use this draft** puts the draft into the entry, then reloads the form so you can see it.
 
 - **The chosen layout goes in** (see [Layouts](#layouts)), with any extras it uses. With *As written* chosen, it's the draft as written.
 - **Nothing is saved or published.** It goes into the entry's own Craft draft. Check it over, then save the entry as usual, or discard it.
+- **The [search title, description and address](#search) go in too**, where Ghostwriter may write them: never over a person's text, and the slug on a new entry only.
 - **A new entry starts unpublished.** Its **Enabled** switch is turned off, so you can save it straight away, and an AI draft is never published by accident. The notification says "Ghostwriter drafts start unpublished. Switch on Enabled when you're ready." Switch it on when the entry is ready. An existing entry's status is never changed. Turn this off with **New entries start unpublished** in the [settings](configuration.md#settings) (`draftsUnpublished`).
 - Using it again replaces what is in the form.
 - Opening the panel again carries on with the same piece, with a line saying it's already in the entry.
