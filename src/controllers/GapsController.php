@@ -59,7 +59,7 @@ class GapsController extends Controller
 
     /**
      * "Write it for me" (a line for an empty prose field, from the page's
-     * own text) or "Write around it" (the sentence holding a fact to add,
+     * own text, or a long heading written shorter) or "Write around it" (the sentence holding a fact to add,
      * without it). Queued; the guide polls actionFillStatus.
      */
     public function actionFill(): Response
@@ -79,9 +79,10 @@ class GapsController extends Controller
         }
 
         $around = $gap->kind === GapKind::Ask;
+        $heading = $gap->kind === GapKind::HeadingLong;
 
         // Never a fact: core refuses anything else for a fact to add.
-        if (!$around && !in_array($gap->kind, [GapKind::Required, GapKind::Expected], true)) {
+        if (!$around && !$heading && !in_array($gap->kind, [GapKind::Required, GapKind::Expected], true)) {
             return $this->refuse(Craft::t('ghostwriter', 'Ghostwriter only writes around a fact it doesn’t know; it never supplies one.'), 422);
         }
 
@@ -92,11 +93,12 @@ class GapsController extends Controller
         FillGap::start([
             'key' => $key,
             'by' => (int) Craft::$app->getUser()->getId(),
-            'task' => $around ? GapRequest::WRITE_AROUND : GapRequest::SUMMARY,
+            // A long heading is written shorter, with the page's text for context only.
+            'task' => $heading ? GapRequest::SHORTEN_HEADING : ($around ? GapRequest::WRITE_AROUND : GapRequest::SUMMARY),
             'label' => $gap->label,
             'text' => $around ? ($sentence !== '' ? $sentence : (string) $gap->excerpt) : $plugin->prose->fromEntry($entry),
             'missing' => $gap->hint,
-            'limit' => $around ? null : $this->limit($gap->path->segments),
+            'limit' => $around || $heading ? null : $this->limit($gap->path->segments),
             'gap' => ['kind' => $gap->kind->value, 'path' => $gap->path->toString(), 'label' => $gap->label, 'hint' => $gap->hint, 'excerpt' => $gap->excerpt, 'occurrence' => $gap->occurrence],
         ]);
 

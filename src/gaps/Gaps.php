@@ -37,6 +37,7 @@ use nineteenninetyfour\ghostwriter\Plugin;
 use nineteenninetyfour\ghostwriter\seo\HeadingProfiles;
 use nineteenninetyfour\ghostwriter\stock\StockView;
 use nineteenninetyfour\ghostwriter\suggest\CraftSeoFields;
+use nineteenninetyfour\ghostwriter\suggest\EntryChecks;
 use Throwable;
 use yii\caching\TagDependency;
 
@@ -166,6 +167,8 @@ class Gaps extends Component
             // messages and answers, and the draft. A count whose list has
             // changed since says so.
             sources: $this->sources($entry),
+            // A full address on the site counts as a link to it ("Link to your other pages").
+            hosts: EntryChecks::ownHosts(),
         );
     }
 
@@ -374,6 +377,8 @@ class Gaps extends Component
         }
 
         $data['speech'] = self::translate(new Message('gaps.speech.' . $gap->kind->value));
+        // A step's title where it isn't the field's label: "Shorten a heading".
+        $data['step'] = is_string($gap->meta['step'] ?? null) ? self::translate(new Message($gap->meta['step'])) : null;
         $data['blocks'] = $gap->blocks();
         // The name in a label ("Link to {title}"), so the guide can cut just that short.
         // "Use a shorter one" has no writer here yet: an SEO value too long is the editor's to shorten.

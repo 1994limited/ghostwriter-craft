@@ -37,6 +37,8 @@ Choose **Finish this page** in the menu, or click a tag, to open the guide in th
   | A link Ghostwriter added | A suggestion for each [link it added to a first draft](writing.md#links-to-your-other-pages): "Check the link Ghostwriter added. “tell us about your garden” goes to Contact (/contact). Keep it, or remove the link and keep the words." **Keep it**, or **Remove the link** (the words stay; in CKEditor it's undoable) |
   | An SEO title or description too long | "SEO description is too long." **I'll write it** takes you to the field |
   | Add a description for search | A suggestion when the SEO description is empty or too short: "The SEO description is empty, so search engines will pick their own. Here's the one from the draft: “…”" **Use this** puts the draft's [description](writing.md#search) into the field (in SEOmatic, with its Override switch on and its source custom text); **I'll write it** takes you to the field |
+  | Shorten a heading | A suggestion for a heading over 70 characters, which is hard to scan and cut off in search results. **Write it for me** asks Ghostwriter for a shorter one with the same meaning (one small call, queued, and the button says so); only the heading's words change in CKEditor. **I'll write it** selects the heading |
+  | Link to your other pages | A suggestion for a page of 300 words or more with no link to the site's own pages (a reference tag, a path such as `/contact`, or a full address on your site; links to other sites don't count). **Add a link** takes you to the text; **Skip** hides it. [Suggest edits](suggest-edits.md) proposes the links themselves |
 
   ![A new entry after Use this draft: the Text block's field tagged "3 · Needs a link", the Ghostwriter mark above "tell us about your garden" saying "Needs a link", and the guide on step 3 of 3 with Link to Contact first, then Choose an entry and Remove the link](images/finish-link-suggested.png)
 
@@ -50,6 +52,8 @@ The guide looks again each time Craft saves your draft, and only what it finds t
 The Ghostwriter mark flies to each step with a short label ("Fill this in", "Needs a link", "Swap me", "License me"). For words in CKEditor (a fact to add, a count, a link to choose or a broken link, template text, placeholder words) it lands just above the words themselves, or below them when Craft's header or the editor's toolbar leaves no room; the words are scrolled to the middle of the editor and tinted for a moment. Anything else, or words it can't find, gets the mark just past the field's tag. The label goes on whichever side of the mark covers no text and stays inside the window, so it never hides what you're reading. Where every side would cover text, the label is hidden and the mark points on its own. Minimise the guide with **—** (or **Esc** inside it) and it folds into the mark in the corner, with the count; click it to bring the guide back. Each person's choice, open or minimised, is remembered on every entry. After **Use this draft**, the guide opens by itself (**Open the guide after a draft is added**).
 
 A block in a page builder that's collapsed is expanded when its step comes up, and the right tab is opened. In a Matrix field shown as cards, the card carries the highlight, and **Open block** opens it in Craft's slideout, where its fields are highlighted too.
+
+The search steps, and the rest of the SEO wording, are in German, French, Dutch and Spanish as well as English (`src/translations/{de,fr,nl,es}/ghostwriter.php`, from core by `php bin/sync-core-strings`).
 
 ### Keyboard and screen readers
 
@@ -83,6 +87,8 @@ Below 640px wide, the guide is a sheet along the bottom of the screen, which fol
 | A link Ghostwriter added | A link a first draft got to one of your pages, still in the entry | No, a suggestion |
 | An SEO title or description too long | Over the field's limit (SEOmatic's usual 60 and 160, or a Plain Text field's character limit) | No, a suggestion |
 | Add a description for search | The SEO description (SEOmatic's, or a `seoDescription` or `metaDescription` Plain Text field) is empty or under about 120 characters, on a page someone has worked on. One that comes from another field that fits, a template, or a switched-off setting is left | No, a suggestion |
+| Shorten a heading | A heading in CKEditor over 70 characters | No, a suggestion |
+| Link to your other pages | 300 words or more, and no link to the site's own pages | No, a suggestion |
 | Placeholder words | `TBC`, `TBD`, `TBA`, `TODO`, `XXX`, `[insert …]`, `[add …]`, `[check …]`, `lorem ipsum` | No, a suggestion |
 
 In sections Ghostwriter doesn't write for, only stock photo previews are looked for.

@@ -209,6 +209,35 @@ class GapsTest extends TestCase
         $this->assertSame('', (string) Entry::find()->id($entry->id)->one()->getFieldValue('intro'));
     }
 
+    public function testALongHeadingAndNoLinksAreSuggestionsAndTheHeadingIsShortenedOnce(): void
+    {
+        $this->signInToEdit();
+        $heading = 'What we do in a walled garden in late winter, before the first warm weekend arrives';
+        $entry = $this->makeEntry($this->events, 'Winter care', ['summary' => 'Winter.', 'intro' => 'Winter visits.', 'body' => "<h2>{$heading}</h2><p>" . trim(str_repeat('We cut back the grasses, divide the perennials and mulch the borders. ', 30)) . '</p><p><a href="https://rhs.org.uk">The RHS</a> says so too.</p>']);
+        $report = $this->plugin->gaps->report($entry);
+        $long = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::HeadingLong);
+        $few = $report->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::FewLinks);
+
+        $this->assertCount(1, $long);
+        $this->assertCount(1, $few, 'A link to another site isn\'t a link to the site.');
+        $this->assertFalse($long[0]->counts());
+        $this->assertFalse($few[0]->counts());
+        $this->assertSame([], $this->fake->requests(), 'Found for nothing.');
+
+        $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $long[0]->id]);
+        $this->assertSame('working', $started['data']['status'], json_encode($started['data']));
+        $this->fake->respond('gap-filler', '<result>Walled garden jobs for late winter</result>');
+        $this->runQueue();
+
+        $request = $this->fake->prompted('gap-filler')[0];
+        $this->assertStringContainsString('Task: shorten-heading', $request->prompt);
+        $this->assertStringContainsString("<heading>\n{$heading}\n</heading>", $request->prompt);
+        $this->assertSame('Walled garden jobs for late winter', $this->action('ghostwriter/gaps/fill-status', [], 'GET', params: ['id' => $started['data']['id']])['data']['text']);
+
+        $linked = $this->makeEntry($this->events, 'Winter care, linked', ['summary' => 'Winter.', 'intro' => 'Winter visits.', 'body' => '<p>' . trim(str_repeat('We cut back the grasses, divide the perennials and mulch the borders. ', 30)) . '</p><p><a href="{entry:' . $entry->id . '@1:url||/winter}">Winter care</a>.</p>']);
+        $this->assertSame([], $this->plugin->gaps->report($linked)->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::FewLinks), 'A reference tag is a link to the site.');
+    }
+
     public function testAFactIsNeverWrittenOnlyWrittenAround(): void
     {
         $this->signInToEdit();
@@ -304,6 +333,28 @@ class GapsTest extends TestCase
         // The card's own field, inside the section block: both on the way down.
         $this->assertSame(['elementId' => (int) $blocks[1]->id, 'handle' => 'cardText', 'blocks' => [(int) $blocks[0]->id, (int) $blocks[1]->id], 'field' => 'body2'], $ask['location']);
         $this->assertSame('CardText (in the Card block)', $ask['label']);
+    }
+
+    public function testTheSeoStringsAreInGermanFrenchDutchAndSpanish(): void
+    {
+        $english = require dirname(__DIR__, 3) . '/src/translations/en/ghostwriter.php';
+
+        foreach (Message::TRANSLATED as $language) {
+            $file = require dirname(__DIR__, 3) . "/src/translations/{$language}/ghostwriter.php";
+            $this->assertSame(array_keys($english), array_keys($file), "{$language}: every key, so none shows as itself.");
+
+            foreach (['seo', 'suggest', 'revisit', 'gaps'] as $namespace) {
+                foreach (Message::translations($namespace, $language) as $key => $text) {
+                    $this->assertSame(preg_replace('/:([a-zA-Z][a-zA-Z_]*)/', '{$1}', $text), $file["{$namespace}.{$key}"] ?? null, "{$language} {$namespace}.{$key} is out of date: run php bin/sync-core-strings.");
+                }
+            }
+        }
+
+        $this->assertSame('Eine Überschrift kürzen', Craft::t('ghostwriter', 'gaps.step.heading-long', [], 'de'));
+        $this->assertSame('Diese Überschrift in Body hat 83 Zeichen. Über 70 ist sie schwer zu überfliegen und wird in Suchergebnissen abgeschnitten.', Craft::t('ghostwriter', 'gaps.heading-long', ['label' => 'Body', 'length' => 83], 'de-DE'));
+        $this->assertSame('Recherche', Craft::t('ghostwriter', 'seo.search.heading', [], 'fr'));
+        $this->assertSame('Finish this page', Craft::t('ghostwriter', 'gaps.guide.title', [], 'nl'), 'Not translated yet: English, never the key.');
+        $this->assertSame('Sin enlaces internos', Craft::t('ghostwriter', 'revisit.reason.few-links', [], 'es'));
     }
 
     public function testEveryCoreStringIsInCraftsTranslationsAsCoreHasIt(): void

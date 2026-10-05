@@ -31,7 +31,7 @@
     const REDUCED = '(prefers-reduced-motion: reduce)';
     const FLIGHT = 900;
     const ANSWER_KINDS = ['ask'];
-    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'links-added', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
+    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'links-added', 'heading-long', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
 
     /** A regular expression from core's patterns.json entry. */
     const pattern = (entry) => (entry ? new RegExp(entry.source, entry.flags.includes('g') ? entry.flags : entry.flags + 'g') : null);
@@ -2084,6 +2084,17 @@
                 return (same[gap.occurrence ?? 0] ?? same[0] ?? runs[0])?.range ?? null;
             }
 
+            // A long heading (Shorten a heading): the words of the nth heading with them.
+            if (gap.kind === 'heading-long') {
+                for (const item of model.createRangeIn(root).getItems()) {
+                    if (item.is('element') && /^heading\d$/.test(item.name) && this.normalise(Array.from(item.getChildren()).map((child) => child.data ?? '').join('')) === this.normalise(gap.hint)) {
+                        found.push(model.createRangeIn(item));
+                    }
+                }
+
+                return found[gap.occurrence ?? 0] ?? found[0] ?? null;
+            }
+
             // An image inline in CKEditor: the image itself, by its asset.
             if (gap.kind === 'image-placeholder' || gap.kind === 'stock-preview') {
                 const id = String(gap.meta?.asset?.id ?? gap.stock?.assetId ?? '');
@@ -2721,6 +2732,17 @@
             }
 
             const text = result.text ?? '';
+
+            // A long heading: only its words change.
+            if (gap.kind === 'heading-long') {
+                if (text && (await this.replaceMarker(gap, text))) {
+                    this.fixed(gap);
+                } else {
+                    Craft.cp.displayError(t('Ghostwriter couldn’t find that gap in the field any more.'));
+                }
+
+                return;
+            }
 
             if (action === 'write-around') {
                 if (editor) {

@@ -116,7 +116,7 @@ class SearchMetaTest extends TestCase
 
         $this->assertSame(self::DESCRIPTION, $meta->description);
         $this->assertSame('', $meta->title, 'The page title fits: the SEO title keeps using it (decision 12).');
-        $this->assertSame('winter-care-visits-established-gardens', $meta->slug, 'Stop words out, five words at most, apart from the page already called "Winter care visits".');
+        $this->assertSame('winter-care-visits-for-established-gardens', $meta->slug, 'The whole phrase, apart from the page already called "Winter care visits".');
 
         $this->fake->assertSent('seo-editor', fn(TextRequest $request) => str_contains($request->prompt, 'description'));
 
@@ -131,7 +131,7 @@ class SearchMetaTest extends TestCase
         $this->assertFalse($search['title']['own']);
         $this->assertSame('Uses the page title: “Winter care visits for established gardens”', $search['title']['usesTitle']);
         $this->assertSame('It fits, so your SEO settings keep using it.', $search['title']['note']);
-        $this->assertSame('winter-care-visits-established-gardens', $search['address']['slug']);
+        $this->assertSame('winter-care-visits-for-established-gardens', $search['address']['slug']);
         $this->assertTrue($search['address']['editable']);
         $this->assertStringEndsWith('/journal/', $search['address']['base']);
         $this->assertSame('Set on this new page only. Published pages keep their address.', $search['address']['note']);
@@ -213,7 +213,7 @@ class SearchMetaTest extends TestCase
         $entry = Entry::find()->id($target->id)->drafts(null)->status(null)->one();
         $this->assertSame(self::DESCRIPTION, (string) $entry->getFieldValue('metaDescription'));
         $this->assertSame('', (string) $entry->getFieldValue('seoTitle'), 'No SEO title: the page title fits.');
-        $this->assertSame('winter-care-visits-established-gardens', $entry->slug);
+        $this->assertSame('winter-care-visits-for-established-gardens', $entry->slug);
         $this->assertTrue($entry->getIsUnpublishedDraft(), 'Nothing is published.');
 
         // What Ghostwriter wrote is known as its own from now on.

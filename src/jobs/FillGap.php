@@ -23,12 +23,12 @@ class FillGap extends Job
     /** Who asked: only they are shown the answer. */
     public int $by = 0;
 
-    /** GapRequest::SUMMARY or GapRequest::WRITE_AROUND. */
+    /** GapRequest::SUMMARY, GapRequest::WRITE_AROUND or GapRequest::SHORTEN_HEADING. */
     public string $task = GapRequest::SUMMARY;
 
     public string $label = '';
 
-    /** The page's text (summary), or the sentence holding the marker (write around). */
+    /** The page's text (summary; a long heading's context), or the sentence holding the marker (write around). */
     public string $text = '';
 
     public ?string $missing = null;
@@ -57,9 +57,11 @@ class FillGap extends Job
     {
         $gap = \nineteenninetyfour\ghostwriter\gaps\Gaps::gapFromArray($this->gap);
 
-        return $this->task === GapRequest::WRITE_AROUND
-            ? GapRequest::writeAround($gap, $this->text)
-            : GapRequest::summary($this->label, $this->text, $this->limit ?? GapRequest::SUMMARY_LIMIT, $gap);
+        return match ($this->task) {
+            GapRequest::WRITE_AROUND => GapRequest::writeAround($gap, $this->text),
+            GapRequest::SHORTEN_HEADING => GapRequest::shortenHeading($gap, $this->text),
+            default => GapRequest::summary($this->label, $this->text, $this->limit ?? GapRequest::SUMMARY_LIMIT, $gap),
+        };
     }
 
     protected function defaultDescription(): ?string

@@ -84,6 +84,7 @@ class EntryChecks
             seo: new CraftSeoFields(),
             group: $gaps->group,
             profile: $gaps->profile,
+            hosts: $gaps->hosts,
         );
     }
 
