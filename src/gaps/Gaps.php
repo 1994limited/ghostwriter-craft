@@ -27,6 +27,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Schema\EntryData;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\Links\CraftLinks;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\FillRates;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\Pattern;
+use NineteenNinetyFour\Ghostwriter\Core\Seo\LinkProposals;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\RenderProfile;
 use NineteenNinetyFour\Ghostwriter\Core\Schema\Schema;
 use NineteenNinetyFour\Ghostwriter\Core\Layout\HtmlDialect;
@@ -75,9 +76,9 @@ class Gaps extends Component
     /**
      * What is unfinished in the entry, for the menu's count and the guide.
      */
-    public function report(Entry $entry): GapReport
+    public function report(Entry $entry, ?LinkProposals $proposals = null): GapReport
     {
-        return self::tidyReport($this->finder(self::writesHere($entry))->find($this->context($entry, rates: true)));
+        return self::tidyReport($this->finder(self::writesHere($entry))->find($this->context($entry, rates: true, proposals: $proposals)));
     }
 
     /**
@@ -141,7 +142,10 @@ class Gaps extends Component
         ));
     }
 
-    public function context(Entry $entry, bool $rates = false): GapContext
+    /**
+     * @param LinkProposals|null $proposals What "Suggest links" found in this page view (LinkSuggestions): a step for each link still to make.
+     */
+    public function context(Entry $entry, bool $rates = false, ?LinkProposals $proposals = null): GapContext
     {
         $plugin = Plugin::getInstance();
         $specs = (new SchemaReader())->read($entry->getType());
@@ -169,6 +173,7 @@ class Gaps extends Component
             sources: $this->sources($entry),
             // A full address on the site counts as a link to it ("Link to your other pages").
             hosts: EntryChecks::ownHosts(),
+            proposals: $proposals,
         );
     }
 
@@ -234,9 +239,9 @@ class Gaps extends Component
      *
      * @return array<string, mixed>
      */
-    public function payload(Entry $entry, ?User $user = null): array
+    public function payload(Entry $entry, ?User $user = null, ?LinkProposals $proposals = null): array
     {
-        $report = $this->report($entry);
+        $report = $this->report($entry, $proposals);
         $stock = [];
 
         foreach ($report->ofKind(GapKind::StockPreview) as $gap) {
@@ -378,7 +383,9 @@ class Gaps extends Component
 
         $data['speech'] = self::translate(new Message('gaps.speech.' . $gap->kind->value));
         // A step's title where it isn't the field's label: "Shorten a heading".
-        $data['step'] = is_string($gap->meta['step'] ?? null) ? self::translate(new Message($gap->meta['step'])) : null;
+        $data['step'] = is_string($gap->meta['step'] ?? null) ? self::translate(new Message($gap->meta['step'], $gap->message()->params)) : null;
+        // What a model fix's button says while it runs ("Finding pages to link to…").
+        $data['running'] = is_string($gap->meta['running'] ?? null) ? self::translate(new Message($gap->meta['running'])) : null;
         $data['blocks'] = $gap->blocks();
         // The name in a label ("Link to {title}"), so the guide can cut just that short.
         // "Use a shorter one" has no writer here yet: an SEO value too long is the editor's to shorten.

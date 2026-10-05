@@ -7,6 +7,7 @@ use craft\elements\Entry;
 use NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind;
 use NineteenNinetyFour\Ghostwriter\Core\Studio\GapRequest;
 use nineteenninetyfour\ghostwriter\gaps\Gaps;
+use nineteenninetyfour\ghostwriter\gaps\LinkSuggestions;
 use nineteenninetyfour\ghostwriter\jobs\FillGap;
 use nineteenninetyfour\ghostwriter\Plugin;
 use yii\web\ForbiddenHttpException;
@@ -20,7 +21,8 @@ use yii\web\Response;
  * guide was last left open, and the fixes that write.
  *
  * Checking never calls a model. Only "Write it for me" and "Write around
- * it" do, one small request each, in the queue.
+ * it" do, one small request each, and "Suggest links", the two link
+ * calls, all in the queue.
  */
 class GapsController extends Controller
 {
@@ -30,8 +32,49 @@ class GapsController extends Controller
     public function actionCheck(): Response
     {
         $entry = $this->entry();
+        // What "Suggest links" found in this page view, by the key the guide sends.
+        $links = $this->request->getParam('links');
+        $proposals = is_string($links) ? (new LinkSuggestions())->proposals($links, (int) Craft::$app->getUser()->getId()) : null;
 
-        return $this->asJson(Plugin::getInstance()->gaps->payload($entry, Craft::$app->getUser()->getIdentity()) + ['elementId' => (int) $entry->id]);
+        return $this->asJson(Plugin::getInstance()->gaps->payload($entry, Craft::$app->getUser()->getIdentity(), $proposals) + ['elementId' => (int) $entry->id]);
+    }
+
+    /**
+     * "Suggest links" on "Link to your other pages": one `seo-editor` and
+     * one `seo-verifier` call on the entry as the form has it, queued; the
+     * guide polls actionLinksStatus, then sends the id with each check, so
+     * each link found is a step (Link it · Skip). Nothing is saved.
+     */
+    public function actionLinks(): Response
+    {
+        $this->requirePostRequest();
+
+        if ($refusal = $this->notConfigured()) {
+            return $refusal;
+        }
+
+        $entry = $this->entry();
+        $gap = Plugin::getInstance()->gaps->report($entry)->find((string) $this->request->getRequiredBodyParam('gap'));
+
+        if ($gap === null || $gap->kind !== GapKind::FewLinks) {
+            return $this->refuse(Craft::t('ghostwriter', 'This page links to your other pages already.'), 409);
+        }
+
+        $id = (new LinkSuggestions())->start($entry, (int) Craft::$app->getUser()->getId());
+
+        return $this->asJson(['status' => LinkSuggestions::WORKING, 'id' => $id]);
+    }
+
+    /** Where Suggest links is: working, done (how many found) or failed. */
+    public function actionLinksStatus(string $id): Response
+    {
+        $status = (new LinkSuggestions())->status($id, (int) Craft::$app->getUser()->getId());
+
+        if ($status === null) {
+            throw new NotFoundHttpException();
+        }
+
+        return $this->asJson($status);
     }
 
     /**

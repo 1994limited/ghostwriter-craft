@@ -223,6 +223,7 @@ class GapsTest extends TestCase
         $this->assertFalse($long[0]->counts());
         $this->assertFalse($few[0]->counts());
         $this->assertSame([], $this->fake->requests(), 'Found for nothing.');
+        $this->assertSame(['suggest-links', 'focus', 'dismiss'], array_map(fn($fix) => $fix->action->value, $few[0]->fixes));
 
         $started = $this->action('ghostwriter/gaps/fill', ['elementId' => $entry->id, 'gap' => $long[0]->id]);
         $this->assertSame('working', $started['data']['status'], json_encode($started['data']));
@@ -236,6 +237,103 @@ class GapsTest extends TestCase
 
         $linked = $this->makeEntry($this->events, 'Winter care, linked', ['summary' => 'Winter.', 'intro' => 'Winter visits.', 'body' => '<p>' . trim(str_repeat('We cut back the grasses, divide the perennials and mulch the borders. ', 30)) . '</p><p><a href="{entry:' . $entry->id . '@1:url||/winter}">Winter care</a>.</p>']);
         $this->assertSame([], $this->plugin->gaps->report($linked)->ofKind(\NineteenNinetyFour\Ghostwriter\Core\Gaps\GapKind::FewLinks), 'A reference tag is a link to the site.');
+    }
+
+    public function testSuggestLinksProposesEachLinkAsAStepForWhoeverAskedAndSavesNothing(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->longEvent();
+        $this->runQueue();
+        Craft::$app->getCache()->flush();
+        $few = $this->plugin->gaps->payload($entry)['gaps'];
+        $few = array_values(array_filter($few, fn(array $gap) => $gap['kind'] === 'few-links'))[0];
+
+        $this->assertSame(['suggest-links', 'focus', 'dismiss'], array_column($few['fixes'], 'action'));
+        $this->assertSame(['Suggest links', 'Add a link', 'Skip'], array_column($few['fixes'], 'label'));
+        $this->assertSame('Finding pages to link to…', $few['running']);
+
+        $started = $this->action('ghostwriter/gaps/links', ['elementId' => $entry->id, 'gap' => $few['id']]);
+        $this->assertSame('working', $started['data']['status'], json_encode($started['data']));
+        $this->assertCount(1, $this->queued(\nineteenninetyfour\ghostwriter\jobs\SuggestLinks::class));
+
+        $this->fake->respond('seo-editor', fn(\NineteenNinetyFour\Ghostwriter\Core\Ai\TextRequest $request) => (string) json_encode(['notes' => 'Winter visits; Contact fits the invitation.', 'links' => [
+            ['unit' => self::unitWith($request->prompt, 'contact us about your garden'), 'exact' => 'contact us about your garden', 'prefix' => '', 'target' => self::target($request->prompt, 'Contact us'), 'hint' => '', 'why' => 'An invitation to get in touch.'],
+        ], 'markers' => [], 'title' => '', 'description' => '']));
+        $this->fake->respondStructured('seo-verifier', ['verdicts' => [['notes' => 'Right page.', 'id' => 'l1', 'verdict' => 'keep', 'reason' => 'Fits.']]]);
+        $this->runQueue();
+
+        $this->assertSame(['seo-editor', 'seo-verifier'], array_map(fn($request) => $request->agent, $this->fake->requests()));
+        $this->assertStringNotContainsString('Winter visits (', $this->fake->prompted('seo-editor')[0]->prompt, 'Never the page itself.');
+        $status = $this->action('ghostwriter/gaps/links-status', [], 'GET', params: ['id' => $started['data']['id']]);
+        $this->assertSame(['status' => 'done', 'found' => 1, 'none' => ''], $status['data']);
+
+        $checked = $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id, 'links' => $started['data']['id']], 'GET');
+        $kinds = array_column($checked['data']['gaps'], 'kind');
+        $step = array_values(array_filter($checked['data']['gaps'], fn(array $gap) => $gap['kind'] === 'link-proposed'))[0];
+        $site = Craft::$app->getSites()->getPrimarySite()->id;
+
+        $this->assertNotContains('few-links', $kinds, 'The link found is the step now.');
+        $this->assertSame('Link “contact us about your garden” to Contact us? An invitation to get in touch.', $step['message']);
+        $this->assertSame('Link “contact us about your garden” to Contact us?', $step['step']);
+        $this->assertSame(['link', 'dismiss'], array_column($step['fixes'], 'action'));
+        $this->assertSame(['Link it', 'Skip'], array_column($step['fixes'], 'label'));
+        $this->assertMatchesRegularExpression("/^\\{entry:{$this->contact->id}@{$site}:url\\|\\|.+\\}$/", $step['fixes'][0]['value'], 'As CKEditor stores a link to the entry.');
+        $this->assertSame(['elementId' => (int) $entry->id, 'handle' => 'body', 'blocks' => [], 'field' => 'body'], $step['location']);
+        $this->assertStringNotContainsString('<a ', (string) Entry::find()->id($entry->id)->one()->getFieldValue('body'), 'Nothing is saved.');
+
+        // Someone else sees nothing of it.
+        $this->signInToEdit();
+        $this->assertSame(404, $this->action('ghostwriter/gaps/links-status', [], 'GET', params: ['id' => $started['data']['id']])['status']);
+        $this->assertContains('few-links', array_column($this->action('ghostwriter/gaps/check', ['elementId' => $entry->id, 'links' => $started['data']['id']], 'GET')['data']['gaps'], 'kind'));
+    }
+
+    public function testSuggestLinksSaysSoWhenNothingIsCloseEnoughOrTheCallFails(): void
+    {
+        $this->signInToEdit();
+        Craft::$app->getElements()->deleteElement($this->contact, true);
+        $entry = $this->longEvent();
+        $this->runQueue();
+        $few = array_values(array_filter($this->plugin->gaps->payload($entry)['gaps'], fn(array $gap) => $gap['kind'] === 'few-links'))[0];
+
+        $started = $this->action('ghostwriter/gaps/links', ['elementId' => $entry->id, 'gap' => $few['id']]);
+        $this->runQueue();
+
+        $this->assertSame([], $this->fake->requests());
+        $this->assertSame(['status' => 'done', 'found' => 0, 'none' => 'no-candidates'], $this->action('ghostwriter/gaps/links-status', [], 'GET', params: ['id' => $started['data']['id']])['data']);
+        $gap = array_values(array_filter($this->action('ghostwriter/gaps/check', ['elementId' => $entry->id, 'links' => $started['data']['id']], 'GET')['data']['gaps'], fn(array $gap) => $gap['kind'] === 'few-links'))[0];
+        $this->assertSame('No pages close enough to link to. Add a link by hand where one fits, or skip this.', $gap['message']);
+        $this->assertSame(['Add a link', 'Skip'], array_column($gap['fixes'], 'label'));
+    }
+
+    public function testOnlyAPageWithNoLinksCanAskForLinks(): void
+    {
+        $this->signInToEdit();
+        $entry = $this->makeEntry($this->events, 'Short', ['summary' => 'Short.', 'intro' => 'Short.', 'body' => '<p>Mulch the borders.</p>']);
+
+        $this->assertSame(409, $this->action('ghostwriter/gaps/links', ['elementId' => $entry->id, 'gap' => 'few-links|body||0'])['status']);
+        $this->assertSame([], $this->queued(\nineteenninetyfour\ghostwriter\jobs\SuggestLinks::class));
+    }
+
+    /** About 330 words on winter visits with no link to the site, ending with an invitation. */
+    private function longEvent(): Entry
+    {
+        $lead = 'We cut back the grasses that have stood all winter, lift and divide the perennials that have grown too big, and mulch the borders while the soil is still damp. Roses are pruned to an outward bud, and climbers are tied in along the wires.';
+
+        return $this->makeEntry($this->events, 'Winter visits', ['summary' => 'Winter.', 'intro' => 'Winter visits.', 'body' => '<p>Our gardeners contact you the week before each winter visit.</p>' . str_repeat("<p>{$lead}</p>", 8) . '<h2>Booking a visit</h2><p>If you would like a winter visit, contact us about your garden and we will arrange a first walk round.</p>']);
+    }
+
+    /** The unit the model is shown some words in: its `uN`. */
+    private static function unitWith(string $prompt, string $words): string
+    {
+        $at = strpos($prompt, $words);
+
+        return $at !== false && preg_match_all('/\[(u\d+)\]/', substr($prompt, 0, $at), $m) ? end($m[1]) : 'u0';
+    }
+
+    /** The candidate the model is shown a page as: its `eN`. */
+    private static function target(string $prompt, string $title): string
+    {
+        return preg_match('/\[?(e\d+)\]?[^\n]*' . preg_quote($title, '/') . '/', $prompt, $m) === 1 ? $m[1] : 'e0';
     }
 
     public function testAFactIsNeverWrittenOnlyWrittenAround(): void

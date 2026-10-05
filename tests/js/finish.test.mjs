@@ -448,3 +448,14 @@ test('an SEOmatic value made the page’s own: its override switch on and its so
     assert.deepEqual(fired, []);
     assert.equal(H.seomaticOwn({ querySelector: () => null }, 'seoDescription'), false, 'A plain field has no switch.');
 });
+
+test('a link Suggest links found is found outside links, as core counts its repeats', () => {
+    const text = 'Tell us about your garden, or tell us about your garden here, then tell us about your garden.';
+    const linked = [...text].map((_, i) => i >= 30 && i < 55);
+    const found = H.unlinkedRuns(text, linked, 'tell us about your garden');
+
+    assert.equal(found.length, 1, 'The linked one and the capitalised one are not counted.');
+    assert.equal(text.slice(found[0].index, found[0].index + found[0].length), 'tell us about your garden');
+    assert.ok(found[0].index > 60);
+    assert.deepEqual([...H.unlinkedRuns(text, [], '')], []);
+});

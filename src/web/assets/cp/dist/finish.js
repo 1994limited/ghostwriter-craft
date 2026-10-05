@@ -31,7 +31,7 @@
     const REDUCED = '(prefers-reduced-motion: reduce)';
     const FLIGHT = 900;
     const ANSWER_KINDS = ['ask'];
-    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'links-added', 'heading-long', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
+    const INLINE_KINDS = ['ask', 'check', 'link', 'link-broken', 'links-added', 'link-proposed', 'heading-long', 'leftover-token', 'placeholder-text', 'image-placeholder', 'stock-preview'];
 
     /** A regular expression from core's patterns.json entry. */
     const pattern = (entry) => (entry ? new RegExp(entry.source, entry.flags.includes('g') ? entry.flags : entry.flags + 'g') : null);
@@ -339,6 +339,34 @@
             return [...String(text ?? '').matchAll(/(?<!!)\[([^\[\]\n]*)\]\(\s*<?([^()\s>]*)>?(?:\s+"[^"\n]*")?\s*\)/gu)]
                 .filter((m) => this.linkKey(m[2]) === key)
                 .map((m) => ({ index: m.index, length: m[0].length, match: m[0], words: m[1], href: m[2] }));
+        },
+
+        /**
+         * Where some words are in a block's text outside its links, in
+         * order (a link Suggest links found; core's ProposedLinks counts
+         * the repeats the same way). `linked` holds, per character, whether
+         * it is inside a link.
+         */
+        unlinkedRuns(text, linked, words) {
+            const found = [];
+            const needle = String(words ?? '');
+
+            if (!needle) return found;
+
+            let at = text.indexOf(needle);
+
+            while (at !== -1) {
+                let free = true;
+
+                for (let i = at; i < at + needle.length; i++) {
+                    if (linked[i]) free = false;
+                }
+
+                if (free) found.push({ index: at, length: needle.length });
+                at = text.indexOf(needle, at + 1);
+            }
+
+            return found;
         },
 
         /**
@@ -762,7 +790,8 @@
             this.checking = (async () => {
                 try {
                     const { data } = await Craft.sendActionRequest('GET', 'ghostwriter/gaps/check', {
-                        params: { elementId: this.elementId(), siteId: this.config.siteId },
+                        // links: what Suggest links found in this page view, so each link is a step.
+                        params: { elementId: this.elementId(), siteId: this.config.siteId, ...(this.linksId ? { links: this.linksId } : {}) },
                     });
 
                     this.receive(data);
@@ -1198,7 +1227,12 @@
                     return;
                 }
 
-                const $button = this.fixButton(fix.label, { name: fix.name, primary: fix.primary, model: fix.cost === 'model' });
+                // A model fix that takes a while ("Suggest links") says what it's
+                // doing, with Craft's spinner, until it has finished.
+                const running = this.running === gap.id && fix.action === 'suggest-links' && gap.running;
+                const $button = this.fixButton(running ? gap.running : fix.label, { name: running ? null : fix.name, primary: fix.primary, model: fix.cost === 'model' && !running });
+
+                if (running) $button.addClass('loading').prop('disabled', true).attr('aria-busy', 'true');
 
                 $button.on('click', async () => {
                     $button.addClass('loading').prop('disabled', true);
@@ -1962,8 +1996,8 @@
             (this.shown ? this.steps : []).forEach(({ gap, status }) => {
                 if (!INLINE_KINDS.includes(gap.kind) || status === 'fixed') return;
 
-                // A link Ghostwriter added isn't a marker: only the one being checked is marked.
-                if (gap.kind === 'links-added' && current?.id !== gap.id) return;
+                // A link Ghostwriter added, or one it found, isn't a marker: only the one being checked is marked.
+                if ((gap.kind === 'links-added' || gap.kind === 'link-proposed') && current?.id !== gap.id) return;
 
                 const editor = this.ckeditorIn(this.locate(gap));
 
@@ -2082,6 +2116,19 @@
                 const same = runs.filter((run) => this.normalise(run.words) === this.normalise(gap.hint));
 
                 return (same[gap.occurrence ?? 0] ?? same[0] ?? runs[0])?.range ?? null;
+            }
+
+            // A link Suggest links found: the words, the nth of their unlinked repeats.
+            if (gap.kind === 'link-proposed') {
+                for (const { text, positions } of this.textBlocks(model, root)) {
+                    const linked = positions.slice(0, text.length).map((position) => !!position.textNode?.getAttribute?.('linkHref'));
+
+                    Ghostwriter.FinishHelpers.unlinkedRuns(text, linked, gap.meta?.words ?? gap.hint).forEach((m) => {
+                        found.push(model.createRange(positions[m.index], positions[m.index + m.length]));
+                    });
+                }
+
+                return found[gap.occurrence ?? 0] ?? null;
             }
 
             // A long heading (Shorten a heading): the words of the nth heading with them.
@@ -2233,6 +2280,8 @@
                 case 'write-for-me':
                 case 'write-around':
                     return this.write(gap, field, fix.action);
+                case 'suggest-links':
+                    return this.suggestLinks(gap);
                 // "Use this": the draft's search description, into the SEO field.
                 case 'use-text':
                     return this.useText(gap, field, fix.value);
@@ -2760,6 +2809,60 @@
             }
 
             this.fixed(gap);
+        },
+
+        /**
+         * "Suggest links": the two link calls, in the queue, polled until
+         * they have finished. What they found comes with the next check, by
+         * its id (this.linksId): each link a step of its own.
+         */
+        async suggestLinks(gap) {
+            let started;
+
+            this.running = gap.id;
+            this.paint();
+            if (gap.running) this.announce(gap.running);
+
+            try {
+                try {
+                    started = (await Craft.sendActionRequest('POST', 'ghostwriter/gaps/links', {
+                        data: { elementId: this.elementId(), siteId: this.config.siteId, gap: gap.serverId ?? gap.id },
+                    })).data;
+                    Craft.cp?.runQueue?.();
+                } catch (error) {
+                    Craft.cp.displayError(error?.response?.data?.message ?? t('Something went wrong.'));
+
+                    return;
+                }
+
+                let result = null;
+
+                for (let i = 0; i < 240 && !result; i++) {
+                    await new Promise((resolve) => setTimeout(resolve, i < 5 ? 600 : 1500));
+
+                    try {
+                        const { data } = await Craft.sendActionRequest('GET', 'ghostwriter/gaps/links-status', { params: { id: started.id } });
+
+                        if (data.status !== 'working') result = data;
+                    } catch (error) {
+                        return;
+                    }
+                }
+
+                if (!result || result.status !== 'done') {
+                    Craft.cp.displayError(result?.message ?? t('Ghostwriter is taking too long. Try again in a minute.'));
+
+                    return;
+                }
+
+                this.linksId = started.id;
+                Craft.cp.displayNotice(result.found ? (result.found === 1 ? t('Found 1 page to link to.') : t('Found {count} pages to link to.', { count: result.found })) : t('No pages close enough to link to.'));
+            } finally {
+                this.running = null;
+            }
+
+            await this.check();
+            this.paint();
         },
 
         /** The sentence around the gap's marker in a plain value. */

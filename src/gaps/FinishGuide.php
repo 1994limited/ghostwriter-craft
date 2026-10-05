@@ -44,6 +44,7 @@ class FinishGuide
         'What should it say?', 'What should it say instead?', 'Put it in', 'Show me', 'Open block', 'uses Ghostwriter',
         'License', 'License ({cost})', 'Request licence', 'Refresh preview', 'Choose another', 'Download again and replace', 'Licence requested by {name}',
         'Ghostwriter couldn’t find that gap in the field any more.', 'Something went wrong.', 'That didn’t change the field. Try another fix, or change it yourself.',
+        'Found 1 page to link to.', 'Found {count} pages to link to.', 'No pages close enough to link to.', 'Ghostwriter is taking too long. Try again in a minute.',
     ];
 
     /**
