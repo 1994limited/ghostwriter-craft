@@ -1987,6 +1987,8 @@
             const button = (action, label, extra = '') => `<button type="button" class="btn small gw-search__action" data-action="search" data-gw-search-action="${action}" ${extra} ${off ? 'disabled' : ''}>${esc(label)}</button>`;
             const edit = (role, text, label, placeholder = '') => `<div class="gw-editable gw-pre gw-search__text" ${off ? '' : 'contenteditable="plaintext-only" spellcheck="true"'} role="textbox" aria-label="${esc(label)}" data-gw-search-text data-gw-search-edit="${role}" data-placeholder="${esc(placeholder)}">${esc(text)}</div>`;
             const shown = (text) => `<div class="gw-search__text gw-search__text--inherited" data-gw-search-text>${esc(text)}</div>`;
+            // The entry's own text that stays, beside the draft's suggestion.
+            const kept = (text) => `<div class="gw-search__text gw-search__text--inherited" data-gw-search-current>${esc(text)}</div>`;
             const row = (role, label, by, body) => `<div class="gw-search__row" data-gw-search-row="${role}">
                     <div class="gw-search__key">${esc(label)}${by ? `<small>${esc(by)}</small>` : ''}</div>
                     <div class="gw-search__body">${body}</div>
@@ -2004,7 +2006,7 @@
                     const text = title.own ? title.text : title.pageTitle;
                     const suggest = title.own && title.action === 'suggest' && !title.use;
 
-                    rows.push(row('title', label, title.label, `${suggest && title.current ? shown(title.current) : ''}
+                    rows.push(row('title', label, title.label, `${suggest && title.current ? kept(title.current) : ''}
                         ${edit('title', text, label)}
                         <div class="gw-search__meta">${count(title, Array.from(text).length)}${note(title)}
                             ${suggest ? button('use-this', t('seo.search.use-this'), 'data-role="title"') : ''}
@@ -2025,7 +2027,7 @@
 
                 if (description.text) {
                     // Ghostwriter's (or the editor's) text; where the entry's own stays, its text first, greyed.
-                    body = `${suggest && description.current ? shown(description.current) : ''}
+                    body = `${suggest && description.current ? kept(description.current) : ''}
                         ${edit('description', description.text, label)}
                         <div class="gw-search__meta">${count(description, Array.from(description.text).length)}${note(description)}
                             ${suggest ? button('use-this', t('seo.search.use-this'), 'data-role="description"') : ''}
