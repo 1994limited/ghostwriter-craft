@@ -16,6 +16,10 @@ jobs:
   test:
     name: ${{ matrix.core == 'main' && 'core main' || format('PHP {0} (Craft {1})', matrix.php, matrix.craft) }}
     runs-on: ubuntu-latest
+    # Until core 1.10 is on Packagist the addon needs core main, so the
+    # released-core jobs can only fail. Advisory until then; "core main" gates.
+    # Remove this line when core is released.
+    continue-on-error: ${{ matrix.core != 'main' }}
 
     strategy:
       fail-fast: false
