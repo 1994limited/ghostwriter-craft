@@ -370,7 +370,9 @@
          * leaning away from the nearer edge. With `covers` (side → whether
          * the words there would sit on the page's text), a side that fits
          * and covers nothing wins: either side, then above, then below;
-         * when every side covers something, the first that fits.
+         * when every side covers something, 'none': the words are hidden
+         * and the mark alone shows the way, rather than sit on the
+         * field's words.
          */
         saySide(x, label, width, { size = 44, mirror = false, covers = null, y = null, height = 20 } = {}) {
             const room = { right: width - (x + size + 2) - 8, left: x - 2 - 8 };
@@ -382,12 +384,69 @@
             if (covers) {
                 const vertical = (where) => lean.map((side) => `${where}-${side}`).filter((side) => (side.endsWith('left') ? x + size : width - x) >= label + 4);
                 const above = y === null || y - height - 4 >= 4 ? vertical('above') : [];
-                const clear = [...fits, ...above, ...vertical('below')].find((side) => !covers(side));
-
-                if (clear) return clear;
+                return [...fits, ...above, ...vertical('below')].find((side) => !covers(side)) ?? 'none';
             }
 
             return fits[0] ?? under;
+        },
+
+        /**
+         * The boxes of the words on screen: each line of every text node
+         * drawn in the window (an editor's, a label's, the sidebar's), and
+         * form fields that hold words. Not those inside `skip` (the mark's
+         * own), nor hidden ones.
+         */
+        textBoxes({ skip = '', doc = document, win = window } = {}) {
+            const boxes = [];
+            const seen = new Map();
+            const shown = (node) => {
+                if (!node) return false;
+                if (seen.has(node)) return seen.get(node);
+
+                let drawn = !(skip && node.closest?.(skip));
+
+                if (drawn && typeof node.checkVisibility === 'function') {
+                    drawn = node.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+                } else if (drawn && win.getComputedStyle) {
+                    const style = win.getComputedStyle(node);
+                    drawn = style.visibility !== 'hidden' && style.display !== 'none';
+                }
+
+                seen.set(node, drawn);
+
+                return drawn;
+            };
+            const inView = (box) => box.right > box.left && box.bottom > box.top && box.bottom > 0 && box.right > 0 && box.top < win.innerHeight && box.left < win.innerWidth;
+            const walker = doc.createTreeWalker(doc.body, 4);
+            const range = doc.createRange();
+
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                if (!node.textContent.trim() || !shown(node.parentElement)) continue;
+
+                range.selectNodeContents(node);
+
+                for (const box of range.getClientRects()) {
+                    if (inView(box)) boxes.push(box);
+                }
+            }
+
+            for (const field of doc.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea, select')) {
+                if (!String(field.value ?? '').trim() && !field.placeholder) continue;
+                if (!shown(field)) continue;
+
+                const box = field.getBoundingClientRect();
+
+                if (inView(box)) boxes.push(box);
+            }
+
+            return boxes;
+        },
+
+        /** Whether a box on screen sits on (or touches) any of `boxes` (textBoxes()). */
+        meetsText(rect, boxes) {
+            const pad = 2;
+
+            return boxes.some((box) => box.right > rect.left - pad && box.left < rect.right + pad && box.bottom > rect.top - pad && box.top < rect.bottom + pad);
         },
 
         /**
@@ -1601,8 +1660,9 @@
                 y = Math.max(4, y);
                 const label = $say[0].offsetWidth;
                 const tall = $say[0].offsetHeight || 20;
-                // Its words go where they cover none of the page's own (the sidebar's dates, a label).
-                const covers = (side) => this.coversText(H.sayRect(side, x, y, label, tall));
+                // Its words go where they cover none of the page's own (a field's words, the sidebar's dates, a label); else they're hidden (data-say="none").
+                let boxes = null;
+                const covers = (side) => H.meetsText(H.sayRect(side, x, y, label, tall), (boxes ??= H.textBoxes({ skip: '.gw-finish-flyer, .gw-finish-flash' })));
 
                 this.$flyer.attr('data-say', H.saySide(x, label, window.innerWidth, { mirror, covers: label ? covers : null, y, height: tall }));
                 this.move(x, y);
@@ -1613,39 +1673,6 @@
                     this.$flyer.addClass('gw-finish-flyer--arrived');
                     this.$flyer.find('.gw-finish-flyer__tilt').css('transform', 'rotate(0deg)');
                 }, this.reduced || !flying ? 0 : FLIGHT);
-            });
-        },
-
-        /**
-         * Whether a box on screen would sit on the page's text: the topmost
-         * element that isn't the mark's own at each of nine points in it,
-         * and whether any of their words (or a text box) meet the box.
-         */
-        coversText(rect) {
-            const pad = 2;
-            const found = new Set();
-
-            [rect.left + 1, (rect.left + rect.right) / 2, rect.right - 1].forEach((px) => [rect.top + 1, (rect.top + rect.bottom) / 2, rect.bottom - 1].forEach((py) => {
-                if (px < 0 || py < 0 || px > window.innerWidth || py > window.innerHeight) return;
-
-                const el = document.elementsFromPoint(px, py).find((node) => !node.closest('.gw-finish-flyer, .gw-finish-flash'));
-
-                if (el && el !== document.body && el !== document.documentElement) found.add(el);
-            }));
-
-            const meets = (box) => box.right > rect.left - pad && box.left < rect.right + pad && box.bottom > rect.top - pad && box.top < rect.bottom + pad;
-
-            return [...found].some((el) => {
-                if (el.matches('input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]')) return true;
-
-                return [...el.childNodes].some((node) => {
-                    if (node.nodeType !== 3 || !node.textContent.trim()) return false;
-
-                    const range = document.createRange();
-                    range.selectNodeContents(node);
-
-                    return [...range.getClientRects()].some(meets);
-                });
             });
         },
 

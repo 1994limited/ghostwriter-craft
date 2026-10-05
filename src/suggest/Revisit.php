@@ -252,13 +252,18 @@ class Revisit extends Component
             $whole = $full || $last === null || $lastFull === null || $lastFull <= $now->modify('-' . self::FULL_EVERY . ' days');
 
             if ($whole) {
+                $seen = [];
+
                 foreach ($this->source()->all((int) $siteId) as $snapshot) {
+                    $seen[$snapshot->ref->key()] = true;
                     $entry = Entry::find()->id((int) $snapshot->ref->id)->siteId((int) $siteId)->one();
 
                     if ($entry instanceof Entry) {
                         Plugin::getInstance()->entryIndex->put($snapshot->ref, $snapshot->title, $entry->getUrl(), $snapshot->context, self::summary($entry), $this->linkSource()->row($entry, IndexScope::Full, $now));
                     }
                 }
+
+                $this->forgetGone((int) $siteId, $seen);
             }
 
             $read += $this->index()->refresh($this->source(), $now, $whole ? null : $last, (int) $siteId, $whole);
@@ -278,6 +283,32 @@ class Revisit extends Component
         $this->reviews()->expire($now);
 
         return $read;
+    }
+
+    /**
+     * Entries gone without a word (deleted while the plugin was off, or by
+     * a query that fires no events): their full rows out of the index, as
+     * RevisitIndex::refresh() forgets their list rows. Only rows whose
+     * entry no longer exists on the site; `$seen` were just indexed.
+     *
+     * @param array<string, true> $seen
+     */
+    private function forgetGone(int $siteId, array $seen): void
+    {
+        $index = Plugin::getInstance()->entryIndex;
+        $gone = [];
+
+        foreach ($index->fullKeys($siteId) as $key) {
+            if (isset($seen[$key]) || !preg_match('/:(\d+)(?:@[^:@]*)?$/', $key, $match)) {
+                continue;
+            }
+
+            if (!Entry::find()->id((int) $match[1])->siteId($siteId)->status(null)->exists()) {
+                $gone[] = $key;
+            }
+        }
+
+        $index->forgetKeys($gone);
     }
 
     /**

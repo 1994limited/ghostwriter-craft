@@ -263,7 +263,8 @@ class SessionsController extends Controller
         $session->touch($this->me());
 
         if ($session->messages === [] || !$this->wasEditing($session)) {
-            $session->addMessage('user', 'This entry already exists on the site. Its content as it stands is the current draft. I will ask for changes to it.');
+            // A note to the writer, not the person's message: never shown.
+            $session->addNote('This entry already exists on the site. Its content as it stands is the current draft. I will ask for changes to it.');
             $session->addMessage('assistant', 'I have the entry as it stands. Tell me what to change.', extra: ['editing' => true]);
         }
 

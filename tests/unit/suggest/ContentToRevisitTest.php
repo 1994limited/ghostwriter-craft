@@ -114,6 +114,22 @@ class ContentToRevisitTest extends TestCase
         $this->assertSame([], $this->fake->requests());
     }
 
+    public function test_the_full_pass_forgets_an_entry_that_went_without_a_word(): void
+    {
+        $ref = EntryChecks::ref($this->showGarden);
+        $this->plugin->revisit->daily(full: true);
+        $this->assertNotNull($this->plugin->entryIndex->row($ref));
+
+        // Gone with no event (a query, or while the plugin was off).
+        \craft\helpers\Db::delete(\craft\db\Table::ELEMENTS, ['id' => $this->showGarden->id]);
+
+        $this->plugin->revisit->daily(full: true);
+
+        $this->assertNull($this->plugin->entryIndex->row($ref), 'Out of the index.');
+        $this->assertNull($this->plugin->revisitStore->get($ref), 'Off the list.');
+        $this->assertNotNull($this->plugin->entryIndex->row(EntryChecks::ref($this->services)), 'The rest stay.');
+    }
+
     public function test_garbage_collection_queues_the_daily_pass_when_it_is_due(): void
     {
         $this->clearQueue();

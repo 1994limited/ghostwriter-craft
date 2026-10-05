@@ -256,6 +256,17 @@ class DbEntryIndex implements EntryIndex, LinkIndex, LinkLookup
     }
 
     /**
+     * The keys of the site's full rows (pages of Ghostwriter's sections),
+     * for the weekly pass to forget those whose entry is gone.
+     *
+     * @return list<string>
+     */
+    public function fullKeys(int|string|null $site): array
+    {
+        return array_map('strval', (new Query())->select('entryKey')->from(Store::ENTRY_INDEX)->where(['site' => (string) ($site ?? ''), 'scope' => 'full'])->orderBy('id')->column());
+    }
+
+    /**
      * What the daily pass compares the site's pages with (core's
      * LinkPlan): every row outside the given sections (Ghostwriter's), of
      * either scope, by key. Only columns are read.
