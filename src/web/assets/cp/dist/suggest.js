@@ -2294,7 +2294,8 @@
             if (step.seo?.seomatic) {
                 const key = String(step.path ?? '').split('/').pop();
 
-                return field.querySelector(`[name$="[metaGlobalVars][${CSS.escape(key)}]"]`);
+                // Not the greyed copy of the section's value (`…-inherited`, disabled).
+                return [...field.querySelectorAll(`[name$="[metaGlobalVars][${CSS.escape(key)}]"]`)].find((element) => !element.disabled && !String(element.id).endsWith('-inherited')) ?? null;
             }
 
             return this.inputIn(field);

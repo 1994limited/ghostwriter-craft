@@ -419,8 +419,13 @@ test('an SEOmatic value made the page’s own: its override switch on and its so
     const lightswitch = { ...element({ className: 'lightswitch' }), classList: { add: (c) => classes.add(`switch:${c}`) }, setAttribute: (name, value) => classes.add(`${name}=${value}`) };
     const toggle = { ...element({ name: 'fields[seoSettings][metaGlobalVars][override-seoDescription]', value: '' }), closest: (selector) => (selector === '.lightswitch' ? lightswitch : wrapper) };
     const source = element({ name: 'fields[seoSettings][metaBundleSettings][seoDescriptionSource]', value: 'fromField', options: [{ value: 'fromField' }, { value: 'fromCustom' }] });
-    const box = element({ name: 'fields[seoSettings][metaGlobalVars][seoDescription]', value: '' });
+    const box = element({ name: 'fields[seoSettings][metaGlobalVars][seoDescription]', value: '', id: 'fields-seoSettings-metaGlobalVars-seoDescription' });
+    // The greyed copy of the section's value SEOmatic shows while the switch is off: never written to.
+    const inherited = element({ name: 'fields[seoSettings][metaGlobalVars][seoDescription]', value: '{{ seomatic.helper.extractTextFromField(entry.excerpt) }}', id: 'fields-seoSettings-metaGlobalVars-seoDescription-inherited', disabled: true });
     const field = {
+        querySelectorAll(selector) {
+            return selector.includes('[metaGlobalVars][seoDescription]') ? [inherited, box] : [];
+        },
         querySelector(selector) {
             if (selector.includes('override-seoDescription')) return toggle;
             if (selector.includes('seoDescriptionSource')) return source;

@@ -43,7 +43,10 @@
     Ghostwriter.FinishHelpers = {
         /** SEOmatic's box for one value (`seoDescription`) in its SEO Settings field. */
         seomaticInput(field, key) {
-            return field?.querySelector(`textarea[name$="[metaGlobalVars][${key}]"], input[type="text"][name$="[metaGlobalVars][${key}]"]`) ?? null;
+            // Not the greyed copy SEOmatic shows of the section's value while the switch is off (`…-inherited`, disabled).
+            const own = (element) => !element.disabled && !String(element.id).endsWith('-inherited');
+
+            return [...(field?.querySelectorAll(`textarea[name$="[metaGlobalVars][${key}]"], input[type="text"][name$="[metaGlobalVars][${key}]"]`) ?? [])].find(own) ?? null;
         },
 
         /**
