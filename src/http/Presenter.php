@@ -263,6 +263,11 @@ class Presenter
             'title' => $session->title(),
             'status' => $session->status,
             'error' => $session->error,
+            // A failed turn can be run again when the message it was
+            // answering is the last one. Decided here, from the whole
+            // conversation: the message "Looks right, start writing" sends
+            // isn't among the messages shown.
+            'canRetry' => $session->canRetry(),
             // The brief card: the working title, an answer for every
             // question (anything only the person knows in [square
             // brackets]) and the entries to model it on.
