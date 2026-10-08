@@ -6,7 +6,10 @@ use Craft;
 use craft\base\Element;
 use craft\base\ElementInterface;
 use craft\elements\Category;
+use craft\elements\db\ElementQueryInterface;
 use craft\elements\Entry;
+use craft\fields\Categories;
+use craft\fields\Tags;
 use craft\helpers\ElementHelper;
 use craft\models\CategoryGroup;
 use craft\models\Section;
@@ -279,7 +282,44 @@ class CraftLinkSource
             $published,
             $now->format(DATE_ATOM),
             Craft::$app->getSites()->getSiteById($siteId, true)?->language,
+            terms: self::terms($element),
         );
+    }
+
+    /**
+     * What a page is filed under, for related pages (LinkCandidates): an
+     * entry's categories and tags ("category:12", "tag:7"), from its
+     * Categories and Tags fields; a category is filed under itself.
+     *
+     * @return list<string>
+     */
+    public static function terms(Entry|Category $element): array
+    {
+        if ($element instanceof Category) {
+            return ['category:' . (int) ($element->getCanonicalId() ?? $element->id)];
+        }
+
+        $terms = [];
+
+        try {
+            foreach ($element->getFieldLayout()?->getCustomFields() ?? [] as $field) {
+                if (!($field instanceof Categories || $field instanceof Tags)) {
+                    continue;
+                }
+
+                $prefix = $field instanceof Categories ? 'category:' : 'tag:';
+                $value = $element->getFieldValue((string) $field->handle);
+                $ids = $value instanceof ElementQueryInterface ? (clone $value)->status(null)->ids() : (is_object($value) && method_exists($value, 'ids') ? $value->ids() : []);
+
+                foreach ($ids as $id) {
+                    $terms[] = $prefix . (int) $id;
+                }
+            }
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't read what entry {$element->id} is filed under: {$exception->getMessage()}", 'ghostwriter');
+        }
+
+        return array_values(array_unique($terms));
     }
 
     /**
