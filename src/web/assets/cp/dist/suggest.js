@@ -719,7 +719,11 @@
 
                 return response.data;
             } catch (error) {
-                throw new Error(error?.response?.data?.message ?? t('Something went wrong.'));
+                const failed = new Error(error?.response?.data?.message ?? t('Something went wrong.'));
+                // Failed on the way rather than refused: worth asking again.
+                failed.transient = Ghostwriter.transient(error);
+
+                throw failed;
             }
         },
 
@@ -731,6 +735,13 @@
             try {
                 data = await this.post('guide');
             } catch (error) {
+                // A look that didn't get through while the review runs: look again, rather than wait for ever.
+                if (this.polling && error.transient) {
+                    this.timer = setTimeout(() => (document.visibilityState === 'visible' ? this.load() : null), POLL);
+
+                    return;
+                }
+
                 if (!initial) this.flash(error.message);
 
                 return;
