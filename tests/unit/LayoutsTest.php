@@ -9,6 +9,7 @@ use NineteenNinetyFour\Ghostwriter\Core\Domain\Sessions\Session;
 use NineteenNinetyFour\Ghostwriter\Core\Text\Draft;
 use nineteenninetyfour\ghostwriter\http\Presenter;
 use nineteenninetyfour\ghostwriter\jobs\RefreshLayouts;
+use nineteenninetyfour\ghostwriter\domain\DbSessionStore;
 use nineteenninetyfour\ghostwriter\jobs\RunSessionTurn;
 use nineteenninetyfour\ghostwriter\tests\support\Pages;
 use nineteenninetyfour\ghostwriter\tests\support\TestCase;
@@ -113,6 +114,43 @@ class LayoutsTest extends TestCase
         $this->assertSame(['w', 'p1', 'p2'], array_column($session->plans, 'id'));
         $this->assertSame([false, false, false], array_map(fn($plan) => (bool) ($plan['stale'] ?? false), $session->plans));
         $this->assertSame('u7', $this->unitAt($session, 'blocks/1/body', 2), 'The changed section keeps its id.');
+    }
+
+    public function testALaterTurnsDraftIsNeverSavedWithoutItsLayouts(): void
+    {
+        $session = $this->writeFirstDraft($this->servicePiece());
+        $this->fake->reset();
+        $session = $this->plugin->domain->sessions()->send($session->id, 'Add a closing line.', $this->plugin->domain->viewer());
+        // A new section: new units, and layouts to bring up to date.
+        $changed = str_replace("  - type: cta\n", "  - type: copy\n    body: A new closing line.\n  - type: cta\n", self::PAGE_DRAFT);
+        $this->fake->respond('writer', "<reply>Done.</reply>\n<draft>\n" . $changed . "\n</draft>");
+
+        // Every save of the piece, as it was saved.
+        $saves = new \ArrayObject();
+        $this->plugin->set('sessions', new class($saves) extends DbSessionStore {
+            public function __construct(private \ArrayObject $saves)
+            {
+            }
+
+            public function save(Session $session): Session
+            {
+                $this->saves->append(clone $session);
+
+                return parent::save($session);
+            }
+        });
+
+        (new RunSessionTurn(['sessionId' => $session->id]))->execute(null);
+        $final = $this->plugin->sessions->find($session->id);
+
+        // The panel never reads the new draft, ready to use, with the old draft's units and layouts.
+        $withDraft = array_values(array_filter($saves->getArrayCopy(), fn(Session $saved) => $saved->draft === $final->draft));
+        $this->assertNotEmpty($withDraft);
+        $this->assertNotSame($session->units, $final->units, 'The turn changed the units.');
+        foreach ($withDraft as $saved) {
+            $this->assertSame($final->units, $saved->units);
+            $this->assertSame($final->plans, $saved->plans);
+        }
     }
 
     public function testChoosingALayoutIsSharedAndUseThisDraftAppliesIt(): void

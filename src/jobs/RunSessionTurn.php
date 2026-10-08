@@ -56,10 +56,17 @@ class RunSessionTurn extends Job
             // A draft that does not parse is still kept, with the problem
             // said alongside it. A first draft stays "working" while the
             // planner runs, so nothing is changed under it, but it shows.
-            $apply = function(Session $session) use ($response, &$planning, &$before): void {
+            $apply = function(Session $session) use ($response, $conversation, $context, &$planning, &$before): void {
                 $before = $session->draft;
                 $session->answer($response->reply, $response->document, $response->inputTokens, $response->outputTokens, questions: $response->questions);
                 $planning = ($before === null || trim($before) === '') && $response->document !== null;
+
+                if (!$planning) {
+                    // A later turn's extras, unit ids and layouts follow the
+                    // new draft in the same change (no model): the draft never
+                    // shows, ready to use, with layouts that don't fit it yet.
+                    self::layOut($session, $before, $response, $conversation, $context);
+                }
 
                 if ($planning) {
                     $session->status = Session::WORKING;
@@ -93,18 +100,7 @@ class RunSessionTurn extends Job
         $layouts = new DraftLayouts();
 
         if (!$planning) {
-            $sessions->change($this->sessionId, function(Session $session) use ($layouts, $before, $response, $conversation, $context) {
-                try {
-                    $layouts->afterWriter($session, $before, $response, $conversation, $context);
-                } catch (Throwable $exception) {
-                    Craft::warning("Ghostwriter couldn't lay out the draft: {$exception->getMessage()}", 'ghostwriter');
-
-                    return false;
-                }
-
-                return null;
-            });
-
+            // Laid out with the answer (layOut()).
             return;
         }
 
@@ -178,6 +174,28 @@ class RunSessionTurn extends Job
                 $session->status = Session::IDLE;
             }
         });
+    }
+
+    /**
+     * A later turn's extras, unit ids and layouts, on the session as the
+     * answer left it. Never fails the turn: if they can't be laid out, the
+     * session is left as the answer left it.
+     */
+    private static function layOut(Session $session, ?string $before, TaggedResponse $response, Conversation $conversation, WriterContext $context): void
+    {
+        $answered = clone $session;
+
+        try {
+            (new DraftLayouts())->afterWriter($session, $before, $response, $conversation, $context);
+        } catch (Throwable $exception) {
+            Craft::warning("Ghostwriter couldn't lay out the draft: {$exception->getMessage()}", 'ghostwriter');
+
+            foreach (get_object_vars($answered) as $property => $value) {
+                if ($session->$property !== $value) {
+                    $session->$property = $value;
+                }
+            }
+        }
     }
 
     /**
