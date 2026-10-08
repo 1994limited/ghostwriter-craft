@@ -1131,13 +1131,18 @@
             const wasLearning = this.learning();
 
             try {
-                this.info = await Ghostwriter.request('GET', 'sections/show', { section: this.config.section, entryType: this.config.entryType ?? '' }, { quiet: wasLearning });
+                this.info = await Ghostwriter.request('GET', 'sections/show', { section: this.config.section, entryType: this.config.entryType ?? '' }, { quiet: (this.loadMisses ?? 0) < 5 });
             } catch (error) {
-                // A look that didn't get through while a kind is learnt: look again.
-                if (wasLearning && Ghostwriter.transient(error)) this.later(() => this.load());
+                // A look that didn't get through (the panel opening, or a kind
+                // being learnt): look again, rather than show an empty panel.
+                this.loadMisses = (this.loadMisses ?? 0) + 1;
+
+                if (Ghostwriter.transient(error) && this.loadMisses <= 5) this.later(() => this.load());
 
                 return;
             }
+
+            this.loadMisses = 0;
 
             if (this.info.state.status === 'working') {
                 this.later(() => this.load());
