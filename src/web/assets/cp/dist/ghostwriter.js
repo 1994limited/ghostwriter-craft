@@ -13,7 +13,8 @@
     /**
      * Post to a Ghostwriter action and hand back the JSON, or show why not.
      */
-    Ghostwriter.request = async function (method, action, data) {
+    // `quiet`: a failure on the way (Ghostwriter.transient()) isn't shown, for a poll that will look again.
+    Ghostwriter.request = async function (method, action, data, { quiet = false } = {}) {
         try {
             const response = await Craft.sendActionRequest(method, `ghostwriter/${action}`, method === 'GET' ? { params: data } : { data });
 
@@ -26,7 +27,9 @@
 
             return response.data;
         } catch (error) {
-            Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
+            if (!(quiet && Ghostwriter.transient(error))) {
+                Craft.cp.displayError(error?.response?.data?.message ?? Craft.t('ghostwriter', 'Something went wrong.'));
+            }
 
             throw error;
         }
@@ -1128,8 +1131,11 @@
             const wasLearning = this.learning();
 
             try {
-                this.info = await Ghostwriter.request('GET', 'sections/show', { section: this.config.section, entryType: this.config.entryType ?? '' });
+                this.info = await Ghostwriter.request('GET', 'sections/show', { section: this.config.section, entryType: this.config.entryType ?? '' }, { quiet: wasLearning });
             } catch (error) {
+                // A look that didn't get through while a kind is learnt: look again.
+                if (wasLearning && Ghostwriter.transient(error)) this.later(() => this.load());
+
                 return;
             }
 
@@ -1160,9 +1166,21 @@
         },
 
         async openSession(id) {
+            // Looking again at the piece on show, while Ghostwriter works on it.
+            const polling = this.session?.id === id;
+            let data;
+
             try {
-                this.receive(await Ghostwriter.request('GET', 'sessions/show', { id }));
-            } catch (error) {}
+                data = await Ghostwriter.request('GET', 'sessions/show', { id }, { quiet: polling });
+            } catch (error) {
+                // A look that didn't get through (the network changed, or
+                // the server was busy): look again, rather than wait for ever.
+                if (polling && Ghostwriter.transient(error)) this.later(() => this.openSession(id));
+
+                return;
+            }
+
+            this.receive(data);
         },
 
         receive(data) {
@@ -5217,11 +5235,20 @@
 
             if (data.status === 'working') {
                 this.timer = setTimeout(async () => {
+                    let next;
+
                     try {
-                        this.follow(await Ghostwriter.request('GET', 'images/status', { id: data.id }), $button);
+                        next = await Ghostwriter.request('GET', 'images/status', { id: data.id }, { quiet: true });
                     } catch (error) {
+                        // A look that didn't get through: look again, rather than wait for ever.
+                        if (Ghostwriter.transient(error)) return this.follow(data, $button);
+
                         $button.removeClass('loading');
+
+                        return;
                     }
+
+                    this.follow(next, $button);
                 }, 2500);
 
                 return;
