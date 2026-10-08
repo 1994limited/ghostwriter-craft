@@ -314,7 +314,8 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 @media (max-width: 800px) {
     .gw-wizard { grid-template-columns: minmax(0, 1fr); gap: 20px; }
     .gw-wizard__rail { position: static; }
-    .gw-wizard__bar { grid-auto-flow: column; overflow-x: auto; }
+    /* The steps wrap rather than scroll, so every one stays in sight on a phone. */
+    .gw-wizard__bar { display: flex; flex-wrap: wrap; gap: 4px; }
     .gw-wizard__label { display: none; }
     .gw-wizard__stop.is-current .gw-wizard__label { display: grid; }
 }
@@ -409,6 +410,15 @@ details.gw-section summary { cursor: pointer; margin-bottom: 12px; }
 @media (max-width: 1100px) {
     .gw-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .gw-start { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* In progress and finished pieces: at a phone's width each row wraps, the title on a line of its own, then the stage, when, and the buttons, so nothing runs past the window. */
+@media (max-width: 640px) {
+    table.data.gw-sessions, table.data.gw-sessions tbody { display: block; }
+    table.data.gw-sessions tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; border-bottom: 1px solid var(--hairline-color, rgba(51, 64, 77, .1)); }
+    table.data.gw-sessions tr > th, table.data.gw-sessions tr > td { width: auto; max-width: none; padding: 0; border: 0; }
+    table.data.gw-sessions tr > th { flex: 1 0 100%; min-width: 0; overflow-wrap: anywhere; }
+    table.data.gw-sessions tr > td.thin { display: flex; flex-wrap: wrap; gap: 6px; width: auto !important; margin-inline-start: auto; white-space: normal; }
 }
 
 /* Sections on the dashboard: one quiet list, details on demand. */

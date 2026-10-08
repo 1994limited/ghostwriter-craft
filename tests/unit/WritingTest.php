@@ -536,6 +536,25 @@ class WritingTest extends TestCase
         $this->assertSame($messages, $this->plugin->sessions->find($session->id)->messages);
     }
 
+    public function testAFirstDraftThatFailsRightAfterLooksRightCanBeTriedAgain(): void
+    {
+        $this->signIn();
+        $this->saveType();
+        $session = $this->proposed();
+
+        $this->action('ghostwriter/sessions/agree', ['id' => $session->id, 'title' => 'Search that listens', 'answers' => ['what' => 'A faceted search.'], 'examples' => []]);
+        $this->fake->respond('writer', fn() => throw new \RuntimeException('The provider is overloaded.'));
+        $this->runTurn($this->plugin->sessions->find($session->id));
+
+        $detail = (new Presenter())->detail($this->plugin->sessions->find($session->id));
+
+        $this->assertSame(Session::FAILED, $detail['status']);
+        // The message Looks right sent isn't shown: the conversation ends on the card.
+        $this->assertNotSame('user', end($detail['messages'])['role']);
+        $this->assertTrue($detail['canRetry'], 'Try again is offered.');
+        $this->assertSame(200, $this->action('ghostwriter/sessions/retry', ['id' => $session->id])['status']);
+    }
+
     public function testAMessageCannotBeSentWhileTheLastOneIsBeingAnswered(): void
     {
         $this->signIn();

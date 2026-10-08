@@ -210,6 +210,15 @@ test('the frame says whether it is the page, a refusal or the render’s error',
     assert.equal(H.readFrame(frameDocument(), 200).ok, true);
     assert.equal(H.readFrame(frameDocument(), 500).kind, 'error');
 
+    // An empty page the server answered isn't a refusal: a busy or slow server's gateway error, or an empty render.
+    const blank = frameDocument();
+    blank.body.childNodes = [];
+    assert.deepEqual(plain(H.readFrame(blank, 0)), { ok: false, kind: 'refused' });
+    assert.deepEqual(plain(H.readFrame(blank, 504)), { ok: false, kind: 'busy', detail: '504' });
+    assert.deepEqual(plain(H.readFrame(blank, 502)), { ok: false, kind: 'busy', detail: '502' });
+    assert.deepEqual(plain(H.readFrame(blank, 500)), { ok: false, kind: 'error', message: '', detail: '500' });
+    assert.deepEqual(plain(H.readFrame(blank, 200)), { ok: false, kind: 'error', message: '', detail: '' });
+
     const doc = frameDocument({ error: 'Variable "x" does not exist.' });
     doc.body.attributes['data-ghostwriter-preview-class'] = 'Twig\\Error\\RuntimeError';
     doc.body.attributes['data-ghostwriter-preview-template'] = 'journal/_entry:9';

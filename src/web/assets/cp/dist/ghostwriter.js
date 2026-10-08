@@ -2649,7 +2649,9 @@
             }
 
             if (session.status === 'failed') {
-                const retry = session.messages[session.messages.length - 1]?.role === 'user' || session.stage === 'filling';
+                // The server knows: the message a turn answers may not be one shown
+                // here (Looks right, start writing sends one that isn't).
+                const retry = session.canRetry || session.stage === 'filling';
 
                 html += `<div class="gw-failed" role="alert">
                     <p class="error with-icon"><strong>${esc(t('That didn’t work'))}</strong> ${esc(session.error)}</p>
@@ -2857,7 +2859,9 @@
                         ? `<div class="spinner"></div><p>${esc(t('Ghostwriter is working. A draft usually takes a minute or two.'))}</p>`
                         : this.asking()
                             ? `<p class="gw-empty__title">${esc(t('Ghostwriter has questions for you first'))}</p><p>${esc(t('They are in the conversation. Answer them there and the draft will appear here, or let it write around what it does not know.'))}</p><button type="button" class="btn" data-action="skip">${esc(t('Just draft it with what you have'))}</button>`
-                            : `<p>${esc(t('No draft yet. Answer the questions in the conversation and the draft will appear here.'))}</p>`
+                            : session.status === 'failed' && session.canRetry
+                                ? `<p>${esc(t('No draft yet. Use Try again in the conversation and the draft will appear here.'))}</p>`
+                                : `<p>${esc(t('No draft yet. Answer the questions in the conversation and the draft will appear here.'))}</p>`
                 }</div>`;
             } else {
                 body = (session.draftProblem ? `<p class="warning with-icon">${esc(session.draftProblem)}</p>` : '')

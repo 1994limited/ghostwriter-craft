@@ -229,7 +229,7 @@
         <section class="gw-section" id="gw-in-progress">
             <h2>{{ 'In progress'|t('ghostwriter') }}</h2>
             <p class="light">{{ 'A piece leaves this list once its entry has been saved.'|t('ghostwriter') }}</p>
-            <table class="data fullwidth">
+            <table class="data fullwidth gw-sessions">
                 <tbody>
                     {% for s in inProgress %}{{ _self.session(s, stages) }}{% endfor %}
                 </tbody>
@@ -240,7 +240,7 @@
     {% if finished|length %}
         <details class="gw-section">
             <summary>{{ 'Show {count} finished'|t('ghostwriter', {count: finished|length}) }}</summary>
-            <table class="data fullwidth">
+            <table class="data fullwidth gw-sessions">
                 <tbody>
                     {% for s in finished %}{{ _self.session(s, stages) }}{% endfor %}
                 </tbody>

@@ -125,12 +125,27 @@
         },
 
         /**
-         * What a loaded frame holds: the page, a refusal (§8.6), or the
-         * render's own error page, with its reason.
+         * What a loaded frame holds: the page, a refusal (§8.6), the
+         * render's own error page, with its reason, or a server too busy
+         * or slow to answer.
+         *
+         * A refusal (X-Frame-Options, CSP frame-ancestors) leaves nothing
+         * to read and no response status. An empty page the server did
+         * answer is not one: under load that is a gateway's 502/503/504.
          */
         readFrame(doc, status) {
-            if (!doc || !doc.body || !doc.body.childNodes || doc.body.childNodes.length === 0) {
+            const empty = !doc || !doc.body || !doc.body.childNodes || doc.body.childNodes.length === 0;
+
+            if (empty && !(status > 0)) {
                 return { ok: false, kind: 'refused' };
+            }
+
+            if ([502, 503, 504].includes(status)) {
+                return { ok: false, kind: 'busy', detail: String(status) };
+            }
+
+            if (empty) {
+                return { ok: false, kind: 'error', message: '', detail: status >= 400 ? String(status) : '' };
             }
 
             const error = doc.body.getAttribute?.('data-ghostwriter-preview-error');
@@ -632,6 +647,8 @@
                 text = state.message;
             } else if (state.kind === 'refused') {
                 text = t('Your server stops pages showing in a frame, so the preview can’t show here.');
+            } else if (state.kind === 'busy') {
+                text = t('The site took too long to answer, so the preview can’t show right now. It tries again with your next change.');
             } else {
                 text = state.message ? t('The page template couldn’t render this draft: {reason}', { reason: state.message }) : t('The page template couldn’t render this draft.');
             }

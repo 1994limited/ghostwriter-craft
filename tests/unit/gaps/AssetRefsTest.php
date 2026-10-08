@@ -45,6 +45,16 @@ class AssetRefsTest extends TestCase
         return [$field, $html, AssetRef::craft((int) $asset->id)];
     }
 
+    public function testARefNamesItsFileForTheReviewer(): void
+    {
+        $field = $this->schema()->field('cover');
+        $asset = $this->makeAsset(\Craft::$app->getVolumes()->getVolumeByHandle('images'), 'hero.png');
+        $html = "<p><img src=\"{asset:{$asset->id}:url||https://example.test/hero.png}\"></p>";
+
+        $this->assertSame([(string) $asset->filename], array_map(fn(AssetRef $ref) => $ref->filename(), (new CraftAssetRefs())->in([(int) $asset->id], $field)));
+        $this->assertSame([(string) $asset->filename], array_map(fn(AssetRef $ref) => $ref->filename(), (new CraftAssetRefs())->in($html, $this->schema()->field('body'))));
+    }
+
     public function testEveryInlineImageIsFoundInOrderButNotLinksToFiles(): void
     {
         $html = '<p><img src="{asset:12:url||https://x.test/a.jpg}"> <a href="{asset:13:url}">file</a> <img alt="" src=\'{asset:14@1:url}\'></p>';
