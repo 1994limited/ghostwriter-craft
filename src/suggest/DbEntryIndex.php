@@ -9,6 +9,7 @@ use craft\helpers\Json;
 use DateTimeImmutable;
 use DateTimeZone;
 use NineteenNinetyFour\Ghostwriter\Core\Anchor\NormalisedText;
+use NineteenNinetyFour\Ghostwriter\Core\Revisit\Links;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\LinkCandidates;
 use NineteenNinetyFour\Ghostwriter\Core\Seo\Linkable;
 use NineteenNinetyFour\Ghostwriter\Core\Suggest\CheckContext;
@@ -38,8 +39,9 @@ use Throwable;
  *   own text, kept only as a link target (title, address, summary, type,
  *   dates, robots, stems). Only related() reads these.
  *
- * Each row's stems are also in `ghostwriter_index_stems`, so on a big site
- * related() scores only the rows sharing a stem with the draft.
+ * Each row's stems are also in `ghostwriter_index_stems` (by their first
+ * letters, LinkCandidates::indexKeys()), so on a big site related() scores
+ * only the rows that may share a stem with the draft, and the key pages.
  *
  * No model, and no page is read when asked: only these rows.
  */
@@ -116,15 +118,19 @@ class DbEntryIndex implements EntryIndex, LinkIndex, LinkLookup
         $locale = self::locale($site);
         $query = (new Query())->select(['data'])->from(Store::ENTRY_INDEX)->where(['site' => $siteKey]);
 
-        // A big site: only the rows sharing a stem with the draft are scored.
+        // A big site: only the rows that may share a stem with the draft are scored, with the key pages and the page's own row.
         if ((int) (new Query())->from(Store::ENTRY_INDEX)->where(['site' => $siteKey])->count() > LinkCandidates::STEM_INDEX_ABOVE) {
-            $stems = LinkCandidates::draftStems($text, $locale);
+            $stems = LinkCandidates::lookupKeys($text, $locale);
 
             if ($stems === []) {
                 return [];
             }
 
-            $query->andWhere(['entryKey' => (new Query())->select('entryKey')->distinct()->from(Store::INDEX_STEMS)->where(['site' => $siteKey, 'stem' => $stems])]);
+            $query->andWhere(['or',
+                ['entryKey' => (new Query())->select('entryKey')->distinct()->from(Store::INDEX_STEMS)->where(['site' => $siteKey, 'stem' => array_map(fn(string $stem) => mb_substr($stem, 0, 64), $stems)])],
+                ['keyPage' => true],
+                ...($except !== null ? [['entryKey' => $except->key()]] : []),
+            ]);
         }
 
         $rows = function() use ($query, $locale): iterable {
@@ -188,9 +194,12 @@ class DbEntryIndex implements EntryIndex, LinkIndex, LinkLookup
 
         $summary = mb_substr(trim($summary !== '' ? $summary : $first), 0, DigestEntry::SUMMARY);
         $locale = self::locale($ref->site);
+        $terms = $row !== null ? $row->terms : [];
         $row = $row !== null
             ? IndexRow::make($ref, IndexScope::Full, $title, $row->url, $row->summary !== '' ? $row->summary : $summary, $row->type, $row->kind, $row->liveFrom, $row->liveUntil, $row->noindex, $row->key, $row->link, $row->updated, $row->published, $row->indexed ?? self::now(), $locale)
             : IndexRow::make($ref, IndexScope::Full, $title, $url, $summary, link: "{entry:{$ref->id}@{$ref->site}:url}", indexed: self::now(), locale: $locale);
+        // What it's filed under (from the link source), and where it links on the site (LinkCandidates' related pages).
+        $row = $row->withRelations($terms, Links::in($context, $context->gaps->hosts)['internal']);
 
         $this->write([[$row, ['paragraphs' => $paragraphs, 'href' => $url, 'digest' => $summary]]]);
     }
@@ -393,7 +402,7 @@ class DbEntryIndex implements EntryIndex, LinkIndex, LinkLookup
                 'data' => Json::encode($data),
             ]);
 
-            foreach ($row->allStems() as $stem) {
+            foreach (LinkCandidates::indexKeys($row) as $stem) {
                 $stems[] = [mb_substr($stem, 0, 64), $row->entry->key(), (string) ($row->entry->site ?? '')];
             }
         }

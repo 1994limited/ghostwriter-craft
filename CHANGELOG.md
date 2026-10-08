@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- **Better link candidates** (core main, link candidates): for first-draft links, the writer's link markers and Finish's Suggest links, a page is offered to link to by stem (English, German, French, Dutch, Spanish), so "seed" meets "seedheads"; rare words count for more than words every page has; key pages are always offered; related pages rank higher; and the list is filled to 25, best first, for the model to judge (the verifier still drops weak links). The index keeps what an entry is filed under (its Categories and Tags fields; a category page is filed under itself) and, for Ghostwriter's own sections, where it links, so a page linking to the one being edited, or sharing a category with it, ranks higher. `ghostwriter_index_stems` is keyed by each stem's first four letters, and key pages are always read on a big site.
+- **Run `php craft ghostwriter/revisit/refresh --full` after updating** to rebuild the index's stems with the new stemmer. Until then the older rows still match, by their first five letters.
+
 ### Added
 - **Settings → Connections** (core main, Connections): **Ghostwriter → Connections** has a card for every service Ghostwriter uses, in Writing (Anthropic, OpenAI, Gemini, OpenRouter), Images (Unsplash, Pexels, Pixabay, Openverse) and Stock photos (Shutterstock). **Set up** opens the service's key page in a new tab, shows two or three plain steps and a paste box; **Check & save** checks the key with one cheap live call before keeping it. Each card says **Connected · key ending ••a1b2**, **Not set up**, **Set in .env** or **Key stopped working** (found when a service refuses a key in use). **Replace key** and **Disconnect** (with a confirm). Connect with OpenRouter and Shutterstock's Connect account sit inside their cards. The page says which environment you're on. Admins only. In English, German, French, Dutch and Spanish, from core.
 - Keys are kept in the new **`ghostwriter_credentials`** table, each encrypted with Craft's security component and the security key; never in project config. See `docs/connections.md`.

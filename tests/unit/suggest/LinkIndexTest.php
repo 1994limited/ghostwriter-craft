@@ -172,12 +172,27 @@ class LinkIndexTest extends TestCase
         $this->assertNull($this->plugin->entryIndex->row($this->entries['about']));
     }
 
+    public function test_a_page_linking_to_the_page_ranks_higher_for_it(): void
+    {
+        $this->plugin->getSettings()->sections = ['siteJournal', 'siteStories'];
+        $stories = $this->makeSection('siteStories', [$this->makeEntryType('siteStory', [$this->makeField(\craft\ckeditor\Field::class, 'storyBody')])]);
+        $about = (int) $this->entries['about']->id;
+        $linker = $this->page($stories, $this->english, 'Our process', ['storyBody' => "<p>Read <a href=\"{entry:{$about}@{$this->english->id}:url||https://northfold.test/about}\">about us</a> first.</p>"]);
+        $this->runQueue();
+
+        $this->assertContains("entry:{$about}", $this->plugin->entryIndex->row($linker)?->links ?? [], 'A full row keeps where the page links.');
+
+        $keys = array_map(fn($entry) => $entry->entry?->key(), $this->plugin->entryIndex->related("Opening hours\n\nClosed on Mondays.", 'siteJournal', $this->english->id, $this->entries['about']));
+        $this->assertSame($linker->key(), $keys[0], 'It links to the page: first, though it shares no words.');
+    }
+
     public function test_stems_are_kept_beside_the_row(): void
     {
         $stems = (new \craft\db\Query())->select('stem')->from(\nineteenninetyfour\ghostwriter\Store::INDEX_STEMS)->where(['entryKey' => $this->entries['contact']->key()])->column();
 
-        $this->assertContains('consu', $stems);
-        $this->assertContains('conta', $stems);
+        // Each stem by its first four letters (LinkCandidates::indexKeys()): "consultation" and "contact".
+        $this->assertContains('cons', $stems);
+        $this->assertContains('cont', $stems);
 
         $this->deleteEntry($this->entries['contact']);
         $this->assertSame([], (new \craft\db\Query())->from(\nineteenninetyfour\ghostwriter\Store::INDEX_STEMS)->where(['entryKey' => $this->entries['contact']->key()])->column());
