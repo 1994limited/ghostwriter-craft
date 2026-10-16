@@ -16,9 +16,13 @@ People with it see:
 
 They also share the voice guide, image style guide, kinds of content and content plan, and can change them: edit or rewrite a guide, edit or delete a kind, add, dismiss or delete ideas. These are the writing team's shared tools, like the entries themselves.
 
-Writing into an entry still needs Craft's own permission to save entries in that section. Ghostwriter never lets anyone change an entry they couldn't change by hand.
+Ghostwriter never lets anyone do what they couldn't do by hand:
 
-Content to revisit lists only the sections whose entries each person can view. Snoozing a page needs permission to save it, and saving alt text from Suggest edits needs permission to save the volume's assets.
+- It only reads a section's entries for someone who may view them (Craft's **View entries** for that section). Without it, the section isn't offered for writing or for learning kinds, and nothing from it is sent to the model on their behalf. **Model it on** lists only the entries they may view (others' entries need **View other users' entries**).
+- Writing into an entry needs Craft's own permission to save entries in that section.
+- Keeping a photo, a made picture or a stock preview in an Assets field uploads a file, so it needs **Upload files** in that volume.
+- **Remove preview** on Stock images deletes the preview's asset, so it needs permission to delete it (**Delete files**, or **Delete files uploaded by other users** for someone else's).
+- Content to revisit lists only the sections whose entries each person can view. Snoozing a page needs permission to save it, and saving alt text from Suggest edits needs permission to save the volume's assets.
 
 ## Licensing stock images
 
@@ -28,6 +32,7 @@ Content to revisit lists only the sections whose entries each person can view. S
 
 Admins manage Ghostwriter. They can:
 
+- open **Connections**, and set up, replace, check or disconnect any key or account there
 - change the [settings](configuration.md#settings), on an environment where admin changes are allowed (`allowAdminChanges`), like any plugin's settings
 - choose where it writes, in [Get started](getting-started.md#2-choose-where-it-writes) step 2 (this saves the settings, so it also needs `allowAdminChanges`)
 - hide and show [Get started](getting-started.md#finishing-and-hiding-get-started), which works on every environment, since it isn't project config

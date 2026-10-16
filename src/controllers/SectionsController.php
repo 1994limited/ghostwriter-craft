@@ -58,7 +58,7 @@ class SectionsController extends Controller
         $examples = array_slice(array_values(array_filter((array) $this->request->getBodyParam('examples'), 'is_numeric')), 0, 6);
 
         // Entries from another section cannot be the model.
-        $examples = $examples ? Entry::find()->id($examples)->section($section->handle)->status(null)->fixedOrder()->ids() : [];
+        $examples = $examples ? array_map(fn(Entry $entry) => (int) $entry->id, self::viewable(Entry::find()->id($examples)->section($section->handle)->status(null)->fixedOrder()->all())) : [];
 
         $plugin->types->changeAnalysis($section->handle, fn(Analysis $analysis) => $analysis->begin());
 
@@ -97,7 +97,8 @@ class SectionsController extends Controller
             return $refusal;
         }
 
-        $sections = $this->request->getBodyParam('section') ? [$this->section()] : $plugin->types->sections();
+        // Only sections whose entries this person may view are read.
+        $sections = $this->request->getBodyParam('section') ? [$this->section()] : array_filter($plugin->types->sections(), fn(Section $section) => self::canViewSection($section));
         $handles = [];
 
         foreach ($sections as $section) {
@@ -310,13 +311,14 @@ class SectionsController extends Controller
             $query->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC]);
         }
 
-        $entries = $query->all();
+        // Only those this person may view: the picker's list, and what may be sent to the model.
+        $entries = self::viewable($query->all());
 
         // The newest live entries, which the brief may tick, are always listed.
         if ($section->type === Section::TYPE_STRUCTURE) {
             $listed = array_map(fn(Entry $entry) => (int) $entry->id, $entries);
             $newest = Entry::find()->section($section->handle)->status(Entry::STATUS_LIVE)->orderBy(['postDate' => SORT_DESC, 'elements.id' => SORT_DESC])->limit(StudioInputs::BRIEF_TITLES)->all();
-            $entries = [...$entries, ...array_filter($newest, fn(Entry $entry) => !in_array((int) $entry->id, $listed, true))];
+            $entries = [...$entries, ...array_filter(self::viewable($newest), fn(Entry $entry) => !in_array((int) $entry->id, $listed, true))];
         }
 
         return array_map(fn(Entry $entry) => [
@@ -335,6 +337,8 @@ class SectionsController extends Controller
         if (!$section || !Plugin::getInstance()->types->enabled($section->handle)) {
             throw new NotFoundHttpException('Ghostwriter does not write for that section.');
         }
+
+        $this->requireViewSection($section);
 
         return $section;
     }

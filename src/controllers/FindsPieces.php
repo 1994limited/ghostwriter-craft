@@ -56,6 +56,9 @@ trait FindsPieces
             throw new NotFoundHttpException('No such kind of content.');
         }
 
+        // What is written here is drafted from the section's entries.
+        $this->requireViewSection(Craft::$app->getEntries()->getSectionByHandle($type->group));
+
         return $type;
     }
 

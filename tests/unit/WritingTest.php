@@ -116,6 +116,28 @@ class WritingTest extends TestCase
         $this->assertSame(409, $this->action('ghostwriter/sections/analyse', ['section' => 'articles'])['status']);
     }
 
+    public function testASectionWhoseEntriesThePersonCantViewIsNeverSentToTheModel(): void
+    {
+        // A writer for articles only.
+        $user = $this->signIn();
+        Craft::$app->getUserPermissions()->saveUserPermissions($user->id, ['accesscp', \nineteenninetyfour\ghostwriter\Plugin::PERMISSION, "viewEntries:{$this->articles->uid}", "viewPeerEntries:{$this->articles->uid}"]);
+        $draft = $this->makeEntry($this->press, 'Ours');
+
+        $this->assertSame(403, $this->action('ghostwriter/sections/show', ['section' => 'press'], 'GET')['status']);
+        $this->assertSame(403, $this->action('ghostwriter/sections/analyse', ['section' => 'press'])['status']);
+        $this->assertSame(403, $this->action('ghostwriter/sessions/open', ['type' => ContentType::GENERIC . 'press', 'message' => 'A press release.', 'elementId' => $draft->id])['status']);
+        $this->assertSame([], $this->queued(AnalyseSection::class));
+
+        // Every section at once: only those this person may view.
+        $this->action('ghostwriter/sections/suggest-kinds');
+        $this->assertSame([['articles']], array_map(fn($job) => $job->sections, $this->queued(\nineteenninetyfour\ghostwriter\jobs\SuggestKinds::class)));
+
+        // Articles: "Model it on" lists them, and an example from press isn't taken.
+        $this->assertNotSame([], $this->action('ghostwriter/sections/show', ['section' => 'articles'], 'GET')['data']['entries']);
+        $this->action('ghostwriter/sections/analyse', ['section' => 'articles', 'examples' => [$draft->id]]);
+        $this->assertSame([], $this->queued(AnalyseSection::class)[0]->examples);
+    }
+
     public function testOnlyChosenSectionsAreOffered(): void
     {
         $this->plugin->getSettings()->sections = ['press'];

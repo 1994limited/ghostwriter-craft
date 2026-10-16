@@ -189,7 +189,7 @@ class ContentToRevisitTest extends TestCase
 
     public function test_only_sections_the_person_can_view_are_listed(): void
     {
-        $this->signIn();
+        $this->signIn(writer: false);
         $this->plugin->revisit->daily(full: true);
 
         $this->assertSame([], $this->action('ghostwriter/revisit/show', [], 'GET')['data']['variables']['rows']);

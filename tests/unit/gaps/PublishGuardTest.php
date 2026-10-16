@@ -178,6 +178,45 @@ class PublishGuardTest extends TestCase
         $this->assertFalse($this->guardPublish($withPreview)->saved);
     }
 
+    public function testALinkToADeletedEntryInASectionGhostwriterDoesntWriteForSaves(): void
+    {
+        $this->guardMode(OnPublish::Block);
+        $entry = $this->guardEntry('Finished.');
+        $entry->setFieldValue('body', '<p>Read <a href="{entry:999999@1:url||https://example.test/gone}">last year’s</a>.</p>');
+        $this->plugin->getSettings()->sections = ['somewhere-else'];
+
+        $outcome = $this->guardPublish($entry);
+
+        $this->assertTrue($outcome->saved, json_encode($outcome->errors) ?: '');
+        $this->assertSame([], $outcome->warnings);
+    }
+
+    public function testASaveOutsideTheControlPanelIsNeverHeldBack(): void
+    {
+        $this->guardMode(OnPublish::Block);
+        $withPreview = $this->guardEntry('Read <a href="{entry:999999@1:url||https://example.test/gone}">last year’s</a>. Tickets cost [[ask: adult ticket price]].', stockPreview: true);
+
+        // A console command, an import, the front end.
+        Craft::$app->getRequest()->setIsCpRequest(false);
+
+        $outcome = $this->guardPublish($withPreview);
+
+        $this->assertTrue($outcome->saved, json_encode($outcome->errors) ?: '');
+        $this->assertSame([], $outcome->warnings);
+    }
+
+    public function testALinkToADeletedEntryIsStillRefusedInTheControlPanel(): void
+    {
+        $this->guardMode(OnPublish::Block);
+        $entry = $this->guardEntry('Finished.');
+        $entry->setFieldValue('body', '<p>Read <a href="{entry:999999@1:url||https://example.test/gone}">last year’s</a>.</p>');
+
+        $outcome = $this->guardPublish($entry);
+
+        $this->assertFalse($outcome->saved);
+        $this->assertTrue($outcome->hasErrorOn('body'));
+    }
+
     public function testADisabledEntrySavesFreely(): void
     {
         $entry = $this->guardEntry('Tickets cost [[ask: adult ticket price]].');

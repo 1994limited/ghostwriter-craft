@@ -153,6 +153,10 @@ class ImagesController extends Controller
             return $this->refuse('That image field is no longer on the page.');
         }
 
+        if (!self::canUploadTo($slot)) {
+            return $this->refuse(Craft::t('ghostwriter', 'You are not allowed to upload files to this field’s volume.'), 403);
+        }
+
         $preview = false;
 
         try {
@@ -188,6 +192,24 @@ class ImagesController extends Controller
         }
 
         return $this->asJson($this->kept($asset) + ['preview' => $preview]);
+    }
+
+    /**
+     * Whether the signed-in person may upload to the slot's volume (Craft's
+     * "Upload files"): a kept photo, a made picture or a stock stand-in is
+     * a new asset there, as if they had uploaded it.
+     */
+    private static function canUploadTo(ImageSlot $slot): bool
+    {
+        $user = Craft::$app->getUser()->getIdentity();
+
+        try {
+            $volume = Craft::$app->getAssets()->getFolderById($slot->folderId())?->getVolume();
+        } catch (\InvalidArgumentException) {
+            return true; // Said when saving: the upload location can't be worked out.
+        }
+
+        return $user !== null && ($volume === null || $user->can("saveAssets:{$volume->uid}"));
     }
 
     /**

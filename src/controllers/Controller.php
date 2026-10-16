@@ -39,6 +39,44 @@ abstract class Controller extends BaseController
     }
 
     /**
+     * Whether the signed-in person may view a section's entries (Craft's
+     * "View entries" for it). Ghostwriter only reads a section's entries,
+     * and sends them to the model, for someone who may.
+     */
+    public static function canViewSection(?\craft\models\Section $section): bool
+    {
+        $user = \Craft::$app->getUser()->getIdentity();
+
+        return $section !== null && $user !== null && $user->can("viewEntries:{$section->uid}");
+    }
+
+    /**
+     * The section's view permission, or 403.
+     *
+     * @throws \yii\web\ForbiddenHttpException
+     */
+    protected function requireViewSection(?\craft\models\Section $section): void
+    {
+        if (!self::canViewSection($section)) {
+            throw new \yii\web\ForbiddenHttpException(\Craft::t('ghostwriter', 'You are not allowed to view entries in that section.'));
+        }
+    }
+
+    /**
+     * Those of these entries the signed-in person may view (Craft's own
+     * canView(): the section's permission, and peer entries).
+     *
+     * @param array<int, \craft\elements\Entry> $entries
+     * @return array<int, \craft\elements\Entry>
+     */
+    protected static function viewable(array $entries): array
+    {
+        $user = \Craft::$app->getUser()->getIdentity();
+
+        return $user === null ? [] : array_values(array_filter($entries, fn($entry) => \Craft::$app->getElements()->canView($entry, $user)));
+    }
+
+    /**
      * A refusal the screen shows as it stands: why the request cannot be done.
      */
     protected function refuse(string $message, int $status = 422): Response
