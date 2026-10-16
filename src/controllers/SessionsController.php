@@ -967,7 +967,7 @@ class SessionsController extends Controller
 
         $ids = array_slice(array_values(array_filter($examples, 'is_numeric')), 0, Brief::MAX_EXAMPLES);
 
-        return $ids ? array_map('intval', Entry::find()->id($ids)->section($type->group)->status(null)->fixedOrder()->ids()) : [];
+        return $ids ? array_map(fn(Entry $entry) => (int) $entry->id, self::viewable(Entry::find()->id($ids)->section($type->group)->status(null)->fixedOrder()->all())) : [];
     }
 
     /**

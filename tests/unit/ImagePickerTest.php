@@ -189,6 +189,13 @@ class ImagePickerTest extends TestCase
             new Response(200, ['Content-Type' => 'image/png'], $this->png()),
         );
 
+        // Keeping it uploads a file to the field's volume: not without Craft's permission to.
+        $permissions = Craft::$app->getUserPermissions();
+        $mine = $permissions->getPermissionsByUserId(Craft::$app->getUser()->getId());
+        $permissions->saveUserPermissions(Craft::$app->getUser()->getId(), array_values(array_filter($mine, fn(string $permission) => !str_starts_with($permission, 'saveassets:'))));
+        $this->assertSame(403, $this->action('ghostwriter/images/use', ['id' => $found['id'], 'source' => 'openverse', 'photo' => 'c1', 'term' => 'old workshop'])['status']);
+        $permissions->saveUserPermissions(Craft::$app->getUser()->getId(), $mine);
+
         $used = $this->action('ghostwriter/images/use', ['id' => $found['id'], 'source' => 'openverse', 'photo' => 'c1', 'term' => 'old workshop']);
 
         $this->assertSame(200, $used['status']);

@@ -196,8 +196,16 @@ class StockPublishTest extends TestCase
         $rows = $this->action('ghostwriter/stock/index', [], 'GET', false)['data']['variables']['rows'];
         $this->assertSame([(int) $older->id, (int) $newer->id], array_column($rows, 'assetId'), 'A requested licence at the top.');
 
+        // Removing deletes the stand-in: it needs Craft's permission to delete it.
+        $this->assertSame(403, $this->action('ghostwriter/stock/remove', ['id' => $olderImage->id])['status']);
+        $this->assertSame(StockImage::PREVIEW, $this->plugin->stockImages->find($olderImage->id)?->state(), 'Refused: still a preview.');
+        $this->assertNotNull(Asset::find()->id($older->id)->one());
+
+        // Someone else put it in: deleting it is deleting a peer's asset.
+        $volume = $older->getVolume()->uid;
+        $this->signIn(extra: [Plugin::LICENSE_PERMISSION, "deleteAssets:{$volume}", "viewPeerAssets:{$volume}", "deletePeerAssets:{$volume}"]);
         $removed = $this->action('ghostwriter/stock/remove', ['id' => $olderImage->id]);
-        $this->assertSame(200, $removed['status']);
+        $this->assertSame(200, $removed['status'], json_encode($removed));
         $this->assertSame(StockImage::REMOVED, $this->plugin->stockImages->find($olderImage->id)?->state());
         $this->assertNull(Asset::find()->id($older->id)->one(), 'The stand-in has gone.');
     }

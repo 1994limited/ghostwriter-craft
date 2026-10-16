@@ -39,6 +39,12 @@ use Throwable;
  *
  * In sections Ghostwriter doesn't write for, only stock previews are
  * looked for. Global sets and categories are only warned about previews.
+ *
+ * Only what an editor saves in the control panel is held back
+ * (inControlPanel()): console commands (`resave/entries`, migrations,
+ * imports), queued jobs and the front end are never refused or warned
+ * about. Code that saves entries has its own reasons, and an old link to
+ * a deleted entry must not stop it.
  */
 class PublishGuard
 {
@@ -49,7 +55,7 @@ class PublishGuard
     {
         $element = $event->sender;
 
-        if (!$element instanceof ElementInterface || !$event->isValid) {
+        if (!$element instanceof ElementInterface || !$event->isValid || !self::inControlPanel()) {
             return;
         }
 
@@ -79,6 +85,26 @@ class PublishGuard
         foreach ($previews as [, $label, $image]) {
             self::warn(self::message($label, $image));
         }
+    }
+
+    /**
+     * Whether this save comes from an editor in the control panel: a CP web
+     * request, and not Craft's queue running jobs inside one (`queue/run`).
+     */
+    public static function inControlPanel(): bool
+    {
+        // A console application (`craft resave/entries`, migrations) has no control panel.
+        if (!Craft::$app instanceof \craft\web\Application) {
+            return false;
+        }
+
+        $request = Craft::$app->getRequest();
+
+        if (!$request->getIsCpRequest()) {
+            return false;
+        }
+
+        return !($request->getIsActionRequest() && $request->getActionSegments() === ['queue', 'run']);
     }
 
     /**

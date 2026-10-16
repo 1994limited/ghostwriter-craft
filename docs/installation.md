@@ -62,6 +62,19 @@ php craft up
 
 `php craft up` runs Ghostwriter's migrations. See [CHANGELOG.md](../CHANGELOG.md) for what changed. Updating from an early build, which kept its guides and plan in files, imports them into the database (see [Configuration](configuration.md#updating-from-an-early-build)).
 
+### Upgrading from 1.2 to 1.3
+
+```bash
+composer update 1994/ghostwriter-craft 1994/ghostwriter-core
+php craft up
+php craft ghostwriter/revisit/refresh --full
+```
+
+- `php craft up` adds the new tables (keys set up in **Connections**, Suggest edits' reviews, Content to revisit and the index of your pages) and moves the OpenRouter key and Shutterstock account into Connections. Keys in `.env` keep working and still win.
+- Keys in Connections are encrypted with your security key, so keep `CRAFT_SECURITY_KEY` the same on each environment.
+- `ghostwriter/revisit/refresh --full` reads every page once, so Content to revisit and the links Ghostwriter suggests are complete straight away. Otherwise they fill in over the daily pass (see [Daily jobs](#daily-jobs)).
+- Restart your queue workers, if you run them, so they pick up the new code.
+
 ## Uninstalling
 
 Uninstall from **Settings → Plugins**, or:

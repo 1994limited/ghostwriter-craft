@@ -25,7 +25,7 @@ class FinishGuideTest extends TestCase
 
         // Someone else's entry: Craft's peer permission lets them see it.
         $see = ['viewEntries:' . $section->uid, 'viewPeerEntries:' . $section->uid];
-        $this->signIn(extra: $see);
+        $this->signIn(extra: $see, writer: false);
         $this->assertTrue(FinishGuide::register($entry));
 
         // Its count is on the launcher's menu, its row hidden until the check finds something.
@@ -45,13 +45,13 @@ class FinishGuideTest extends TestCase
         $this->assertFalse(FinishGuide::register(\craft\elements\Entry::find()->revisionOf($entry)->status(null)->one()));
 
         // Not for someone who can't see the section, nor without Ghostwriter.
-        $this->signIn();
+        $this->signIn(writer: false);
         $this->assertFalse(FinishGuide::register($entry));
         $this->signIn(permitted: false, extra: $see);
         $this->assertFalse(FinishGuide::register($entry));
 
         // Nor in a section Ghostwriter doesn't write for.
-        $this->signIn(extra: $see);
+        $this->signIn(extra: $see, writer: false);
         $this->plugin->getSettings()->sections = ['elsewhere'];
         $this->assertFalse(FinishGuide::register($entry));
     }

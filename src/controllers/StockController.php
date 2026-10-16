@@ -172,10 +172,16 @@ class StockController extends Controller
             return $this->refuse(Craft::t('ghostwriter', 'Only a preview can be removed. A licence stays on file.'), 409);
         }
 
+        $asset = is_numeric($image->asset->id) ? Asset::find()->id((int) $image->asset->id)->status(null)->one() : null;
+
+        // The stand-in is an asset like any other: deleting it is for those who may delete in its volume.
+        if ($asset instanceof Asset && !Craft::$app->getElements()->canDelete($asset, Craft::$app->getUser()->getIdentity())) {
+            throw new ForbiddenHttpException(Craft::t('ghostwriter', 'You are not allowed to delete assets in that volume.'));
+        }
+
         $comp = $image->comp();
         $image = $plugin->domain->stock()->removed($image->id, $plugin->domain->person());
         StockFiles::forget($comp);
-        $asset = is_numeric($image->asset->id) ? Asset::find()->id((int) $image->asset->id)->status(null)->one() : null;
 
         if ($asset instanceof Asset) {
             Craft::$app->getElements()->deleteElement($asset);

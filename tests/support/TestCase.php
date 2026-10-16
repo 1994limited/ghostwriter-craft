@@ -291,17 +291,32 @@ abstract class TestCase extends CraftTestCase
      *
      * @param string[] $extra Further permissions.
      */
-    protected function signIn(bool $permitted = true, array $extra = [], bool $admin = false): User
+    protected function signIn(bool $permitted = true, array $extra = [], bool $admin = false, bool $writer = true): User
     {
         $user = new User(['username' => 'writer-' . StringHelper::randomString(6), 'email' => StringHelper::randomString(6) . '@example.com']);
         $user->active = true;
         $user->admin = $admin;
         Craft::$app->getElements()->saveElement($user, false);
 
-        Craft::$app->getUserPermissions()->saveUserPermissions($user->id, array_merge(['accesscp'], $permitted ? [Plugin::PERMISSION] : [], $extra));
+        Craft::$app->getUserPermissions()->saveUserPermissions($user->id, array_merge(['accesscp'], $permitted ? [Plugin::PERMISSION, ...($writer ? $this->writerPermissions() : [])] : [], $extra));
         Craft::$app->getUser()->setIdentity($user);
 
         return $user;
+    }
+
+    /**
+     * What a writer has beside Ghostwriter: viewing every section's entries (others' too)
+     * and uploading to every volume there is so far (saving entries is
+     * given by the tests that need it).
+     *
+     * @return array<int, string>
+     */
+    protected function writerPermissions(): array
+    {
+        return [
+            ...array_merge(...array_map(fn($section) => ["viewEntries:{$section->uid}", "viewPeerEntries:{$section->uid}"], Craft::$app->getEntries()->getAllSections())),
+            ...array_merge(...array_map(fn($volume) => ["viewAssets:{$volume->uid}", "saveAssets:{$volume->uid}"], Craft::$app->getVolumes()->getAllVolumes())),
+        ];
     }
 
     /**

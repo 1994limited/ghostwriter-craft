@@ -116,6 +116,7 @@ Inside a Matrix or Neo block, the message names the block and field: "Hero: Intr
 
 - Applying a draft to a live entry is checked the same way, and so is **Create entry** on a new one (Craft 5.9 and later), with the messages on the draft's fields.
 - **Drafts always save**, provisional drafts included, and so does a disabled entry. New entries Ghostwriter writes start disabled (see [Use this draft](writing.md#use-this-draft)).
+- Only saves in the control panel are checked. Console commands (`php craft resave/entries`, migrations, imports), queued jobs and the front end always save. In sections Ghostwriter doesn't write for, only an unlicensed stock preview stops publishing.
 - Ghostwriter never takes a marker out for you. Removing `[[ask: …]]` from "Tickets cost [[ask: adult ticket price]] for adults." would leave "Tickets cost for adults."
 
 To publish anyway and be told what's left, set **Settings → Ghostwriter → Finish this page → When a page with things to finish is published** to **Warn** (`onUnfinishedPublish` = `warn`). The entry saves with one notice listing everything. Anything still marked goes live as it is: a `[[ask: …]]` or `[[check: …]]` shows as written, and a `#gw-link:` link goes nowhere.

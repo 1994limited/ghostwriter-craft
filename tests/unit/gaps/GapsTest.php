@@ -166,7 +166,7 @@ class GapsTest extends TestCase
         $entry = $this->makeEntry($this->events, 'Hidden');
 
         // May use Ghostwriter, but not see this section's entries.
-        $this->signIn();
+        $this->signIn(writer: false);
         $this->assertSame(403, $this->action('ghostwriter/gaps/check', ['elementId' => $entry->id], 'GET')['status']);
         $this->assertSame(404, $this->action('ghostwriter/gaps/check', ['elementId' => 999999], 'GET')['status']);
 

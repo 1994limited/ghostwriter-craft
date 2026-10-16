@@ -24,8 +24,14 @@ Nothing is sent to a model until someone in the control panel asks for it: by st
 | The image style guide | Small copies of up to ten images per section |
 | Finding photos | Words from the block and page, small copies of the images in the same place on other entries, and thumbnails of the photos found |
 | Making an image | A description, the image style guide, words from the block and page, up to three images from the same place on other entries, and any image of your own you add (to the image provider) |
+| Search title and description, with a first draft or **Try again** | The draft, the page's title and the section's name |
+| **Suggest links** in Finish this page | The page's text as your form has it, and the titles, addresses, types and summaries of the pages it could link to |
 
 **To the photo libraries:** search words go to Openverse, and to Unsplash, Pexels or Pixabay when their keys are set, and to a paid library when it's switched on. Choosing a photo downloads it and, for Unsplash, tells Unsplash it was used. Only the search words are sent, never entry content.
+
+**To Shutterstock**, when it's set up: your search words, the photo you preview or license, and, when an admin connects the account, the sign-in Shutterstock asks for on its own site.
+
+**To each service in Connections**, when an admin clicks **Check & save**: one small test call with the key just pasted (a list of one model, or a search for one photo).
 
 **To other websites**, only if an admin turns on **Check links to other sites once a week**: a HEAD request (or a one-byte GET) to each address your pages link to, at most once a week, saying it's Ghostwriter's link check. Nothing from your site is sent. See [Links to other sites](suggest-edits.md#links-to-other-sites).
 
@@ -39,7 +45,7 @@ Nothing is sent to a model until someone in the control panel asks for it: by st
 
 How long a provider keeps what it's sent, and whether it may train on it, depends on its terms and your account. On paid API plans, Anthropic, OpenAI and Google don't train on API data by default. **Gemini's free tier is different**: Google may use what's sent to improve its products. For client sites, use a paid account. See [Google (Gemini, and images)](api-keys.md#google-gemini-and-images).
 
-**With OpenRouter**, requests, including images, pass through OpenRouter on their way to the model's company: the instructions, the prompt and any images (photo ranking, alt text, references for image making). OpenRouter's own [privacy policy](https://openrouter.ai/privacy) and data settings apply, as well as those of the company whose model answers. A key from **Connect with OpenRouter** is kept in `ghostwriter_state`, encrypted with your site's security key.
+**With OpenRouter**, requests, including images, pass through OpenRouter on their way to the model's company: the instructions, the prompt and any images (photo ranking, alt text, references for image making). OpenRouter's own [privacy policy](https://openrouter.ai/privacy) and data settings apply, as well as those of the company whose model answers. A key from **Connect with OpenRouter** is kept with the other [Connections](connections.md#where-keys-are-kept), encrypted with your site's security key.
 
 ## What is kept, and where
 
@@ -56,4 +62,4 @@ Logs hold the provider, model, tokens and time of each call, and any retries and
 
 API keys are read from the environment when they're needed, and never shown. Your keys stay on your site. Ghostwriter sends them only to the provider you chose, never to us.
 
-Keys set up in **Connections** are kept in the `ghostwriter_credentials` table, encrypted with your security key, never in project config, and never shown again (only their last four characters). See [Connections](connections.md).
+Keys set up in **Connections** are kept in the `ghostwriter_credentials` table, encrypted with your security key, never in project config, and never shown again (only their last four characters). If the security key (`CRAFT_SECURITY_KEY`) changes, they can no longer be read: set them up again. Keys in `.env` aren't affected. See [Connections](connections.md).
