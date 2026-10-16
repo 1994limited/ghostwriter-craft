@@ -1,6 +1,6 @@
 # Release Notes for Ghostwriter
 
-## 1.3.0 - TBD
+## 1.3.0 - 2026-10-16
 
 Suggest edits and Content to revisit, which find what has gone stale on your live pages and help you fix it; a live preview of every draft through your own templates, with other layouts to choose from and comments you pin on the page; drafts that arrive linked to your other pages, with a search title and description; and **Connections**, one place to set up every key. Requires `1994/ghostwriter-core` ^1.10.
 
